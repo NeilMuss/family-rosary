@@ -60,3 +60,6 @@ fastlane/report.xml
 fastlane/Preview.html
 fastlane/screenshots/**/*.png
 fastlane/test_output
+/family-rosary/.derivedData/Build/Intermediates.noindex/family-rosary.build
+/family-rosary/.derivedData/Build
+/family-rosary/.derivedData
