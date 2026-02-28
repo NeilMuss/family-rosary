@@ -1,4 +1,7 @@
 import SwiftUI
+#if canImport(UIKit)
+import UIKit
+#endif
 
 struct PrayView: View {
     @StateObject private var prayViewModel: PrayViewModel
@@ -11,6 +14,60 @@ struct PrayView: View {
 
     var body: some View {
         VStack(spacing: 24) {
+            if let prompt = prayViewModel.currentPrompt {
+                VStack(spacing: 8) {
+                    Text(prompt.title)
+                        .font(.system(size: 34, weight: .bold))
+                        .multilineTextAlignment(.center)
+
+                    Text(prompt.text)
+                        .font(.system(size: 24, weight: .medium))
+                        .multilineTextAlignment(.center)
+                }
+                .padding(.horizontal)
+            }
+
+            #if DEBUG
+            if !prayViewModel.debugLog.isEmpty {
+                VStack(alignment: .leading, spacing: 6) {
+                    HStack {
+                        Text("Debug Trace")
+                            .font(.caption2)
+                            .fontWeight(.semibold)
+                        Spacer()
+                        Button("Copy") {
+                            #if canImport(UIKit)
+                            UIPasteboard.general.string = prayViewModel.debugLog.joined(separator: "\n")
+                            #endif
+                        }
+                        .font(.caption2)
+                    }
+
+                    ScrollView {
+                        LazyVStack(alignment: .leading, spacing: 2) {
+                            ForEach(Array(prayViewModel.debugLog.enumerated()), id: \.offset) { _, line in
+                                Text(line)
+                                    .font(.system(.caption2, design: .monospaced))
+                                    .foregroundStyle(.secondary)
+                                    .frame(maxWidth: .infinity, alignment: .leading)
+                            }
+                        }
+                    }
+                    .frame(height: 110)
+                }
+                .padding(8)
+                .background(Color.black.opacity(0.04))
+                .clipShape(RoundedRectangle(cornerRadius: 8))
+                .padding(.horizontal)
+            } else if !prayViewModel.debugText.isEmpty {
+                Text(prayViewModel.debugText)
+                    .font(.caption2)
+                    .foregroundStyle(.secondary)
+                    .multilineTextAlignment(.center)
+                    .padding(.horizontal)
+            }
+            #endif
+
             Text("Family Rosary")
                 .font(.title)
                 .fontWeight(.semibold)
@@ -32,6 +89,9 @@ struct PrayView: View {
                     .buttonStyle(.bordered)
             }
             .padding(.horizontal)
+
+            Toggle("Interactive", isOn: $prayViewModel.isInteractive)
+                .padding(.horizontal)
 
             VStack(spacing: 10) {
                 TextField("Person ID", text: $importViewModel.personID)
@@ -82,6 +142,12 @@ struct PrayView: View {
                 onPick: importViewModel.onPickedFile(url:),
                 onCancel: importViewModel.onCancelPicker
             )
+        }
+        .alert("Microphone Access Required", isPresented: $prayViewModel.showMicrophoneDeniedAlert) {
+            Button("OK", role: .cancel) {
+            }
+        } message: {
+            Text("Used to detect spoken responses during prayer.")
         }
     }
 

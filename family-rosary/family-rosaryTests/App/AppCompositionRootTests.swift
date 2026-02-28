@@ -37,6 +37,16 @@ final class AppCompositionRootTests: XCTestCase {
         XCTAssertTrue(useCase is AudioImportUseCase)
     }
 
+    #if DEBUG
+    func testMakeSleeperReturnsImmediateSleeperInDebug() {
+        let root = AppCompositionRoot()
+
+        let sleeper = root.makeSleeper()
+
+        XCTAssertTrue(sleeper is ImmediateSleeper)
+    }
+    #endif
+
     func testMakeRecordPrayerViewModelStartsInIdlePhase() {
         let root = AppCompositionRoot()
 

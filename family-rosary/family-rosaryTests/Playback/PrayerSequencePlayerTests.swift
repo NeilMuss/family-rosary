@@ -10,13 +10,23 @@ final class PrayerSequencePlayerTests: XCTestCase {
         let sleeper = FakeSleeper(eventSink: { events.append($0) })
         let player = PrayerSequencePlayer(playback: playback, sleeper: sleeper)
 
-        let stepA = PrayerPlaybackStep(url: URL(fileURLWithPath: "/tmp/A.wav"), pauseAfterMs: 400)
-        let stepB = PrayerPlaybackStep(url: URL(fileURLWithPath: "/tmp/B.wav"), pauseAfterMs: 250)
-        let stepC = PrayerPlaybackStep(url: URL(fileURLWithPath: "/tmp/C.wav"), pauseAfterMs: 0)
+        let stepA = URL(fileURLWithPath: "/tmp/A.wav")
+        let stepB = URL(fileURLWithPath: "/tmp/B.wav")
+        let stepC = URL(fileURLWithPath: "/tmp/C.wav")
 
-        try await player.play(steps: [stepA, stepB, stepC])
+        try await player.play(
+            steps: [
+                .play(url: stepA, prompt: nil),
+                .pause(ms: 400, prompt: nil),
+                .play(url: stepB, prompt: nil),
+                .pause(ms: 250, prompt: nil),
+                .play(url: stepC, prompt: nil),
+                .pause(ms: 0, prompt: nil)
+            ],
+            onPromptChanged: { _ in }
+        )
 
-        XCTAssertEqual(playback.playCalls, [stepA.url, stepB.url, stepC.url])
+        XCTAssertEqual(playback.playCalls, [stepA, stepB, stepC])
         XCTAssertEqual(sleeper.sleepCalls, [400, 250, 0])
         XCTAssertEqual(
             events,

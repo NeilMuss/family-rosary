@@ -18,13 +18,26 @@ struct AppCompositionRoot {
     }
 
     func makeSleeper() -> Sleeper {
+        #if DEBUG
+        ImmediateSleeper()
+        #else
         RealSleeper()
+        #endif
+    }
+
+    func makeUtteranceListener() -> UtteranceListener {
+        EnergyUtteranceListener()
+    }
+
+    func makeMicrophonePermissionClient() -> MicrophonePermissionClient {
+        AVAudioSessionMicrophonePermissionClient()
     }
 
     func makePrayerSequencePlayer() -> PrayerSequencePlaying {
         PrayerSequencePlayer(
             playback: makeAudioPlaybackClient(),
-            sleeper: makeSleeper()
+            sleeper: makeSleeper(),
+            utteranceListener: makeUtteranceListener()
         )
     }
 
@@ -69,7 +82,8 @@ struct AppCompositionRoot {
     func makePrayViewModel() -> PrayViewModel {
         PrayViewModel(
             sequencePlayer: makePrayerSequencePlayer(),
-            resolver: makeAudioFileResolver()
+            resolver: makeAudioFileResolver(),
+            microphonePermissionClient: makeMicrophonePermissionClient()
         )
     }
 
