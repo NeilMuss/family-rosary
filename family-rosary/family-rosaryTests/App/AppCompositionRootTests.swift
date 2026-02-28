@@ -21,6 +21,22 @@ final class AppCompositionRootTests: XCTestCase {
         XCTAssertTrue(client is AVAudioRecorderClient)
     }
 
+    func testMakeAudioPlaybackClientReturnsAVAudioPlaybackClient() {
+        let root = AppCompositionRoot()
+
+        let client = root.makeAudioPlaybackClient()
+
+        XCTAssertTrue(client is AVAudioPlaybackClient)
+    }
+
+    func testMakeAudioImportUseCaseReturnsAudioImportUseCase() {
+        let root = AppCompositionRoot()
+
+        let useCase = root.makeAudioImportUseCase()
+
+        XCTAssertTrue(useCase is AudioImportUseCase)
+    }
+
     func testMakeRecordPrayerViewModelStartsInIdlePhase() {
         let root = AppCompositionRoot()
 
@@ -32,5 +48,24 @@ final class AppCompositionRootTests: XCTestCase {
         )
 
         XCTAssertEqual(viewModel.phase, .idle)
+    }
+
+    func testMakePrayViewModelStartsNotPraying() {
+        let root = AppCompositionRoot()
+
+        let viewModel = root.makePrayViewModel()
+
+        XCTAssertFalse(viewModel.isPraying)
+        XCTAssertNil(viewModel.errorMessage)
+    }
+
+    func testMakeImportAudioViewModelStartsWithDadAndApostlesCreed() {
+        let root = AppCompositionRoot()
+
+        let viewModel = root.makeImportAudioViewModel()
+
+        XCTAssertEqual(viewModel.personID, "dad")
+        XCTAssertEqual(viewModel.selectedSlot, .apostlesCreed)
+        XCTAssertNil(viewModel.lastImportedFilename)
     }
 }

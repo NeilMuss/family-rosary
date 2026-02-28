@@ -5,6 +5,29 @@ struct AppCompositionRoot {
         AVAudioRecorderClient()
     }
 
+    func makeAudioPlaybackClient() -> AudioPlaybackClient {
+        AVAudioPlaybackClient()
+    }
+
+    func makeAudioImportUseCase() -> AudioImporting {
+        AudioImportUseCase(baseDirURL: makeBaseDirURLProvider())
+    }
+
+    func makeAudioFileResolver() -> AudioFileResolving {
+        BundleThenDocumentsAudioFileResolver(baseDirURL: makeBaseDirURLProvider())
+    }
+
+    func makeSleeper() -> Sleeper {
+        RealSleeper()
+    }
+
+    func makePrayerSequencePlayer() -> PrayerSequencePlaying {
+        PrayerSequencePlayer(
+            playback: makeAudioPlaybackClient(),
+            sleeper: makeSleeper()
+        )
+    }
+
     func makeBaseDirURLProvider() -> () -> URL {
         { FamilyRosaryPaths.baseDirURL() }
     }
@@ -40,5 +63,26 @@ struct AppCompositionRoot {
             onDone: onDone
         )
         return RecordPrayerView(viewModel: viewModel)
+    }
+
+    @MainActor
+    func makePrayViewModel() -> PrayViewModel {
+        PrayViewModel(
+            sequencePlayer: makePrayerSequencePlayer(),
+            resolver: makeAudioFileResolver()
+        )
+    }
+
+    @MainActor
+    func makeImportAudioViewModel() -> ImportAudioViewModel {
+        ImportAudioViewModel(importer: makeAudioImportUseCase())
+    }
+
+    @MainActor
+    func makePrayView() -> PrayView {
+        PrayView(
+            prayViewModel: makePrayViewModel(),
+            importViewModel: makeImportAudioViewModel()
+        )
     }
 }
