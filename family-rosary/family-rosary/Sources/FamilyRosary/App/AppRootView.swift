@@ -7,7 +7,3 @@ struct AppRootView: View {
         root.makePrayView()
     }
 }
-
-#Preview {
-    AppRootView(root: AppCompositionRoot())
-}

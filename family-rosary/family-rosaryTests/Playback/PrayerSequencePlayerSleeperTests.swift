@@ -10,9 +10,9 @@ final class PrayerSequencePlayerSleeperTests: XCTestCase {
         let player = PrayerSequencePlayer(playback: playback, sleeper: sleeper)
 
         let steps: [PrayerSequenceStep] = [
-            .play(url: URL(fileURLWithPath: "/tmp/one.m4a"), prompt: nil),
+            .play(asset: AudioAssetRef(id: "one", url: URL(fileURLWithPath: "/tmp/one.m4a")), prompt: nil),
             .pause(ms: 400, prompt: nil),
-            .play(url: URL(fileURLWithPath: "/tmp/two.m4a"), prompt: nil),
+            .play(asset: AudioAssetRef(id: "two", url: URL(fileURLWithPath: "/tmp/two.m4a")), prompt: nil),
             .pause(ms: 250, prompt: nil)
         ]
 
@@ -27,9 +27,9 @@ final class PrayerSequencePlayerSleeperTests: XCTestCase {
         let player = PrayerSequencePlayer(playback: playback, sleeper: ImmediateSleeper())
 
         let steps: [PrayerSequenceStep] = [
-            .play(url: URL(fileURLWithPath: "/tmp/one.m4a"), prompt: nil),
+            .play(asset: AudioAssetRef(id: "one", url: URL(fileURLWithPath: "/tmp/one.m4a")), prompt: nil),
             .pause(ms: 1000, prompt: nil),
-            .play(url: URL(fileURLWithPath: "/tmp/two.m4a"), prompt: nil),
+            .play(asset: AudioAssetRef(id: "two", url: URL(fileURLWithPath: "/tmp/two.m4a")), prompt: nil),
             .pause(ms: 1000, prompt: nil)
         ]
 
@@ -47,6 +47,12 @@ private final class PlaybackClientSpy: AudioPlaybackClient {
         isPlaying = true
         playCalls.append(url)
         isPlaying = false
+    }
+
+    func play(url: URL, startSec: Double, endSec: Double) async throws {
+        _ = startSec
+        _ = endSec
+        try await play(url: url)
     }
 
     func stop() {

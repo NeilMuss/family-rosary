@@ -17,7 +17,6 @@ final class PrayViewModel: ObservableObject {
     private let personID: String
     private let sequencePlayer: PrayerSequencePlaying
     private let resolver: AudioFileResolving
-    private let trimPrewarmer: AudioTrimPrewarming?
     private let microphonePermissionClient: MicrophonePermissionClient
     private var playTask: Task<Void, Never>?
     private var isStartingPrayer = false
@@ -26,13 +25,11 @@ final class PrayViewModel: ObservableObject {
         personID: String = "dad",
         sequencePlayer: PrayerSequencePlaying,
         resolver: AudioFileResolving,
-        trimPrewarmer: AudioTrimPrewarming? = nil,
         microphonePermissionClient: MicrophonePermissionClient
     ) {
         self.personID = personID
         self.sequencePlayer = sequencePlayer
         self.resolver = resolver
-        self.trimPrewarmer = trimPrewarmer
         self.microphonePermissionClient = microphonePermissionClient
     }
 
@@ -89,7 +86,6 @@ final class PrayViewModel: ObservableObject {
 
     private func startPrayerPlayback() {
         guard let steps = buildPrayerSteps() else { return }
-        let playURLs = extractPlayURLs(from: steps)
 
         playTask?.cancel()
         playTask = Task { [weak self] in
@@ -101,25 +97,6 @@ final class PrayViewModel: ObservableObject {
             }
 
             do {
-                if let trimPrewarmer, !playURLs.isEmpty {
-                    self.isPreparingAudio = true
-                    #if DEBUG
-                    self.appendDebugLine("Preparing audio…")
-                    #endif
-                    try Task.checkCancellation()
-                    await trimPrewarmer.prewarm(urls: playURLs, onLog: { [weak self] line in
-                        #if DEBUG
-                        Task { @MainActor in
-                            self?.appendDebugLine(line)
-                        }
-                        #else
-                        _ = self
-                        _ = line
-                        #endif
-                    })
-                    self.isPreparingAudio = false
-                }
-
                 self.isPraying = true
                 #if DEBUG
                 try await self.sequencePlayer.play(
@@ -154,17 +131,6 @@ final class PrayViewModel: ObservableObject {
         }
     }
 
-    private func extractPlayURLs(from steps: [PrayerSequenceStep]) -> [URL] {
-        var urls: [URL] = []
-        urls.reserveCapacity(steps.count)
-        for step in steps {
-            if case let .play(url, _) = step {
-                urls.append(url)
-            }
-        }
-        return urls
-    }
-
     private func buildPrayerSteps() -> [PrayerSequenceStep]? {
         let planItems = RosaryDecadePlanBuilder().build(interactive: isInteractive)
         var steps: [PrayerSequenceStep] = []
@@ -177,7 +143,8 @@ final class PrayViewModel: ObservableObject {
                     errorMessage = "Missing audio for \(token) (.m4a or .wav)."
                     return nil
                 }
-                steps.append(.play(url: url, prompt: prompt))
+                let asset = AudioAssetRef(id: "\(personID):\(token)", url: url)
+                steps.append(.play(asset: asset, prompt: prompt))
                 steps.append(.pause(ms: pauseAfterMs, prompt: prompt))
             case .waitForUtterance(let config, let prompt):
                 steps.append(.waitForUtterance(config, prompt: prompt))

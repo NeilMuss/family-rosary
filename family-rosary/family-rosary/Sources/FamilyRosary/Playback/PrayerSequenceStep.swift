@@ -1,7 +1,7 @@
 import Foundation
 
 enum PrayerSequenceStep: Equatable {
-    case play(url: URL, prompt: PrayerPrompt?)
+    case play(asset: AudioAssetRef, prompt: PrayerPrompt?)
     case pause(ms: Int, prompt: PrayerPrompt?)
     case waitForUtterance(UtteranceConfig, prompt: PrayerPrompt?)
 

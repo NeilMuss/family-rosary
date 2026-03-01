@@ -21,12 +21,12 @@ final class AppCompositionRootTests: XCTestCase {
         XCTAssertTrue(client is AVAudioRecorderClient)
     }
 
-    func testMakeAudioPlaybackClientReturnsAVAudioPlaybackClient() {
+    func testMakeAudioPlaybackClientReturnsAVAudioClipPlaybackClient() {
         let root = AppCompositionRoot()
 
         let client = root.makeAudioPlaybackClient()
 
-        XCTAssertTrue(client is AVAudioPlaybackClient)
+        XCTAssertTrue(client is AVAudioClipPlaybackClient)
     }
 
     func testMakeAudioImportUseCaseReturnsAudioImportUseCase() {

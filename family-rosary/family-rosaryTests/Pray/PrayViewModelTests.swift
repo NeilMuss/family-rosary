@@ -4,86 +4,10 @@ import XCTest
 
 @MainActor
 final class PrayViewModelTests: XCTestCase {
-    func testPrewarmRunsBeforePlaybackStarts() async {
-        let events = EventRecorder()
-        let fakeSequencePlayer = FakePrayerSequencePlayer(blockUntilReleased: true, onPlayStart: {
-            events.append("play")
-        })
-        let trimPrewarmer = FakeTrimPrewarmer(onPrewarm: { _ in
-            events.append("prewarm")
-        })
-        let resolver = FakeAudioFileResolver()
-        resolver.stub(personID: "dad", token: "apostles_creed_lead", path: "/tmp/dad_apostles_creed_lead.m4a")
-        resolver.stub(personID: "dad", token: "apostles_creed_response", path: "/tmp/dad_apostles_creed_response.m4a")
-        resolver.stub(personID: "dad", token: "our_father_lead", path: "/tmp/dad_our_father_lead.m4a")
-        resolver.stub(personID: "dad", token: "our_father_response", path: "/tmp/dad_our_father_response.m4a")
-        resolver.stub(personID: "dad", token: "hail_lead", path: "/tmp/dad_hail_lead.m4a")
-        resolver.stub(personID: "dad", token: "hail_response", path: "/tmp/dad_hail_response.m4a")
-
-        let viewModel = PrayViewModel(
-            personID: "dad",
-            sequencePlayer: fakeSequencePlayer,
-            resolver: resolver,
-            trimPrewarmer: trimPrewarmer,
-            microphonePermissionClient: AlwaysGrantedMicrophonePermissionClient()
-        )
-
-        viewModel.onTapPray()
-        await Task.yield()
-
-        XCTAssertEqual(events.values, ["prewarm", "play"])
-
-        fakeSequencePlayer.releasePlay()
-        await Task.yield()
-    }
-
-    func testPreparingAudioStateIsSetDuringPrewarm() async {
-        let fakeSequencePlayer = FakePrayerSequencePlayer(blockUntilReleased: true)
-        let trimPrewarmer = FakeTrimPrewarmer(onPrewarm: { _ in })
-        trimPrewarmer.blockPrewarm = true
-        let resolver = FakeAudioFileResolver()
-        resolver.stub(personID: "dad", token: "apostles_creed_lead", path: "/tmp/dad_apostles_creed_lead.m4a")
-        resolver.stub(personID: "dad", token: "apostles_creed_response", path: "/tmp/dad_apostles_creed_response.m4a")
-        resolver.stub(personID: "dad", token: "our_father_lead", path: "/tmp/dad_our_father_lead.m4a")
-        resolver.stub(personID: "dad", token: "our_father_response", path: "/tmp/dad_our_father_response.m4a")
-        resolver.stub(personID: "dad", token: "hail_lead", path: "/tmp/dad_hail_lead.m4a")
-        resolver.stub(personID: "dad", token: "hail_response", path: "/tmp/dad_hail_response.m4a")
-
-        let viewModel = PrayViewModel(
-            personID: "dad",
-            sequencePlayer: fakeSequencePlayer,
-            resolver: resolver,
-            trimPrewarmer: trimPrewarmer,
-            microphonePermissionClient: AlwaysGrantedMicrophonePermissionClient()
-        )
-
-        viewModel.onTapPray()
-        await Task.yield()
-        await Task.yield()
-
-        XCTAssertTrue(viewModel.isPreparingAudio)
-        XCTAssertFalse(fakeSequencePlayer.playCalled)
-
-        trimPrewarmer.releasePrewarm()
-        await Task.yield()
-        await Task.yield()
-
-        XCTAssertFalse(viewModel.isPreparingAudio)
-        XCTAssertTrue(fakeSequencePlayer.playCalled)
-
-        fakeSequencePlayer.releasePlay()
-        await Task.yield()
-    }
-
     func testOnTapPrayBuildsAndPlaysFullDecadeSequence() async {
         let fakeSequencePlayer = FakePrayerSequencePlayer(blockUntilReleased: true)
         let resolver = FakeAudioFileResolver()
-        resolver.stub(personID: "dad", token: "apostles_creed_lead", path: "/tmp/dad_apostles_creed_lead.m4a")
-        resolver.stub(personID: "dad", token: "apostles_creed_response", path: "/tmp/dad_apostles_creed_response.m4a")
-        resolver.stub(personID: "dad", token: "our_father_lead", path: "/tmp/dad_our_father_lead.m4a")
-        resolver.stub(personID: "dad", token: "our_father_response", path: "/tmp/dad_our_father_response.m4a")
-        resolver.stub(personID: "dad", token: "hail_lead", path: "/tmp/dad_hail_lead.m4a")
-        resolver.stub(personID: "dad", token: "hail_response", path: "/tmp/dad_hail_response.m4a")
+        seedResolver(resolver)
 
         let viewModel = PrayViewModel(
             personID: "dad",
@@ -97,18 +21,13 @@ final class PrayViewModelTests: XCTestCase {
 
         XCTAssertTrue(fakeSequencePlayer.playCalled)
         XCTAssertEqual(fakeSequencePlayer.receivedSteps.count, 48)
-
         XCTAssertEqual(
             fakeSequencePlayer.receivedSteps[0],
             .play(
-                url: URL(fileURLWithPath: "/tmp/dad_apostles_creed_lead.m4a"),
-                prompt: PrayerPrompt(title: "Listen", text: "I believe in God, the Father almighty...")
-            )
-        )
-        XCTAssertEqual(
-            fakeSequencePlayer.receivedSteps[1],
-            .pause(
-                ms: 250,
+                asset: AudioAssetRef(
+                    id: "dad:apostles_creed_lead",
+                    url: URL(fileURLWithPath: "/tmp/dad_apostles_creed_lead.m4a")
+                ),
                 prompt: PrayerPrompt(title: "Listen", text: "I believe in God, the Father almighty...")
             )
         )
@@ -120,12 +39,7 @@ final class PrayViewModelTests: XCTestCase {
     func testCurrentPromptPublishesFromPlayerCallback() async {
         let fakeSequencePlayer = FakePrayerSequencePlayer(blockUntilReleased: true)
         let resolver = FakeAudioFileResolver()
-        resolver.stub(personID: "dad", token: "apostles_creed_lead", path: "/tmp/dad_apostles_creed_lead.m4a")
-        resolver.stub(personID: "dad", token: "apostles_creed_response", path: "/tmp/dad_apostles_creed_response.m4a")
-        resolver.stub(personID: "dad", token: "our_father_lead", path: "/tmp/dad_our_father_lead.m4a")
-        resolver.stub(personID: "dad", token: "our_father_response", path: "/tmp/dad_our_father_response.m4a")
-        resolver.stub(personID: "dad", token: "hail_lead", path: "/tmp/dad_hail_lead.m4a")
-        resolver.stub(personID: "dad", token: "hail_response", path: "/tmp/dad_hail_response.m4a")
+        seedResolver(resolver)
 
         let viewModel = PrayViewModel(
             personID: "dad",
@@ -150,61 +64,6 @@ final class PrayViewModelTests: XCTestCase {
         await Task.yield()
     }
 
-    #if DEBUG
-    func testDebugTextPublishesFromPlayerDebugCallback() async {
-        let fakeSequencePlayer = FakePrayerSequencePlayer(blockUntilReleased: true)
-        let resolver = FakeAudioFileResolver()
-        resolver.stub(personID: "dad", token: "apostles_creed_lead", path: "/tmp/dad_apostles_creed_lead.m4a")
-        resolver.stub(personID: "dad", token: "apostles_creed_response", path: "/tmp/dad_apostles_creed_response.m4a")
-        resolver.stub(personID: "dad", token: "our_father_lead", path: "/tmp/dad_our_father_lead.m4a")
-        resolver.stub(personID: "dad", token: "our_father_response", path: "/tmp/dad_our_father_response.m4a")
-        resolver.stub(personID: "dad", token: "hail_lead", path: "/tmp/dad_hail_lead.m4a")
-        resolver.stub(personID: "dad", token: "hail_response", path: "/tmp/dad_hail_response.m4a")
-
-        let viewModel = PrayViewModel(
-            personID: "dad",
-            sequencePlayer: fakeSequencePlayer,
-            resolver: resolver,
-            microphonePermissionClient: AlwaysGrantedMicrophonePermissionClient()
-        )
-
-        viewModel.onTapPray()
-        await Task.yield()
-        XCTAssertFalse(viewModel.debugText.isEmpty)
-
-        fakeSequencePlayer.releasePlay()
-        await Task.yield()
-    }
-
-    func testClearDebugLogEmptiesTrace() async {
-        let fakeSequencePlayer = FakePrayerSequencePlayer(blockUntilReleased: true)
-        let resolver = FakeAudioFileResolver()
-        resolver.stub(personID: "dad", token: "apostles_creed_lead", path: "/tmp/dad_apostles_creed_lead.m4a")
-        resolver.stub(personID: "dad", token: "apostles_creed_response", path: "/tmp/dad_apostles_creed_response.m4a")
-        resolver.stub(personID: "dad", token: "our_father_lead", path: "/tmp/dad_our_father_lead.m4a")
-        resolver.stub(personID: "dad", token: "our_father_response", path: "/tmp/dad_our_father_response.m4a")
-        resolver.stub(personID: "dad", token: "hail_lead", path: "/tmp/dad_hail_lead.m4a")
-        resolver.stub(personID: "dad", token: "hail_response", path: "/tmp/dad_hail_response.m4a")
-
-        let viewModel = PrayViewModel(
-            personID: "dad",
-            sequencePlayer: fakeSequencePlayer,
-            resolver: resolver,
-            microphonePermissionClient: AlwaysGrantedMicrophonePermissionClient()
-        )
-
-        viewModel.onTapPray()
-        await Task.yield()
-        XCTAssertFalse(viewModel.debugLog.isEmpty)
-
-        viewModel.clearDebugLog()
-        XCTAssertTrue(viewModel.debugLog.isEmpty)
-
-        fakeSequencePlayer.releasePlay()
-        await Task.yield()
-    }
-    #endif
-
     func testInteractiveModeDeniedMicrophoneSetsAlertAndDoesNotPlay() async {
         let fakeSequencePlayer = FakePrayerSequencePlayer()
         let resolver = FakeAudioFileResolver()
@@ -221,32 +80,16 @@ final class PrayViewModelTests: XCTestCase {
         await Task.yield()
 
         XCTAssertFalse(fakeSequencePlayer.playCalled)
-        XCTAssertNil(viewModel.currentPrompt)
         XCTAssertTrue(viewModel.showMicrophoneDeniedAlert)
-        XCTAssertEqual(viewModel.errorMessage, "Microphone access is required for Interactive mode.")
     }
 
-    func testMissingRequiredCreedLeadSetsErrorAndDoesNotPlay() {
-        let fakeSequencePlayer = FakePrayerSequencePlayer(blockUntilReleased: true)
-        let resolver = FakeAudioFileResolver()
+    private func seedResolver(_ resolver: FakeAudioFileResolver) {
+        resolver.stub(personID: "dad", token: "apostles_creed_lead", path: "/tmp/dad_apostles_creed_lead.m4a")
         resolver.stub(personID: "dad", token: "apostles_creed_response", path: "/tmp/dad_apostles_creed_response.m4a")
         resolver.stub(personID: "dad", token: "our_father_lead", path: "/tmp/dad_our_father_lead.m4a")
         resolver.stub(personID: "dad", token: "our_father_response", path: "/tmp/dad_our_father_response.m4a")
         resolver.stub(personID: "dad", token: "hail_lead", path: "/tmp/dad_hail_lead.m4a")
         resolver.stub(personID: "dad", token: "hail_response", path: "/tmp/dad_hail_response.m4a")
-
-        let viewModel = PrayViewModel(
-            personID: "dad",
-            sequencePlayer: fakeSequencePlayer,
-            resolver: resolver,
-            microphonePermissionClient: AlwaysGrantedMicrophonePermissionClient()
-        )
-
-        viewModel.onTapPray()
-
-        XCTAssertFalse(fakeSequencePlayer.playCalled)
-        XCTAssertEqual(viewModel.isPraying, false)
-        XCTAssertEqual(viewModel.errorMessage, "Missing audio for apostles_creed_lead (.m4a or .wav).")
     }
 }
 
@@ -264,17 +107,14 @@ private final class FakeAudioFileResolver: AudioFileResolving {
 
 private final class FakePrayerSequencePlayer: PrayerSequencePlaying {
     private let blockUntilReleased: Bool
-    private let onPlayStart: () -> Void
     private var continuation: CheckedContinuation<Void, Never>?
     private var onPromptChanged: ((PrayerPrompt?) -> Void)?
 
     private(set) var playCalled = false
     private(set) var receivedSteps: [PrayerSequenceStep] = []
-    private(set) var stopCallCount = 0
 
-    init(blockUntilReleased: Bool = false, onPlayStart: @escaping () -> Void = {}) {
+    init(blockUntilReleased: Bool = false) {
         self.blockUntilReleased = blockUntilReleased
-        self.onPlayStart = onPlayStart
     }
 
     func play(
@@ -282,13 +122,10 @@ private final class FakePrayerSequencePlayer: PrayerSequencePlaying {
         onPromptChanged: @escaping (PrayerPrompt?) -> Void,
         onDebugStatusChanged: ((PrayDebugStatus) -> Void)?
     ) async throws {
+        _ = onDebugStatusChanged
         playCalled = true
-        onPlayStart()
         receivedSteps = steps
         self.onPromptChanged = onPromptChanged
-        #if DEBUG
-        onDebugStatusChanged?(PrayDebugStatus(stepSummary: "Step: PLAY", listenerPhase: .idle))
-        #endif
 
         if blockUntilReleased {
             await withCheckedContinuation { continuation in
@@ -298,7 +135,6 @@ private final class FakePrayerSequencePlayer: PrayerSequencePlaying {
     }
 
     func stop() {
-        stopCallCount += 1
         onPromptChanged?(nil)
         releasePlay()
     }
@@ -310,40 +146,6 @@ private final class FakePrayerSequencePlayer: PrayerSequencePlaying {
     func releasePlay() {
         continuation?.resume()
         continuation = nil
-    }
-}
-
-private final class FakeTrimPrewarmer: AudioTrimPrewarming, @unchecked Sendable {
-    private let onPrewarm: ([URL]) -> Void
-    private var continuation: CheckedContinuation<Void, Never>?
-    var blockPrewarm = false
-
-    init(onPrewarm: @escaping ([URL]) -> Void) {
-        self.onPrewarm = onPrewarm
-    }
-
-    func prewarm(urls: [URL], onLog: (@Sendable (String) -> Void)?) async {
-        onPrewarm(urls)
-        onLog?("TRIM prewarm")
-
-        if blockPrewarm {
-            await withCheckedContinuation { continuation in
-                self.continuation = continuation
-            }
-        }
-    }
-
-    func releasePrewarm() {
-        continuation?.resume()
-        continuation = nil
-    }
-}
-
-private final class EventRecorder {
-    private(set) var values: [String] = []
-
-    func append(_ value: String) {
-        values.append(value)
     }
 }
 

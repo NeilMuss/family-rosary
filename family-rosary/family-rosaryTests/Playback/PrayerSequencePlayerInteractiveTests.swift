@@ -16,10 +16,9 @@ final class PrayerSequencePlayerInteractiveTests: XCTestCase {
             utteranceListener: listener
         )
 
-        try await player.play(
-            steps: [
+        let steps: [PrayerSequenceStep] = [
                 .play(
-                    url: URL(fileURLWithPath: "/tmp/lead.m4a"),
+                    asset: AudioAssetRef(id: "lead", url: URL(fileURLWithPath: "/tmp/lead.m4a")),
                     prompt: PrayerPrompt(title: "Listen", text: "I believe in God, the Father almighty...")
                 ),
                 .waitForUtterance(
@@ -27,10 +26,13 @@ final class PrayerSequencePlayerInteractiveTests: XCTestCase {
                     prompt: PrayerPrompt(title: "Your turn", text: "I believe in God, the Father almighty...")
                 ),
                 .play(
-                    url: URL(fileURLWithPath: "/tmp/response.m4a"),
+                    asset: AudioAssetRef(id: "response", url: URL(fileURLWithPath: "/tmp/response.m4a")),
                     prompt: PrayerPrompt(title: "Listen", text: "I believe in God, the Father almighty...")
                 )
-            ],
+            ]
+
+        try await player.play(
+            steps: steps,
             onPromptChanged: { _ in }
         )
 
@@ -58,12 +60,14 @@ final class PrayerSequencePlayerInteractiveTests: XCTestCase {
         let yourTurnPrompt = PrayerPrompt(title: "Your turn", text: "Our Father, who art in heaven...")
         var prompts: [PrayerPrompt?] = []
 
-        try await player.play(
-            steps: [
-                .play(url: URL(fileURLWithPath: "/tmp/lead.m4a"), prompt: listenPrompt),
+        let steps: [PrayerSequenceStep] = [
+                .play(asset: AudioAssetRef(id: "lead", url: URL(fileURLWithPath: "/tmp/lead.m4a")), prompt: listenPrompt),
                 .waitForUtterance(.default, prompt: yourTurnPrompt),
-                .play(url: URL(fileURLWithPath: "/tmp/response.m4a"), prompt: listenPrompt)
-            ],
+                .play(asset: AudioAssetRef(id: "response", url: URL(fileURLWithPath: "/tmp/response.m4a")), prompt: listenPrompt)
+            ]
+
+        try await player.play(
+            steps: steps,
             onPromptChanged: { prompts.append($0) }
         )
 
@@ -81,12 +85,14 @@ final class PrayerSequencePlayerInteractiveTests: XCTestCase {
         )
 
         var statuses: [PrayDebugStatus] = []
-        try await player.play(
-            steps: [
-                .play(url: URL(fileURLWithPath: "/tmp/lead.m4a"), prompt: nil),
+        let steps: [PrayerSequenceStep] = [
+                .play(asset: AudioAssetRef(id: "lead", url: URL(fileURLWithPath: "/tmp/lead.m4a")), prompt: nil),
                 .waitForUtterance(.default, prompt: nil),
                 .pause(ms: 10, prompt: nil)
-            ],
+            ]
+
+        try await player.play(
+            steps: steps,
             onPromptChanged: { _ in },
             onDebugStatusChanged: { statuses.append($0) }
         )
@@ -122,7 +128,7 @@ final class PrayerSequencePlayerInteractiveTests: XCTestCase {
         for item in plan {
             switch item {
             case .play(_, _, let prompt):
-                steps.append(.play(url: URL(fileURLWithPath: "/tmp/recorded.m4a"), prompt: prompt))
+                steps.append(.play(asset: AudioAssetRef(id: "recorded", url: URL(fileURLWithPath: "/tmp/recorded.m4a")), prompt: prompt))
             case .waitForUtterance(let config, let prompt):
                 steps.append(.waitForUtterance(config, prompt: prompt))
             }
@@ -140,13 +146,19 @@ final class PrayerSequencePlayerInteractiveTests: XCTestCase {
 }
 
 private final class InteractivePlaybackSpy: AudioPlaybackClient {
-    private(set) var events: [String] = []
+    var events: [String] = []
     private(set) var isPlaying = false
 
     func play(url: URL) async throws {
         isPlaying = true
         events.append("play:\(url.path)")
         isPlaying = false
+    }
+
+    func play(url: URL, startSec: Double, endSec: Double) async throws {
+        _ = startSec
+        _ = endSec
+        try await play(url: url)
     }
 
     func stop() {

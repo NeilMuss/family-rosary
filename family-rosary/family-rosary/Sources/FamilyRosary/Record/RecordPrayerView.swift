@@ -80,14 +80,3 @@ struct RecordPrayerView: View {
         }
     }
 }
-
-#Preview {
-    RecordPrayerView(viewModel:
-        RecordPrayerViewModel(
-        personID: "dad",
-        part: .hailMaryLead,
-        promptText: "Say a Hail Mary for Mom.",
-        recorder: AVAudioRecorderClient(),
-        onDone: {}
-    ))
-}

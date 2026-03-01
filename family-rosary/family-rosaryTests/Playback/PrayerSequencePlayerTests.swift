@@ -10,23 +10,23 @@ final class PrayerSequencePlayerTests: XCTestCase {
         let sleeper = FakeSleeper(eventSink: { events.append($0) })
         let player = PrayerSequencePlayer(playback: playback, sleeper: sleeper)
 
-        let stepA = URL(fileURLWithPath: "/tmp/A.wav")
-        let stepB = URL(fileURLWithPath: "/tmp/B.wav")
-        let stepC = URL(fileURLWithPath: "/tmp/C.wav")
+        let stepA = AudioAssetRef(id: "A", url: URL(fileURLWithPath: "/tmp/A.wav"))
+        let stepB = AudioAssetRef(id: "B", url: URL(fileURLWithPath: "/tmp/B.wav"))
+        let stepC = AudioAssetRef(id: "C", url: URL(fileURLWithPath: "/tmp/C.wav"))
 
         try await player.play(
             steps: [
-                .play(url: stepA, prompt: nil),
+                .play(asset: stepA, prompt: nil),
                 .pause(ms: 400, prompt: nil),
-                .play(url: stepB, prompt: nil),
+                .play(asset: stepB, prompt: nil),
                 .pause(ms: 250, prompt: nil),
-                .play(url: stepC, prompt: nil),
+                .play(asset: stepC, prompt: nil),
                 .pause(ms: 0, prompt: nil)
             ],
             onPromptChanged: { _ in }
         )
 
-        XCTAssertEqual(playback.playCalls, [stepA, stepB, stepC])
+        XCTAssertEqual(playback.playCalls, [stepA.url, stepB.url, stepC.url])
         XCTAssertEqual(sleeper.sleepCalls, [400, 250, 0])
         XCTAssertEqual(
             events,
@@ -68,6 +68,12 @@ private final class FakeAudioPlaybackClient: AudioPlaybackClient {
         isPlaying = true
         eventSink("play:\(url.path)")
         isPlaying = false
+    }
+
+    func play(url: URL, startSec: Double, endSec: Double) async throws {
+        _ = startSec
+        _ = endSec
+        try await play(url: url)
     }
 
     func stop() {

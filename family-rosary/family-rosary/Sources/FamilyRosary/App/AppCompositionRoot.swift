@@ -1,21 +1,31 @@
 import Foundation
 
 struct AppCompositionRoot {
+    private let isPreviewRuntime: Bool
+
+    init(isPreviewRuntime: Bool = PreviewRuntime.isRunningForPreviews) {
+        self.isPreviewRuntime = isPreviewRuntime
+        #if DEBUG
+        print("PreviewRuntime.isRunningForPreviews=\(PreviewRuntime.isRunningForPreviews)")
+        print("AppCompositionRoot isPreviewRuntime=\(isPreviewRuntime)")
+        if isPreviewRuntime {
+            Self.logPreviewModeOnce()
+        }
+        #endif
+    }
+
     func makeAudioRecorderClient() -> AudioRecorderClient {
-        AVAudioRecorderClient()
+        if isPreviewRuntime {
+            return PreviewAudioRecorderClient()
+        }
+        return AVAudioRecorderClient()
     }
 
     func makeAudioPlaybackClient() -> AudioPlaybackClient {
-        AVAudioPlaybackClient()
-    }
-
-    func makeAudioTrimResolver() -> AudioTrimResolver {
-        AudioTrimResolver(
-            sampleProvider: AVAudioFileSampleProvider(),
-            trimmer: SilenceTrimmer(),
-            cache: AudioTrimCache(),
-            config: .default
-        )
+        if isPreviewRuntime {
+            return PreviewAudioPlaybackClient()
+        }
+        return AVAudioClipPlaybackClient()
     }
 
     func makeAudioImportUseCase() -> AudioImporting {
@@ -35,27 +45,39 @@ struct AppCompositionRoot {
     }
 
     func makeUtteranceListener() -> UtteranceListener {
-        EnergyUtteranceListener()
+        if isPreviewRuntime {
+            return PreviewUtteranceListener()
+        }
+        return EnergyUtteranceListener()
     }
 
     func makeMicrophonePermissionClient() -> MicrophonePermissionClient {
-        AVAudioSessionMicrophonePermissionClient()
+        if isPreviewRuntime {
+            return PreviewMicrophonePermissionClient()
+        }
+        return AVAudioSessionMicrophonePermissionClient()
     }
 
-    func makePrayerSequencePlayer(trimResolver: AudioTrimResolver) -> PrayerSequencePlaying {
+    func makePrayerSequencePlayer() -> PrayerSequencePlaying {
+        let catalog: PrayerClipCatalog? = isPreviewRuntime ? nil : makePrayerClipCatalog()
         return PrayerSequencePlayer(
             playback: makeAudioPlaybackClient(),
             sleeper: makeSleeper(),
             utteranceListener: makeUtteranceListener(),
-            trimPrefetcher: { url, onLog in
-                Task {
-                    await trimResolver.prefetch(url: url, onLog: onLog)
-                }
-            },
-            cachedTrimLookup: { url in
-                await trimResolver.getCachedTrim(for: url)
-            }
+            clipCatalog: catalog
         )
+    }
+
+    private func makePrayerClipCatalog() -> PrayerClipCatalog {
+        let catalog = StaticPrayerClipCatalog()
+        #if DEBUG
+        let validator = BundlePrayerClipValidator()
+        let errors = validator.validate(clips: catalog.allClips(), bundle: .main)
+        for error in errors {
+            print("PRAYER_CLIP_VALIDATION \(error)")
+        }
+        #endif
+        return catalog
     }
 
     func makeBaseDirURLProvider() -> () -> URL {
@@ -97,11 +119,9 @@ struct AppCompositionRoot {
 
     @MainActor
     func makePrayViewModel() -> PrayViewModel {
-        let trimResolver = makeAudioTrimResolver()
         return PrayViewModel(
-            sequencePlayer: makePrayerSequencePlayer(trimResolver: trimResolver),
+            sequencePlayer: makePrayerSequencePlayer(),
             resolver: makeAudioFileResolver(),
-            trimPrewarmer: trimResolver,
             microphonePermissionClient: makeMicrophonePermissionClient()
         )
     }
@@ -117,5 +137,61 @@ struct AppCompositionRoot {
             prayViewModel: makePrayViewModel(),
             importViewModel: makeImportAudioViewModel()
         )
+    }
+
+    #if DEBUG
+    private static let previewModeLogOnce: Void = {
+        print("PREVIEW_MODE=1 (skipping audio wiring)")
+    }()
+
+    private static func logPreviewModeOnce() {
+        _ = previewModeLogOnce
+    }
+    #endif
+}
+
+private final class PreviewAudioPlaybackClient: AudioPlaybackClient {
+    var isPlaying: Bool { false }
+
+    func play(url: URL) async throws {}
+
+    func play(url: URL, startSec: Double, endSec: Double) async throws {
+        _ = startSec
+        _ = endSec
+    }
+
+    func stop() {}
+}
+
+private final class PreviewAudioRecorderClient: AudioRecorderClient {
+    var isRecording: Bool { false }
+    var isPlaying: Bool { false }
+
+    func startRecording(to url: URL) throws {
+        _ = url
+    }
+
+    func stopRecording() throws {}
+
+    func play(url: URL) throws {
+        _ = url
+    }
+
+    func stopPlayback() {}
+}
+
+private struct PreviewMicrophonePermissionClient: MicrophonePermissionClient {
+    func requestAccess() async -> Bool {
+        true
+    }
+}
+
+private struct PreviewUtteranceListener: UtteranceListener {
+    func waitForUtterance(
+        config: UtteranceConfig,
+        onPhaseChanged: ((UtteranceDebugPhase) -> Void)?
+    ) async throws {
+        _ = config
+        onPhaseChanged?(.completed(reason: "preview"))
     }
 }

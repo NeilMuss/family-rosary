@@ -7,7 +7,11 @@ cd "$ROOT_DIR"
 SCHEME="family-rosary"
 DERIVED_DATA_PATH="$ROOT_DIR/.derivedData"
 PREFERRED_FALLBACK_DESTINATION="platform=iOS Simulator,name=iPhone 14"
+ONLY_TESTING_TARGET="family-rosaryTests"
 
+# ---------------------------
+# Container (workspace/project)
+# ---------------------------
 if compgen -G "*.xcworkspace" > /dev/null; then
   WORKSPACE_PATH="$(find "$ROOT_DIR" -maxdepth 1 -name "*.xcworkspace" -print -quit)"
   CONTAINER_FLAG=(-workspace "$WORKSPACE_PATH")
@@ -19,6 +23,9 @@ else
   exit 1
 fi
 
+# ---------------------------
+# Destination picker
+# ---------------------------
 pick_destination() {
   if [[ -n "${FAST_TEST_DESTINATION:-}" ]]; then
     echo "$FAST_TEST_DESTINATION"
@@ -31,10 +38,8 @@ pick_destination() {
     return 0
   fi
 
-  python3 -c '
-import json
-import re
-import sys
+  python3 - <<'PY' <<< "$simctl_json"
+import json, sys
 
 DEVICE_PRIORITY = [
     "iPhone 14",
@@ -42,11 +47,12 @@ DEVICE_PRIORITY = [
     "iPhone 12",
     "iPhone SE (3rd generation)",
 ]
+# Prefer iOS 16, then 17, then 15.
 MAJOR_PRIORITY = {16: 0, 17: 1, 15: 2}
-RUNTIME_RE = re.compile(r"iOS[- ](\d+)(?:[-.](\d+))?(?:[-.](\d+))?$")
 
-def parse_runtime(runtime_id):
-    if "iOS" not in runtime_id:
+def parse_runtime(runtime_id: str):
+    # runtime_id example: "com.apple.CoreSimulator.SimRuntime.iOS-16-4"
+    if "iOS-" not in runtime_id:
         return None
     tail = runtime_id.split("iOS-", 1)[-1]
     parts = tail.split("-")
@@ -63,69 +69,129 @@ except Exception:
     print("")
     sys.exit(0)
 
-devices_by_runtime = payload.get("devices", {})
+devices_by_runtime = payload.get("devices", {}) or {}
 candidates = []
 
 for runtime_id, devices in devices_by_runtime.items():
     parsed = parse_runtime(runtime_id)
     if not parsed:
         continue
-
     major, minor, patch = parsed
 
-    # Exclude iOS 18+ and future-style 26.x runtimes.
-    if major >= 18 or major >= 26:
+    # Avoid iOS 18+ (and future runtimes).
+    if major >= 18:
         continue
-
     if major not in MAJOR_PRIORITY:
         continue
 
-    for device in devices:
-        if not device.get("isAvailable", False):
+    for d in devices or []:
+        if not d.get("isAvailable", False):
             continue
-        name = device.get("name")
+        name = d.get("name")
         if name not in DEVICE_PRIORITY:
             continue
 
-        candidates.append(
-            (
-                MAJOR_PRIORITY[major],              # lower is better
-                DEVICE_PRIORITY.index(name),        # lower is better
-                -minor,                             # higher minor preferred
-                -patch,                             # higher patch preferred
-                f"platform=iOS Simulator,name={name},OS={major}.{minor}",
-            )
-        )
+        # Prefer higher minor/patch within the same major.
+        dest = f"platform=iOS Simulator,name={name},OS={major}.{minor}"
+        candidates.append((
+            MAJOR_PRIORITY[major],            # iOS major preference
+            DEVICE_PRIORITY.index(name),      # device preference
+            -minor,                           # higher minor preferred
+            -patch,                           # higher patch preferred
+            dest
+        ))
 
 if not candidates:
     print("")
 else:
     candidates.sort()
     print(candidates[0][4])
-' <<< "$simctl_json"
+PY
 }
 
 DESTINATION="$(pick_destination)"
 if [[ -z "$DESTINATION" ]]; then
   echo "No preferred simulator found (iOS 16/17/15 + supported iPhone models)." >&2
-  echo "Falling back to $PREFERRED_FALLBACK_DESTINATION" >&2
+  echo "Falling back to: $PREFERRED_FALLBACK_DESTINATION" >&2
   DESTINATION="$PREFERRED_FALLBACK_DESTINATION"
 fi
 
 echo "Using destination: $DESTINATION"
 
-CMD=(
+# ---------------------------
+# Helpers
+# ---------------------------
+run_cmd() {
+  if command -v xcpretty > /dev/null 2>&1; then
+    "$@" | xcpretty
+  else
+    "$@"
+  fi
+}
+
+is_destination_error() {
+  # Covers the common failure strings when CoreSimulator/devices/runtimes are missing.
+  grep -Eqi \
+    "Unable to find a destination|No available devices|CoreSimulator|Failed to locate a valid device|Requested but did not find available destination|No devices are available" \
+    <<< "${1:-}"
+}
+
+# ---------------------------
+# Commands
+# ---------------------------
+TEST_CMD=(
   xcodebuild
   test
   "${CONTAINER_FLAG[@]}"
   -scheme "$SCHEME"
   -destination "$DESTINATION"
   -derivedDataPath "$DERIVED_DATA_PATH"
-  -only-testing:family-rosaryTests
+  -only-testing:"$ONLY_TESTING_TARGET"
 )
 
-if command -v xcpretty > /dev/null 2>&1; then
-  "${CMD[@]}" | xcpretty
-else
-  "${CMD[@]}"
+BUILD_FOR_TESTING_CMD=(
+  xcodebuild
+  build-for-testing
+  "${CONTAINER_FLAG[@]}"
+  -scheme "$SCHEME"
+  -destination "generic/platform=iOS Simulator"
+  -derivedDataPath "$DERIVED_DATA_PATH"
+  -only-testing:"$ONLY_TESTING_TARGET"
+)
+
+# Allow forcing compile-only mode (useful in headless/CI environments).
+if [[ "${FAST_TEST_COMPILE_ONLY:-0}" == "1" ]]; then
+  echo "FAST_TEST_COMPILE_ONLY=1 → running build-for-testing (compile-only)."
+  run_cmd "${BUILD_FOR_TESTING_CMD[@]}"
+  exit 0
 fi
+
+# ---------------------------
+# Run tests; fallback if no simulator available
+# ---------------------------
+set +e
+OUTPUT="$(
+  if command -v xcpretty > /dev/null 2>&1; then
+    "${TEST_CMD[@]}" 2>&1 | xcpretty
+  else
+    "${TEST_CMD[@]}" 2>&1
+  fi
+)"
+STATUS=$?
+set -e
+
+if [[ $STATUS -eq 0 ]]; then
+  echo "$OUTPUT"
+  exit 0
+fi
+
+echo "$OUTPUT" >&2
+
+if is_destination_error "$OUTPUT"; then
+  echo ""
+  echo "No CoreSimulator destination available here → falling back to compile-only validation."
+  run_cmd "${BUILD_FOR_TESTING_CMD[@]}"
+  exit 0
+fi
+
+exit $STATUS

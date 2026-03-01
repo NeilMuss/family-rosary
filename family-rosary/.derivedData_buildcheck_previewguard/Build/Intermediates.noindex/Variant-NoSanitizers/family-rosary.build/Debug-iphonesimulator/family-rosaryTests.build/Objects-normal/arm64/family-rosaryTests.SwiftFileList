@@ -1,0 +1,16 @@
+/Users/neilmussett/Documents/GitHub/family-rosary/family-rosary/family-rosaryTests/App/AppCompositionRootTests.swift
+/Users/neilmussett/Documents/GitHub/family-rosary/family-rosary/family-rosaryTests/App/PreviewRuntimeTests.swift
+/Users/neilmussett/Documents/GitHub/family-rosary/family-rosary/family-rosaryTests/Import/AudioImportUseCaseTests.swift
+/Users/neilmussett/Documents/GitHub/family-rosary/family-rosary/family-rosaryTests/Listening/UtteranceDetectionStateMachineTests.swift
+/Users/neilmussett/Documents/GitHub/family-rosary/family-rosary/family-rosaryTests/Playback/AudioTrimCacheTests.swift
+/Users/neilmussett/Documents/GitHub/family-rosary/family-rosary/family-rosaryTests/Playback/AudioTrimResolverKeyingTests.swift
+/Users/neilmussett/Documents/GitHub/family-rosary/family-rosary/family-rosaryTests/Playback/AudioTrimResolverTests.swift
+/Users/neilmussett/Documents/GitHub/family-rosary/family-rosary/family-rosaryTests/Playback/PrayerSequencePlayerInteractiveTests.swift
+/Users/neilmussett/Documents/GitHub/family-rosary/family-rosary/family-rosaryTests/Playback/PrayerSequencePlayerSleeperTests.swift
+/Users/neilmussett/Documents/GitHub/family-rosary/family-rosary/family-rosaryTests/Playback/PrayerSequencePlayerTests.swift
+/Users/neilmussett/Documents/GitHub/family-rosary/family-rosary/family-rosaryTests/Playback/PrayerSequencePlayerTrimTests.swift
+/Users/neilmussett/Documents/GitHub/family-rosary/family-rosary/family-rosaryTests/Playback/SilenceTrimmerTests.swift
+/Users/neilmussett/Documents/GitHub/family-rosary/family-rosary/family-rosaryTests/Pray/PrayViewModelTests.swift
+/Users/neilmussett/Documents/GitHub/family-rosary/family-rosary/family-rosaryTests/Pray/RosaryDecadePlanBuilderTests.swift
+/Users/neilmussett/Documents/GitHub/family-rosary/family-rosary/family-rosaryTests/Record/RecordPrayerViewModelTests.swift
+/Users/neilmussett/Documents/GitHub/family-rosary/family-rosary/family-rosaryTests/family_rosaryTests.swift

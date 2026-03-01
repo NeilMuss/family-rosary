@@ -23,15 +23,10 @@ extension PrayerSequencePlaying {
 }
 
 final class PrayerSequencePlayer: PrayerSequencePlaying {
-    private enum SegmentGuard {
-        static let minimumDurationSec: Double = 0.2
-    }
-
     private let playback: AudioPlaybackClient
     private let sleeper: Sleeper
     private let utteranceListener: UtteranceListener?
-    private let trimPrefetcher: ((URL, @escaping @Sendable (String) -> Void) -> Void)?
-    private let cachedTrimLookup: ((URL) async -> TrimRange??)?
+    private let clipCatalog: PrayerClipCatalog?
     private var onPromptChanged: ((PrayerPrompt?) -> Void)?
     #if DEBUG
     private var onDebugStatusChanged: ((PrayDebugStatus) -> Void)?
@@ -42,14 +37,12 @@ final class PrayerSequencePlayer: PrayerSequencePlaying {
         playback: AudioPlaybackClient,
         sleeper: Sleeper,
         utteranceListener: UtteranceListener? = nil,
-        trimPrefetcher: ((URL, @escaping @Sendable (String) -> Void) -> Void)? = nil,
-        cachedTrimLookup: ((URL) async -> TrimRange??)? = nil
+        clipCatalog: PrayerClipCatalog? = nil
     ) {
         self.playback = playback
         self.sleeper = sleeper
         self.utteranceListener = utteranceListener
-        self.trimPrefetcher = trimPrefetcher
-        self.cachedTrimLookup = cachedTrimLookup
+        self.clipCatalog = clipCatalog
     }
 
     func play(
@@ -83,10 +76,8 @@ final class PrayerSequencePlayer: PrayerSequencePlaying {
 
     private func run(step: PrayerSequenceStep) async throws {
         switch step {
-        case .play(let url, _):
-            prefetchTrimIfNeeded(for: url)
-            let segment = await cachedSegmentIfReady(for: url)
-            try await playback.play(url: url, segment: segment)
+        case .play(let asset, _):
+            try await play(asset: asset)
         case .pause(let ms, _):
             await sleeper.sleep(ms: ms)
         case .waitForUtterance(let config, _):
@@ -119,60 +110,27 @@ final class PrayerSequencePlayer: PrayerSequencePlaying {
         #endif
     }
 
-    private func prefetchTrimIfNeeded(for url: URL) {
-        guard let trimPrefetcher else { return }
-        trimPrefetcher(url) { [weak self] line in
-            #if DEBUG
-            self?.emitDebug(stepSummary: line, phase: .idle)
-            #else
-            _ = self
-            _ = line
-            #endif
-        }
-    }
+    private func play(asset: AudioAssetRef) async throws {
+        let clip = clipCatalog?.clip(id: asset.id)
+        #if DEBUG
+        emitDebug(stepSummary: "PLAY assetID=\(asset.id)", phase: .idle)
+        #endif
 
-    private func cachedSegmentIfReady(for url: URL) async -> TrimRange? {
-        guard let cachedTrimLookup else {
+        guard let clip else {
             #if DEBUG
-            emitDebug(stepSummary: "PLAYSEG \(url.lastPathComponent) full (trim not ready)", phase: .idle)
+            emitDebug(stepSummary: "PLAYCLIP \(asset.id) full (catalog miss)", phase: .idle)
             #endif
-            return nil
-        }
-
-        guard let cached = await cachedTrimLookup(url) else {
-            #if DEBUG
-            emitDebug(stepSummary: "PLAYSEG \(url.lastPathComponent) full (trim not ready)", phase: .idle)
-            #endif
-            return nil
-        }
-
-        guard let trim = cached else {
-            #if DEBUG
-            emitDebug(stepSummary: "PLAYSEG \(url.lastPathComponent) full (segment invalid)", phase: .idle)
-            #endif
-            return nil
-        }
-
-        let duration = trim.endSec - trim.startSec
-        guard duration > SegmentGuard.minimumDurationSec else {
-            #if DEBUG
-            emitDebug(stepSummary: "PLAYSEG \(url.lastPathComponent) full (segment invalid)", phase: .idle)
-            #endif
-            return nil
+            try await playback.play(url: asset.url)
+            return
         }
 
         #if DEBUG
         emitDebug(
-            stepSummary: String(
-                format: "PLAYSEG %@ start=%.2f end=%.2f",
-                url.lastPathComponent,
-                trim.startSec,
-                trim.endSec
-            ),
+            stepSummary: String(format: "PLAYCLIP %@ start=%.2f end=%.2f", asset.id, clip.startSec, clip.endSec),
             phase: .idle
         )
         #endif
-        return trim
+        try await playback.play(url: asset.url, startSec: clip.startSec, endSec: clip.endSec)
     }
 
     #if DEBUG
