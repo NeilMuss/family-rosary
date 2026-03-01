@@ -140,7 +140,7 @@ final class EnergyUtteranceListener: UtteranceListener {
         try session.setCategory(
             .playAndRecord,
             mode: .spokenAudio,
-            options: [.defaultToSpeaker, .allowBluetooth]
+            options: [.defaultToSpeaker, .allowBluetoothA2DP]
         )
         try session.setActive(true)
     }

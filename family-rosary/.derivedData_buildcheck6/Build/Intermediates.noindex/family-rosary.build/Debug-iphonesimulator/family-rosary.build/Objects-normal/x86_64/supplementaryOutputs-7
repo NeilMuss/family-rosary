@@ -1,0 +1,23 @@
+{
+  "/Users/neilmussett/Documents/GitHub/family-rosary/family-rosary/family-rosary/Sources/FamilyRosary/Infrastructure/Listening/EnergyUtteranceListener.swift" : {
+    "const-values" : "/Users/neilmussett/Documents/GitHub/family-rosary/family-rosary/.derivedData_buildcheck6/Build/Intermediates.noindex/family-rosary.build/Debug-iphonesimulator/family-rosary.build/Objects-normal/x86_64/EnergyUtteranceListener.swiftconstvalues",
+    "dependencies" : "/Users/neilmussett/Documents/GitHub/family-rosary/family-rosary/.derivedData_buildcheck6/Build/Intermediates.noindex/family-rosary.build/Debug-iphonesimulator/family-rosary.build/Objects-normal/x86_64/EnergyUtteranceListener.d",
+    "diagnostics" : "/Users/neilmussett/Documents/GitHub/family-rosary/family-rosary/.derivedData_buildcheck6/Build/Intermediates.noindex/family-rosary.build/Debug-iphonesimulator/family-rosary.build/Objects-normal/x86_64/EnergyUtteranceListener.dia",
+    "object" : "/Users/neilmussett/Documents/GitHub/family-rosary/family-rosary/.derivedData_buildcheck6/Build/Intermediates.noindex/family-rosary.build/Debug-iphonesimulator/family-rosary.build/Objects-normal/x86_64/EnergyUtteranceListener.o",
+    "swift-dependencies" : "/Users/neilmussett/Documents/GitHub/family-rosary/family-rosary/.derivedData_buildcheck6/Build/Intermediates.noindex/family-rosary.build/Debug-iphonesimulator/family-rosary.build/Objects-normal/x86_64/EnergyUtteranceListener.swiftdeps"
+  },
+  "/Users/neilmussett/Documents/GitHub/family-rosary/family-rosary/family-rosary/Sources/FamilyRosary/Infrastructure/Listening/MicrophonePermissionClient.swift" : {
+    "const-values" : "/Users/neilmussett/Documents/GitHub/family-rosary/family-rosary/.derivedData_buildcheck6/Build/Intermediates.noindex/family-rosary.build/Debug-iphonesimulator/family-rosary.build/Objects-normal/x86_64/MicrophonePermissionClient.swiftconstvalues",
+    "dependencies" : "/Users/neilmussett/Documents/GitHub/family-rosary/family-rosary/.derivedData_buildcheck6/Build/Intermediates.noindex/family-rosary.build/Debug-iphonesimulator/family-rosary.build/Objects-normal/x86_64/MicrophonePermissionClient.d",
+    "diagnostics" : "/Users/neilmussett/Documents/GitHub/family-rosary/family-rosary/.derivedData_buildcheck6/Build/Intermediates.noindex/family-rosary.build/Debug-iphonesimulator/family-rosary.build/Objects-normal/x86_64/MicrophonePermissionClient.dia",
+    "object" : "/Users/neilmussett/Documents/GitHub/family-rosary/family-rosary/.derivedData_buildcheck6/Build/Intermediates.noindex/family-rosary.build/Debug-iphonesimulator/family-rosary.build/Objects-normal/x86_64/MicrophonePermissionClient.o",
+    "swift-dependencies" : "/Users/neilmussett/Documents/GitHub/family-rosary/family-rosary/.derivedData_buildcheck6/Build/Intermediates.noindex/family-rosary.build/Debug-iphonesimulator/family-rosary.build/Objects-normal/x86_64/MicrophonePermissionClient.swiftdeps"
+  },
+  "/Users/neilmussett/Documents/GitHub/family-rosary/family-rosary/family-rosary/Sources/FamilyRosary/Infrastructure/Listening/UtteranceDetectionStateMachine.swift" : {
+    "const-values" : "/Users/neilmussett/Documents/GitHub/family-rosary/family-rosary/.derivedData_buildcheck6/Build/Intermediates.noindex/family-rosary.build/Debug-iphonesimulator/family-rosary.build/Objects-normal/x86_64/UtteranceDetectionStateMachine.swiftconstvalues",
+    "dependencies" : "/Users/neilmussett/Documents/GitHub/family-rosary/family-rosary/.derivedData_buildcheck6/Build/Intermediates.noindex/family-rosary.build/Debug-iphonesimulator/family-rosary.build/Objects-normal/x86_64/UtteranceDetectionStateMachine.d",
+    "diagnostics" : "/Users/neilmussett/Documents/GitHub/family-rosary/family-rosary/.derivedData_buildcheck6/Build/Intermediates.noindex/family-rosary.build/Debug-iphonesimulator/family-rosary.build/Objects-normal/x86_64/UtteranceDetectionStateMachine.dia",
+    "object" : "/Users/neilmussett/Documents/GitHub/family-rosary/family-rosary/.derivedData_buildcheck6/Build/Intermediates.noindex/family-rosary.build/Debug-iphonesimulator/family-rosary.build/Objects-normal/x86_64/UtteranceDetectionStateMachine.o",
+    "swift-dependencies" : "/Users/neilmussett/Documents/GitHub/family-rosary/family-rosary/.derivedData_buildcheck6/Build/Intermediates.noindex/family-rosary.build/Debug-iphonesimulator/family-rosary.build/Objects-normal/x86_64/UtteranceDetectionStateMachine.swiftdeps"
+  }
+}

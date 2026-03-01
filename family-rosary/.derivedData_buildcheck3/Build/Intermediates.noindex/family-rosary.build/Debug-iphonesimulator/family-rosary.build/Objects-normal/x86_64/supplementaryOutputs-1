@@ -1,0 +1,30 @@
+{
+  "/Users/neilmussett/Documents/GitHub/family-rosary/family-rosary/family-rosary/Sources/FamilyRosary/App/AppCompositionRoot.swift" : {
+    "const-values" : "/Users/neilmussett/Documents/GitHub/family-rosary/family-rosary/.derivedData_buildcheck3/Build/Intermediates.noindex/family-rosary.build/Debug-iphonesimulator/family-rosary.build/Objects-normal/x86_64/AppCompositionRoot.swiftconstvalues",
+    "dependencies" : "/Users/neilmussett/Documents/GitHub/family-rosary/family-rosary/.derivedData_buildcheck3/Build/Intermediates.noindex/family-rosary.build/Debug-iphonesimulator/family-rosary.build/Objects-normal/x86_64/AppCompositionRoot.d",
+    "diagnostics" : "/Users/neilmussett/Documents/GitHub/family-rosary/family-rosary/.derivedData_buildcheck3/Build/Intermediates.noindex/family-rosary.build/Debug-iphonesimulator/family-rosary.build/Objects-normal/x86_64/AppCompositionRoot.dia",
+    "object" : "/Users/neilmussett/Documents/GitHub/family-rosary/family-rosary/.derivedData_buildcheck3/Build/Intermediates.noindex/family-rosary.build/Debug-iphonesimulator/family-rosary.build/Objects-normal/x86_64/AppCompositionRoot.o",
+    "swift-dependencies" : "/Users/neilmussett/Documents/GitHub/family-rosary/family-rosary/.derivedData_buildcheck3/Build/Intermediates.noindex/family-rosary.build/Debug-iphonesimulator/family-rosary.build/Objects-normal/x86_64/AppCompositionRoot.swiftdeps"
+  },
+  "/Users/neilmussett/Documents/GitHub/family-rosary/family-rosary/family-rosary/Sources/FamilyRosary/App/AppRootView.swift" : {
+    "const-values" : "/Users/neilmussett/Documents/GitHub/family-rosary/family-rosary/.derivedData_buildcheck3/Build/Intermediates.noindex/family-rosary.build/Debug-iphonesimulator/family-rosary.build/Objects-normal/x86_64/AppRootView.swiftconstvalues",
+    "dependencies" : "/Users/neilmussett/Documents/GitHub/family-rosary/family-rosary/.derivedData_buildcheck3/Build/Intermediates.noindex/family-rosary.build/Debug-iphonesimulator/family-rosary.build/Objects-normal/x86_64/AppRootView.d",
+    "diagnostics" : "/Users/neilmussett/Documents/GitHub/family-rosary/family-rosary/.derivedData_buildcheck3/Build/Intermediates.noindex/family-rosary.build/Debug-iphonesimulator/family-rosary.build/Objects-normal/x86_64/AppRootView.dia",
+    "object" : "/Users/neilmussett/Documents/GitHub/family-rosary/family-rosary/.derivedData_buildcheck3/Build/Intermediates.noindex/family-rosary.build/Debug-iphonesimulator/family-rosary.build/Objects-normal/x86_64/AppRootView.o",
+    "swift-dependencies" : "/Users/neilmussett/Documents/GitHub/family-rosary/family-rosary/.derivedData_buildcheck3/Build/Intermediates.noindex/family-rosary.build/Debug-iphonesimulator/family-rosary.build/Objects-normal/x86_64/AppRootView.swiftdeps"
+  },
+  "/Users/neilmussett/Documents/GitHub/family-rosary/family-rosary/family-rosary/Sources/FamilyRosary/Audio/AudioFileResolver.swift" : {
+    "const-values" : "/Users/neilmussett/Documents/GitHub/family-rosary/family-rosary/.derivedData_buildcheck3/Build/Intermediates.noindex/family-rosary.build/Debug-iphonesimulator/family-rosary.build/Objects-normal/x86_64/AudioFileResolver.swiftconstvalues",
+    "dependencies" : "/Users/neilmussett/Documents/GitHub/family-rosary/family-rosary/.derivedData_buildcheck3/Build/Intermediates.noindex/family-rosary.build/Debug-iphonesimulator/family-rosary.build/Objects-normal/x86_64/AudioFileResolver.d",
+    "diagnostics" : "/Users/neilmussett/Documents/GitHub/family-rosary/family-rosary/.derivedData_buildcheck3/Build/Intermediates.noindex/family-rosary.build/Debug-iphonesimulator/family-rosary.build/Objects-normal/x86_64/AudioFileResolver.dia",
+    "object" : "/Users/neilmussett/Documents/GitHub/family-rosary/family-rosary/.derivedData_buildcheck3/Build/Intermediates.noindex/family-rosary.build/Debug-iphonesimulator/family-rosary.build/Objects-normal/x86_64/AudioFileResolver.o",
+    "swift-dependencies" : "/Users/neilmussett/Documents/GitHub/family-rosary/family-rosary/.derivedData_buildcheck3/Build/Intermediates.noindex/family-rosary.build/Debug-iphonesimulator/family-rosary.build/Objects-normal/x86_64/AudioFileResolver.swiftdeps"
+  },
+  "/Users/neilmussett/Documents/GitHub/family-rosary/family-rosary/family-rosary/Sources/FamilyRosary/Audio/AudioRecorderClient.swift" : {
+    "const-values" : "/Users/neilmussett/Documents/GitHub/family-rosary/family-rosary/.derivedData_buildcheck3/Build/Intermediates.noindex/family-rosary.build/Debug-iphonesimulator/family-rosary.build/Objects-normal/x86_64/AudioRecorderClient.swiftconstvalues",
+    "dependencies" : "/Users/neilmussett/Documents/GitHub/family-rosary/family-rosary/.derivedData_buildcheck3/Build/Intermediates.noindex/family-rosary.build/Debug-iphonesimulator/family-rosary.build/Objects-normal/x86_64/AudioRecorderClient.d",
+    "diagnostics" : "/Users/neilmussett/Documents/GitHub/family-rosary/family-rosary/.derivedData_buildcheck3/Build/Intermediates.noindex/family-rosary.build/Debug-iphonesimulator/family-rosary.build/Objects-normal/x86_64/AudioRecorderClient.dia",
+    "object" : "/Users/neilmussett/Documents/GitHub/family-rosary/family-rosary/.derivedData_buildcheck3/Build/Intermediates.noindex/family-rosary.build/Debug-iphonesimulator/family-rosary.build/Objects-normal/x86_64/AudioRecorderClient.o",
+    "swift-dependencies" : "/Users/neilmussett/Documents/GitHub/family-rosary/family-rosary/.derivedData_buildcheck3/Build/Intermediates.noindex/family-rosary.build/Debug-iphonesimulator/family-rosary.build/Objects-normal/x86_64/AudioRecorderClient.swiftdeps"
+  }
+}

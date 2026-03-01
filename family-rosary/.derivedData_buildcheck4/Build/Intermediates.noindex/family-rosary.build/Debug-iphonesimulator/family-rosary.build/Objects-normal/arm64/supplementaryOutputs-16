@@ -1,0 +1,23 @@
+{
+  "/Users/neilmussett/Documents/GitHub/family-rosary/family-rosary/family-rosary/Sources/FamilyRosary/Import/ImportAudioViewModel.swift" : {
+    "const-values" : "/Users/neilmussett/Documents/GitHub/family-rosary/family-rosary/.derivedData_buildcheck4/Build/Intermediates.noindex/family-rosary.build/Debug-iphonesimulator/family-rosary.build/Objects-normal/arm64/ImportAudioViewModel.swiftconstvalues",
+    "dependencies" : "/Users/neilmussett/Documents/GitHub/family-rosary/family-rosary/.derivedData_buildcheck4/Build/Intermediates.noindex/family-rosary.build/Debug-iphonesimulator/family-rosary.build/Objects-normal/arm64/ImportAudioViewModel.d",
+    "diagnostics" : "/Users/neilmussett/Documents/GitHub/family-rosary/family-rosary/.derivedData_buildcheck4/Build/Intermediates.noindex/family-rosary.build/Debug-iphonesimulator/family-rosary.build/Objects-normal/arm64/ImportAudioViewModel.dia",
+    "object" : "/Users/neilmussett/Documents/GitHub/family-rosary/family-rosary/.derivedData_buildcheck4/Build/Intermediates.noindex/family-rosary.build/Debug-iphonesimulator/family-rosary.build/Objects-normal/arm64/ImportAudioViewModel.o",
+    "swift-dependencies" : "/Users/neilmussett/Documents/GitHub/family-rosary/family-rosary/.derivedData_buildcheck4/Build/Intermediates.noindex/family-rosary.build/Debug-iphonesimulator/family-rosary.build/Objects-normal/arm64/ImportAudioViewModel.swiftdeps"
+  },
+  "/Users/neilmussett/Documents/GitHub/family-rosary/family-rosary/family-rosary/Sources/FamilyRosary/Import/ImportSlot.swift" : {
+    "const-values" : "/Users/neilmussett/Documents/GitHub/family-rosary/family-rosary/.derivedData_buildcheck4/Build/Intermediates.noindex/family-rosary.build/Debug-iphonesimulator/family-rosary.build/Objects-normal/arm64/ImportSlot.swiftconstvalues",
+    "dependencies" : "/Users/neilmussett/Documents/GitHub/family-rosary/family-rosary/.derivedData_buildcheck4/Build/Intermediates.noindex/family-rosary.build/Debug-iphonesimulator/family-rosary.build/Objects-normal/arm64/ImportSlot.d",
+    "diagnostics" : "/Users/neilmussett/Documents/GitHub/family-rosary/family-rosary/.derivedData_buildcheck4/Build/Intermediates.noindex/family-rosary.build/Debug-iphonesimulator/family-rosary.build/Objects-normal/arm64/ImportSlot.dia",
+    "object" : "/Users/neilmussett/Documents/GitHub/family-rosary/family-rosary/.derivedData_buildcheck4/Build/Intermediates.noindex/family-rosary.build/Debug-iphonesimulator/family-rosary.build/Objects-normal/arm64/ImportSlot.o",
+    "swift-dependencies" : "/Users/neilmussett/Documents/GitHub/family-rosary/family-rosary/.derivedData_buildcheck4/Build/Intermediates.noindex/family-rosary.build/Debug-iphonesimulator/family-rosary.build/Objects-normal/arm64/ImportSlot.swiftdeps"
+  },
+  "/Users/neilmussett/Documents/GitHub/family-rosary/family-rosary/family-rosary/Sources/FamilyRosary/Infrastructure/Audio/AudioSampleProvider.swift" : {
+    "const-values" : "/Users/neilmussett/Documents/GitHub/family-rosary/family-rosary/.derivedData_buildcheck4/Build/Intermediates.noindex/family-rosary.build/Debug-iphonesimulator/family-rosary.build/Objects-normal/arm64/AudioSampleProvider.swiftconstvalues",
+    "dependencies" : "/Users/neilmussett/Documents/GitHub/family-rosary/family-rosary/.derivedData_buildcheck4/Build/Intermediates.noindex/family-rosary.build/Debug-iphonesimulator/family-rosary.build/Objects-normal/arm64/AudioSampleProvider.d",
+    "diagnostics" : "/Users/neilmussett/Documents/GitHub/family-rosary/family-rosary/.derivedData_buildcheck4/Build/Intermediates.noindex/family-rosary.build/Debug-iphonesimulator/family-rosary.build/Objects-normal/arm64/AudioSampleProvider.dia",
+    "object" : "/Users/neilmussett/Documents/GitHub/family-rosary/family-rosary/.derivedData_buildcheck4/Build/Intermediates.noindex/family-rosary.build/Debug-iphonesimulator/family-rosary.build/Objects-normal/arm64/AudioSampleProvider.o",
+    "swift-dependencies" : "/Users/neilmussett/Documents/GitHub/family-rosary/family-rosary/.derivedData_buildcheck4/Build/Intermediates.noindex/family-rosary.build/Debug-iphonesimulator/family-rosary.build/Objects-normal/arm64/AudioSampleProvider.swiftdeps"
+  }
+}

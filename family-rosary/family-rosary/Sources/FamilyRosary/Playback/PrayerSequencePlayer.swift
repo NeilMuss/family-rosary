@@ -23,9 +23,15 @@ extension PrayerSequencePlaying {
 }
 
 final class PrayerSequencePlayer: PrayerSequencePlaying {
+    private enum SegmentGuard {
+        static let minimumDurationSec: Double = 0.2
+    }
+
     private let playback: AudioPlaybackClient
     private let sleeper: Sleeper
     private let utteranceListener: UtteranceListener?
+    private let trimPrefetcher: ((URL, @escaping @Sendable (String) -> Void) -> Void)?
+    private let cachedTrimLookup: ((URL) async -> TrimRange??)?
     private var onPromptChanged: ((PrayerPrompt?) -> Void)?
     #if DEBUG
     private var onDebugStatusChanged: ((PrayDebugStatus) -> Void)?
@@ -35,11 +41,15 @@ final class PrayerSequencePlayer: PrayerSequencePlaying {
     init(
         playback: AudioPlaybackClient,
         sleeper: Sleeper,
-        utteranceListener: UtteranceListener? = nil
+        utteranceListener: UtteranceListener? = nil,
+        trimPrefetcher: ((URL, @escaping @Sendable (String) -> Void) -> Void)? = nil,
+        cachedTrimLookup: ((URL) async -> TrimRange??)? = nil
     ) {
         self.playback = playback
         self.sleeper = sleeper
         self.utteranceListener = utteranceListener
+        self.trimPrefetcher = trimPrefetcher
+        self.cachedTrimLookup = cachedTrimLookup
     }
 
     func play(
@@ -74,7 +84,9 @@ final class PrayerSequencePlayer: PrayerSequencePlaying {
     private func run(step: PrayerSequenceStep) async throws {
         switch step {
         case .play(let url, _):
-            try await playback.play(url: url)
+            prefetchTrimIfNeeded(for: url)
+            let segment = await cachedSegmentIfReady(for: url)
+            try await playback.play(url: url, segment: segment)
         case .pause(let ms, _):
             await sleeper.sleep(ms: ms)
         case .waitForUtterance(let config, _):
@@ -105,6 +117,62 @@ final class PrayerSequencePlayer: PrayerSequencePlaying {
         #if DEBUG
         emitDebug(stepSummary: "Stopped", phase: .idle)
         #endif
+    }
+
+    private func prefetchTrimIfNeeded(for url: URL) {
+        guard let trimPrefetcher else { return }
+        trimPrefetcher(url) { [weak self] line in
+            #if DEBUG
+            self?.emitDebug(stepSummary: line, phase: .idle)
+            #else
+            _ = self
+            _ = line
+            #endif
+        }
+    }
+
+    private func cachedSegmentIfReady(for url: URL) async -> TrimRange? {
+        guard let cachedTrimLookup else {
+            #if DEBUG
+            emitDebug(stepSummary: "PLAYSEG \(url.lastPathComponent) full (trim not ready)", phase: .idle)
+            #endif
+            return nil
+        }
+
+        guard let cached = await cachedTrimLookup(url) else {
+            #if DEBUG
+            emitDebug(stepSummary: "PLAYSEG \(url.lastPathComponent) full (trim not ready)", phase: .idle)
+            #endif
+            return nil
+        }
+
+        guard let trim = cached else {
+            #if DEBUG
+            emitDebug(stepSummary: "PLAYSEG \(url.lastPathComponent) full (segment invalid)", phase: .idle)
+            #endif
+            return nil
+        }
+
+        let duration = trim.endSec - trim.startSec
+        guard duration > SegmentGuard.minimumDurationSec else {
+            #if DEBUG
+            emitDebug(stepSummary: "PLAYSEG \(url.lastPathComponent) full (segment invalid)", phase: .idle)
+            #endif
+            return nil
+        }
+
+        #if DEBUG
+        emitDebug(
+            stepSummary: String(
+                format: "PLAYSEG %@ start=%.2f end=%.2f",
+                url.lastPathComponent,
+                trim.startSec,
+                trim.endSec
+            ),
+            phase: .idle
+        )
+        #endif
+        return trim
     }
 
     #if DEBUG

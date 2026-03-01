@@ -41,6 +41,10 @@ struct PrayView: View {
                             #endif
                         }
                         .font(.caption2)
+                        Button("Clear") {
+                            prayViewModel.clearDebugLog()
+                        }
+                        .font(.caption2)
                     }
 
                     ScrollView {
@@ -71,6 +75,12 @@ struct PrayView: View {
             Text("Family Rosary")
                 .font(.title)
                 .fontWeight(.semibold)
+
+            if prayViewModel.isPreparingAudio {
+                Text("Preparing audio…")
+                    .font(.subheadline)
+                    .foregroundStyle(.secondary)
+            }
 
             HStack(spacing: 12) {
                 Button(action: onTapPrimaryButton) {

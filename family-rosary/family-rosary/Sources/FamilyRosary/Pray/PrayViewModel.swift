@@ -4,6 +4,7 @@ import Combine
 @MainActor
 final class PrayViewModel: ObservableObject {
     @Published var isPraying = false
+    @Published var isPreparingAudio = false
     @Published var isInteractive = false
     @Published var currentPrompt: PrayerPrompt?
     #if DEBUG
@@ -16,6 +17,7 @@ final class PrayViewModel: ObservableObject {
     private let personID: String
     private let sequencePlayer: PrayerSequencePlaying
     private let resolver: AudioFileResolving
+    private let trimPrewarmer: AudioTrimPrewarming?
     private let microphonePermissionClient: MicrophonePermissionClient
     private var playTask: Task<Void, Never>?
     private var isStartingPrayer = false
@@ -24,11 +26,13 @@ final class PrayViewModel: ObservableObject {
         personID: String = "dad",
         sequencePlayer: PrayerSequencePlaying,
         resolver: AudioFileResolving,
+        trimPrewarmer: AudioTrimPrewarming? = nil,
         microphonePermissionClient: MicrophonePermissionClient
     ) {
         self.personID = personID
         self.sequencePlayer = sequencePlayer
         self.resolver = resolver
+        self.trimPrewarmer = trimPrewarmer
         self.microphonePermissionClient = microphonePermissionClient
     }
 
@@ -70,25 +74,53 @@ final class PrayViewModel: ObservableObject {
         playTask?.cancel()
         sequencePlayer.stop()
         isPraying = false
+        isPreparingAudio = false
         currentPrompt = nil
         #if DEBUG
         debugText = ""
         #endif
     }
 
+    #if DEBUG
+    func clearDebugLog() {
+        debugLog = []
+    }
+    #endif
+
     private func startPrayerPlayback() {
         guard let steps = buildPrayerSteps() else { return }
+        let playURLs = extractPlayURLs(from: steps)
 
-        isPraying = true
         playTask?.cancel()
         playTask = Task { [weak self] in
             guard let self else { return }
             defer {
                 self.isPraying = false
+                self.isPreparingAudio = false
                 self.playTask = nil
             }
 
             do {
+                if let trimPrewarmer, !playURLs.isEmpty {
+                    self.isPreparingAudio = true
+                    #if DEBUG
+                    self.appendDebugLine("Preparing audio…")
+                    #endif
+                    try Task.checkCancellation()
+                    await trimPrewarmer.prewarm(urls: playURLs, onLog: { [weak self] line in
+                        #if DEBUG
+                        Task { @MainActor in
+                            self?.appendDebugLine(line)
+                        }
+                        #else
+                        _ = self
+                        _ = line
+                        #endif
+                    })
+                    self.isPreparingAudio = false
+                }
+
+                self.isPraying = true
                 #if DEBUG
                 try await self.sequencePlayer.play(
                     steps: steps,
@@ -120,6 +152,17 @@ final class PrayViewModel: ObservableObject {
                 }
             }
         }
+    }
+
+    private func extractPlayURLs(from steps: [PrayerSequenceStep]) -> [URL] {
+        var urls: [URL] = []
+        urls.reserveCapacity(steps.count)
+        for step in steps {
+            if case let .play(url, _) = step {
+                urls.append(url)
+            }
+        }
+        return urls
     }
 
     private func buildPrayerSteps() -> [PrayerSequenceStep]? {

@@ -1,0 +1,23 @@
+{
+  "/Users/neilmussett/Documents/GitHub/family-rosary/family-rosary/family-rosary/Sources/FamilyRosary/Playback/AVAudioPlaybackClient.swift" : {
+    "const-values" : "/Users/neilmussett/Documents/GitHub/family-rosary/family-rosary/.derivedData_buildcheck2/Build/Intermediates.noindex/family-rosary.build/Debug-iphonesimulator/family-rosary.build/Objects-normal/arm64/AVAudioPlaybackClient.swiftconstvalues",
+    "dependencies" : "/Users/neilmussett/Documents/GitHub/family-rosary/family-rosary/.derivedData_buildcheck2/Build/Intermediates.noindex/family-rosary.build/Debug-iphonesimulator/family-rosary.build/Objects-normal/arm64/AVAudioPlaybackClient.d",
+    "diagnostics" : "/Users/neilmussett/Documents/GitHub/family-rosary/family-rosary/.derivedData_buildcheck2/Build/Intermediates.noindex/family-rosary.build/Debug-iphonesimulator/family-rosary.build/Objects-normal/arm64/AVAudioPlaybackClient.dia",
+    "object" : "/Users/neilmussett/Documents/GitHub/family-rosary/family-rosary/.derivedData_buildcheck2/Build/Intermediates.noindex/family-rosary.build/Debug-iphonesimulator/family-rosary.build/Objects-normal/arm64/AVAudioPlaybackClient.o",
+    "swift-dependencies" : "/Users/neilmussett/Documents/GitHub/family-rosary/family-rosary/.derivedData_buildcheck2/Build/Intermediates.noindex/family-rosary.build/Debug-iphonesimulator/family-rosary.build/Objects-normal/arm64/AVAudioPlaybackClient.swiftdeps"
+  },
+  "/Users/neilmussett/Documents/GitHub/family-rosary/family-rosary/family-rosary/Sources/FamilyRosary/Playback/PrayDebugStatus.swift" : {
+    "const-values" : "/Users/neilmussett/Documents/GitHub/family-rosary/family-rosary/.derivedData_buildcheck2/Build/Intermediates.noindex/family-rosary.build/Debug-iphonesimulator/family-rosary.build/Objects-normal/arm64/PrayDebugStatus.swiftconstvalues",
+    "dependencies" : "/Users/neilmussett/Documents/GitHub/family-rosary/family-rosary/.derivedData_buildcheck2/Build/Intermediates.noindex/family-rosary.build/Debug-iphonesimulator/family-rosary.build/Objects-normal/arm64/PrayDebugStatus.d",
+    "diagnostics" : "/Users/neilmussett/Documents/GitHub/family-rosary/family-rosary/.derivedData_buildcheck2/Build/Intermediates.noindex/family-rosary.build/Debug-iphonesimulator/family-rosary.build/Objects-normal/arm64/PrayDebugStatus.dia",
+    "object" : "/Users/neilmussett/Documents/GitHub/family-rosary/family-rosary/.derivedData_buildcheck2/Build/Intermediates.noindex/family-rosary.build/Debug-iphonesimulator/family-rosary.build/Objects-normal/arm64/PrayDebugStatus.o",
+    "swift-dependencies" : "/Users/neilmussett/Documents/GitHub/family-rosary/family-rosary/.derivedData_buildcheck2/Build/Intermediates.noindex/family-rosary.build/Debug-iphonesimulator/family-rosary.build/Objects-normal/arm64/PrayDebugStatus.swiftdeps"
+  },
+  "/Users/neilmussett/Documents/GitHub/family-rosary/family-rosary/family-rosary/Sources/FamilyRosary/Playback/PrayerPrompt.swift" : {
+    "const-values" : "/Users/neilmussett/Documents/GitHub/family-rosary/family-rosary/.derivedData_buildcheck2/Build/Intermediates.noindex/family-rosary.build/Debug-iphonesimulator/family-rosary.build/Objects-normal/arm64/PrayerPrompt.swiftconstvalues",
+    "dependencies" : "/Users/neilmussett/Documents/GitHub/family-rosary/family-rosary/.derivedData_buildcheck2/Build/Intermediates.noindex/family-rosary.build/Debug-iphonesimulator/family-rosary.build/Objects-normal/arm64/PrayerPrompt.d",
+    "diagnostics" : "/Users/neilmussett/Documents/GitHub/family-rosary/family-rosary/.derivedData_buildcheck2/Build/Intermediates.noindex/family-rosary.build/Debug-iphonesimulator/family-rosary.build/Objects-normal/arm64/PrayerPrompt.dia",
+    "object" : "/Users/neilmussett/Documents/GitHub/family-rosary/family-rosary/.derivedData_buildcheck2/Build/Intermediates.noindex/family-rosary.build/Debug-iphonesimulator/family-rosary.build/Objects-normal/arm64/PrayerPrompt.o",
+    "swift-dependencies" : "/Users/neilmussett/Documents/GitHub/family-rosary/family-rosary/.derivedData_buildcheck2/Build/Intermediates.noindex/family-rosary.build/Debug-iphonesimulator/family-rosary.build/Objects-normal/arm64/PrayerPrompt.swiftdeps"
+  }
+}

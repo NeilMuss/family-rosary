@@ -1,0 +1,23 @@
+{
+  "/Users/neilmussett/Documents/GitHub/family-rosary/family-rosary/family-rosary/Sources/FamilyRosary/Infrastructure/Audio/AVAudioFileSampleProvider.swift" : {
+    "const-values" : "/Users/neilmussett/Documents/GitHub/family-rosary/family-rosary/.derivedData_buildcheck5/Build/Intermediates.noindex/family-rosary.build/Debug-iphonesimulator/family-rosary.build/Objects-normal/arm64/AVAudioFileSampleProvider.swiftconstvalues",
+    "dependencies" : "/Users/neilmussett/Documents/GitHub/family-rosary/family-rosary/.derivedData_buildcheck5/Build/Intermediates.noindex/family-rosary.build/Debug-iphonesimulator/family-rosary.build/Objects-normal/arm64/AVAudioFileSampleProvider.d",
+    "diagnostics" : "/Users/neilmussett/Documents/GitHub/family-rosary/family-rosary/.derivedData_buildcheck5/Build/Intermediates.noindex/family-rosary.build/Debug-iphonesimulator/family-rosary.build/Objects-normal/arm64/AVAudioFileSampleProvider.dia",
+    "object" : "/Users/neilmussett/Documents/GitHub/family-rosary/family-rosary/.derivedData_buildcheck5/Build/Intermediates.noindex/family-rosary.build/Debug-iphonesimulator/family-rosary.build/Objects-normal/arm64/AVAudioFileSampleProvider.o",
+    "swift-dependencies" : "/Users/neilmussett/Documents/GitHub/family-rosary/family-rosary/.derivedData_buildcheck5/Build/Intermediates.noindex/family-rosary.build/Debug-iphonesimulator/family-rosary.build/Objects-normal/arm64/AVAudioFileSampleProvider.swiftdeps"
+  },
+  "/Users/neilmussett/Documents/GitHub/family-rosary/family-rosary/family-rosary/Sources/FamilyRosary/Infrastructure/Audio/AudioTrimCache.swift" : {
+    "const-values" : "/Users/neilmussett/Documents/GitHub/family-rosary/family-rosary/.derivedData_buildcheck5/Build/Intermediates.noindex/family-rosary.build/Debug-iphonesimulator/family-rosary.build/Objects-normal/arm64/AudioTrimCache.swiftconstvalues",
+    "dependencies" : "/Users/neilmussett/Documents/GitHub/family-rosary/family-rosary/.derivedData_buildcheck5/Build/Intermediates.noindex/family-rosary.build/Debug-iphonesimulator/family-rosary.build/Objects-normal/arm64/AudioTrimCache.d",
+    "diagnostics" : "/Users/neilmussett/Documents/GitHub/family-rosary/family-rosary/.derivedData_buildcheck5/Build/Intermediates.noindex/family-rosary.build/Debug-iphonesimulator/family-rosary.build/Objects-normal/arm64/AudioTrimCache.dia",
+    "object" : "/Users/neilmussett/Documents/GitHub/family-rosary/family-rosary/.derivedData_buildcheck5/Build/Intermediates.noindex/family-rosary.build/Debug-iphonesimulator/family-rosary.build/Objects-normal/arm64/AudioTrimCache.o",
+    "swift-dependencies" : "/Users/neilmussett/Documents/GitHub/family-rosary/family-rosary/.derivedData_buildcheck5/Build/Intermediates.noindex/family-rosary.build/Debug-iphonesimulator/family-rosary.build/Objects-normal/arm64/AudioTrimCache.swiftdeps"
+  },
+  "/Users/neilmussett/Documents/GitHub/family-rosary/family-rosary/family-rosary/Sources/FamilyRosary/Infrastructure/Audio/AudioTrimResolver.swift" : {
+    "const-values" : "/Users/neilmussett/Documents/GitHub/family-rosary/family-rosary/.derivedData_buildcheck5/Build/Intermediates.noindex/family-rosary.build/Debug-iphonesimulator/family-rosary.build/Objects-normal/arm64/AudioTrimResolver.swiftconstvalues",
+    "dependencies" : "/Users/neilmussett/Documents/GitHub/family-rosary/family-rosary/.derivedData_buildcheck5/Build/Intermediates.noindex/family-rosary.build/Debug-iphonesimulator/family-rosary.build/Objects-normal/arm64/AudioTrimResolver.d",
+    "diagnostics" : "/Users/neilmussett/Documents/GitHub/family-rosary/family-rosary/.derivedData_buildcheck5/Build/Intermediates.noindex/family-rosary.build/Debug-iphonesimulator/family-rosary.build/Objects-normal/arm64/AudioTrimResolver.dia",
+    "object" : "/Users/neilmussett/Documents/GitHub/family-rosary/family-rosary/.derivedData_buildcheck5/Build/Intermediates.noindex/family-rosary.build/Debug-iphonesimulator/family-rosary.build/Objects-normal/arm64/AudioTrimResolver.o",
+    "swift-dependencies" : "/Users/neilmussett/Documents/GitHub/family-rosary/family-rosary/.derivedData_buildcheck5/Build/Intermediates.noindex/family-rosary.build/Debug-iphonesimulator/family-rosary.build/Objects-normal/arm64/AudioTrimResolver.swiftdeps"
+  }
+}

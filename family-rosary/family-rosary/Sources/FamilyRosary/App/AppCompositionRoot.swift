@@ -9,6 +9,15 @@ struct AppCompositionRoot {
         AVAudioPlaybackClient()
     }
 
+    func makeAudioTrimResolver() -> AudioTrimResolver {
+        AudioTrimResolver(
+            sampleProvider: AVAudioFileSampleProvider(),
+            trimmer: SilenceTrimmer(),
+            cache: AudioTrimCache(),
+            config: .default
+        )
+    }
+
     func makeAudioImportUseCase() -> AudioImporting {
         AudioImportUseCase(baseDirURL: makeBaseDirURLProvider())
     }
@@ -19,9 +28,9 @@ struct AppCompositionRoot {
 
     func makeSleeper() -> Sleeper {
         #if DEBUG
-        ImmediateSleeper()
+        return ImmediateSleeper()
         #else
-        RealSleeper()
+        return RealSleeper()
         #endif
     }
 
@@ -33,11 +42,19 @@ struct AppCompositionRoot {
         AVAudioSessionMicrophonePermissionClient()
     }
 
-    func makePrayerSequencePlayer() -> PrayerSequencePlaying {
-        PrayerSequencePlayer(
+    func makePrayerSequencePlayer(trimResolver: AudioTrimResolver) -> PrayerSequencePlaying {
+        return PrayerSequencePlayer(
             playback: makeAudioPlaybackClient(),
             sleeper: makeSleeper(),
-            utteranceListener: makeUtteranceListener()
+            utteranceListener: makeUtteranceListener(),
+            trimPrefetcher: { url, onLog in
+                Task {
+                    await trimResolver.prefetch(url: url, onLog: onLog)
+                }
+            },
+            cachedTrimLookup: { url in
+                await trimResolver.getCachedTrim(for: url)
+            }
         )
     }
 
@@ -80,9 +97,11 @@ struct AppCompositionRoot {
 
     @MainActor
     func makePrayViewModel() -> PrayViewModel {
-        PrayViewModel(
-            sequencePlayer: makePrayerSequencePlayer(),
+        let trimResolver = makeAudioTrimResolver()
+        return PrayViewModel(
+            sequencePlayer: makePrayerSequencePlayer(trimResolver: trimResolver),
             resolver: makeAudioFileResolver(),
+            trimPrewarmer: trimResolver,
             microphonePermissionClient: makeMicrophonePermissionClient()
         )
     }
