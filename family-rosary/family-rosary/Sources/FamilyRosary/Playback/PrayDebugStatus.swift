@@ -9,8 +9,13 @@ enum UtteranceDebugPhase: Equatable {
         timeout: TimeInterval
     )
     case userTurnSpeechStarted
-    case userTurnSpeaking(rms: Float)
-    case userTurnWaitingForSpeechEnd(rms: Float, silenceElapsed: TimeInterval, required: TimeInterval)
+    case userTurnSpeaking(rms: Float, continueThreshold: Float)
+    case userTurnWaitingForSpeechEnd(
+        rms: Float,
+        silenceElapsed: TimeInterval,
+        required: TimeInterval,
+        continueThreshold: Float
+    )
     case userTurnCompleted
     case userTurnStartTimedOut
     case userTurnMaxDurationExceeded

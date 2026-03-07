@@ -72,7 +72,13 @@ final class EnergyUtteranceListener: UtteranceListener {
                     }
                 case .speaking:
                     if shouldEmit(now: now, lastEmitAt: lastSpeakingEmitAt, minInterval: emitInterval) {
-                        emitDebug(.userTurnSpeaking(rms: rms), to: onPhaseChanged)
+                        emitDebug(
+                            .userTurnSpeaking(
+                                rms: rms,
+                                continueThreshold: config.speechContinueThreshold
+                            ),
+                            to: onPhaseChanged
+                        )
                         lastSpeakingEmitAt = now
                     }
                 case .waitingForSpeechEnd:
@@ -81,7 +87,8 @@ final class EnergyUtteranceListener: UtteranceListener {
                             .userTurnWaitingForSpeechEnd(
                                 rms: rms,
                                 silenceElapsed: snapshot.silenceAccumulated,
-                                required: config.completionSilenceSec
+                                required: config.completionSilenceSec,
+                                continueThreshold: config.speechContinueThreshold
                             ),
                             to: onPhaseChanged
                         )

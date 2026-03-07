@@ -21,7 +21,7 @@ struct UtteranceDetectionSnapshot: Equatable {
 
 struct UtteranceDetectionStateMachine {
     private let config: UtteranceConfig
-    private let endThreshold: Float
+    private let lowDipToleranceSec: TimeInterval = 0.12
 
     private(set) var state: UtteranceDetectionState = .waitingForSpeechStart
     private(set) var didStartSpeaking = false
@@ -30,10 +30,10 @@ struct UtteranceDetectionStateMachine {
     private(set) var elapsedBeforeSpeechStart: TimeInterval = 0
     private(set) var elapsedSinceSpeechStart: TimeInterval = 0
     private(set) var maxRMS: Float = 0
+    private(set) var belowContinueThresholdDuration: TimeInterval = 0
 
     init(config: UtteranceConfig) {
         self.config = config
-        self.endThreshold = config.endThreshold
     }
 
     mutating func consume(rms: Float, dt: TimeInterval) -> UtteranceDetectionSnapshot {
@@ -48,12 +48,13 @@ struct UtteranceDetectionStateMachine {
             elapsedBeforeSpeechStart += clampedDt
             state = .waitingForSpeechStart
 
-            if rms >= config.startThreshold {
+            if rms >= config.speechStartThreshold {
                 didStartSpeaking = true
                 elapsedSinceSpeechStart = clampedDt
                 speechDuration = clampedDt
                 state = .speaking
                 silenceAccumulated = 0
+                belowContinueThresholdDuration = 0
                 return snapshot()
             }
 
@@ -66,12 +67,19 @@ struct UtteranceDetectionStateMachine {
         elapsedSinceSpeechStart += clampedDt
         speechDuration += clampedDt
 
-        if rms >= endThreshold {
+        if rms >= config.speechContinueThreshold {
+            belowContinueThresholdDuration = 0
             silenceAccumulated = 0
             state = .speaking
         } else {
-            silenceAccumulated += clampedDt
-            state = .waitingForSpeechEnd
+            belowContinueThresholdDuration += clampedDt
+            if belowContinueThresholdDuration >= lowDipToleranceSec {
+                silenceAccumulated += clampedDt
+                state = .waitingForSpeechEnd
+            } else {
+                silenceAccumulated = 0
+                state = .speaking
+            }
         }
 
         if speechDuration >= config.minSpeechSec,

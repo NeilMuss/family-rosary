@@ -155,8 +155,8 @@ final class PrayViewModel: ObservableObject {
 
         let turnPolicy = PrayerTurnPolicy(style: interactiveStyle)
         let waitConfig = UtteranceConfig(
-            startThreshold: UtteranceConfig.default.startThreshold,
-            endThresholdMultiplier: UtteranceConfig.default.endThresholdMultiplier,
+            speechStartThreshold: UtteranceConfig.default.speechStartThreshold,
+            speechContinueThreshold: UtteranceConfig.default.speechContinueThreshold,
             minSpeechSec: UtteranceConfig.default.minSpeechSec,
             completionSilenceSec: UtteranceConfig.default.completionSilenceSec,
             startTimeoutSec: interactivePolicy.userResponseTimeoutSec,
@@ -231,14 +231,19 @@ final class PrayViewModel: ObservableObject {
             )
         case .userTurnSpeechStarted:
             phaseText = "USER_TURN speechStarted"
-        case .userTurnSpeaking(let rms):
-            phaseText = String(format: "USER_TURN speaking rms=%.4f", rms)
-        case .userTurnWaitingForSpeechEnd(let rms, let silenceElapsed, let required):
+        case .userTurnSpeaking(let rms, let continueThreshold):
             phaseText = String(
-                format: "USER_TURN waitingForSpeechEnd rms=%.4f silence=%.2f/%.2f",
+                format: "USER_TURN speaking rms=%.4f continue=%.4f",
+                rms,
+                continueThreshold
+            )
+        case .userTurnWaitingForSpeechEnd(let rms, let silenceElapsed, let required, let continueThreshold):
+            phaseText = String(
+                format: "USER_TURN waitingForSpeechEnd rms=%.4f silence=%.2f/%.2f continue=%.4f",
                 rms,
                 silenceElapsed,
-                required
+                required,
+                continueThreshold
             )
         case .userTurnCompleted:
             phaseText = "USER_TURN completed"
@@ -305,23 +310,29 @@ final class PrayViewModel: ObservableObject {
 
     private static func eventLineForDebugLog(_ status: PrayDebugStatus) -> String? {
         switch status.listenerPhase {
-        case .userTurnWaitingForSpeechStart(let rms, _, let elapsed, let timeout):
+        case .userTurnWaitingForSpeechStart(let rms, let startThreshold, let elapsed, let timeout):
             return String(
-                format: "USER_TURN waitingForSpeechStart MIC level=%.4f start=%.2f/%.2f",
+                format: "USER_TURN waitingForSpeechStart MIC level=%.4f startThreshold=%.4f start=%.2f/%.2f",
                 rms,
+                startThreshold,
                 elapsed,
                 timeout
             )
         case .userTurnSpeechStarted:
             return "USER_TURN speechStarted"
-        case .userTurnSpeaking(let rms):
-            return String(format: "USER_TURN speaking MIC level=%.4f", rms)
-        case .userTurnWaitingForSpeechEnd(let rms, let silenceElapsed, let required):
+        case .userTurnSpeaking(let rms, let continueThreshold):
             return String(
-                format: "USER_TURN waitingForSpeechEnd MIC level=%.4f silence=%.2f/%.2f",
+                format: "USER_TURN speaking MIC level=%.4f continueThreshold=%.4f",
+                rms,
+                continueThreshold
+            )
+        case .userTurnWaitingForSpeechEnd(let rms, let silenceElapsed, let required, let continueThreshold):
+            return String(
+                format: "USER_TURN waitingForSpeechEnd MIC level=%.4f silence=%.2f/%.2f continueThreshold=%.4f",
                 rms,
                 silenceElapsed,
-                required
+                required,
+                continueThreshold
             )
         case .userTurnCompleted:
             return "USER_TURN completedByUser"
