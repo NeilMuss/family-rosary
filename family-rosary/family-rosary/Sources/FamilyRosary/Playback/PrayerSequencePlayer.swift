@@ -98,6 +98,34 @@ final class PrayerSequencePlayer: PrayerSequencePlaying {
             #else
             try await utteranceListener.waitForUtterance(config: config, onPhaseChanged: nil)
             #endif
+        case .waitForUtteranceOrFallback(let config, let fallbackAsset, _, let fallbackPrompt):
+            guard let utteranceListener else {
+                #if DEBUG
+                emitDebug(stepSummary: "Step: WAIT", phase: .failed("Interactive utterance listener is not configured."))
+                #endif
+                throw NSError(
+                    domain: "PrayerSequencePlayer",
+                    code: 1,
+                    userInfo: [NSLocalizedDescriptionKey: "Interactive utterance listener is not configured."]
+                )
+            }
+            do {
+                #if DEBUG
+                try await utteranceListener.waitForUtterance(config: config, onPhaseChanged: { [weak self] phase in
+                    self?.emitDebug(stepSummary: "Step: WAIT", phase: phase)
+                })
+                #else
+                try await utteranceListener.waitForUtterance(config: config, onPhaseChanged: nil)
+                #endif
+            } catch let error as UtteranceListenerError where error == .timeout {
+                if let fallbackPrompt {
+                    onPromptChanged?(fallbackPrompt)
+                }
+                #if DEBUG
+                emitDebug(stepSummary: "Step: FALLBACK \(fallbackAsset.id)", phase: .timedOut)
+                #endif
+                try await play(asset: fallbackAsset)
+            }
         }
     }
 
@@ -146,6 +174,8 @@ final class PrayerSequencePlayer: PrayerSequencePlaying {
         case .pause(_, let prompt):
             emitDebug(stepSummary: summary(base: "Step: PAUSE", prompt: prompt), phase: .idle)
         case .waitForUtterance(_, let prompt):
+            emitDebug(stepSummary: summary(base: "Step: WAIT", prompt: prompt), phase: .idle)
+        case .waitForUtteranceOrFallback(_, _, let prompt, _):
             emitDebug(stepSummary: summary(base: "Step: WAIT", prompt: prompt), phase: .idle)
         }
     }

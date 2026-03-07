@@ -4,6 +4,12 @@ enum PrayerSequenceStep: Equatable {
     case play(asset: AudioAssetRef, prompt: PrayerPrompt?)
     case pause(ms: Int, prompt: PrayerPrompt?)
     case waitForUtterance(UtteranceConfig, prompt: PrayerPrompt?)
+    case waitForUtteranceOrFallback(
+        UtteranceConfig,
+        fallbackAsset: AudioAssetRef,
+        prompt: PrayerPrompt?,
+        fallbackPrompt: PrayerPrompt?
+    )
 
     var prompt: PrayerPrompt? {
         switch self {
@@ -12,6 +18,8 @@ enum PrayerSequenceStep: Equatable {
         case .pause(_, let prompt):
             return prompt
         case .waitForUtterance(_, let prompt):
+            return prompt
+        case .waitForUtteranceOrFallback(_, _, let prompt, _):
             return prompt
         }
     }

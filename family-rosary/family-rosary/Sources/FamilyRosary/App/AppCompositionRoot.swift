@@ -58,6 +58,13 @@ struct AppCompositionRoot {
         return AVAudioSessionMicrophonePermissionClient()
     }
 
+    func makeMicrophoneLevelMonitor() -> MicrophoneLevelMonitoring {
+        if isPreviewRuntime {
+            return PreviewMicrophoneLevelMonitor()
+        }
+        return AVAudioEngineMicrophoneLevelMonitor()
+    }
+
     func makePrayerSequencePlayer() -> PrayerSequencePlaying {
         let catalog: PrayerClipCatalog? = isPreviewRuntime ? nil : makePrayerClipCatalog()
         return PrayerSequencePlayer(
@@ -156,6 +163,19 @@ struct AppCompositionRoot {
         FamilyRosaryFlowViewModel(root: self)
     }
 
+    @MainActor
+    func makeMicrophoneCheckViewModel(
+        onStartPrayer: @escaping () -> Void,
+        onBack: @escaping () -> Void
+    ) -> MicrophoneCheckViewModel {
+        MicrophoneCheckViewModel(
+            microphonePermissionClient: makeMicrophonePermissionClient(),
+            levelMonitor: makeMicrophoneLevelMonitor(),
+            onStartPrayer: onStartPrayer,
+            onBack: onBack
+        )
+    }
+
     #if DEBUG
     private static let previewModeLogOnce: Void = {
         print("PREVIEW_MODE=1 (skipping audio wiring)")
@@ -210,5 +230,26 @@ private struct PreviewUtteranceListener: UtteranceListener {
     ) async throws {
         _ = config
         onPhaseChanged?(.completed(reason: "preview"))
+    }
+}
+
+private final class PreviewMicrophoneLevelMonitor: MicrophoneLevelMonitoring {
+    private var task: Task<Void, Never>?
+
+    func start(onLevelChanged: @escaping (Float) -> Void) throws {
+        task?.cancel()
+        task = Task {
+            var level: Float = 0.05
+            while !Task.isCancelled {
+                onLevelChanged(level)
+                level = level > 0.2 ? 0.05 : level + 0.02
+                try? await Task.sleep(nanoseconds: 150_000_000)
+            }
+        }
+    }
+
+    func stop() {
+        task?.cancel()
+        task = nil
     }
 }

@@ -19,7 +19,8 @@ final class PrayerModeViewModel: ObservableObject {
     private let displayMapper = PrayerSessionDisplayMapper()
 
     private var cancellables: Set<AnyCancellable> = []
-    private var promptEventCount = 0
+    private var currentRosaryStepIndex = 1
+    private var hasSeenPrimaryPrompt = false
 
     init(
         prayViewModel: PrayViewModel,
@@ -43,7 +44,9 @@ final class PrayerModeViewModel: ObservableObject {
             style: prayerStyle,
             promptTitle: nil
         )
-        promptEventCount = 0
+        currentRosaryStepIndex = 1
+        hasSeenPrimaryPrompt = false
+        prayViewModel.interactiveStyle = prayerStyle
         prayViewModel.onTapPray()
     }
 
@@ -89,11 +92,17 @@ final class PrayerModeViewModel: ObservableObject {
     private func handlePrompt(_ prompt: PrayerPrompt?) {
         guard let prompt else { return }
 
-        promptEventCount += 1
-        let rosaryStepIndex = max(1, (promptEventCount + 1) / 2)
+        if prompt.title != "Continuing for you" {
+            if !hasSeenPrimaryPrompt {
+                hasSeenPrimaryPrompt = true
+                currentRosaryStepIndex = 1
+            } else {
+                currentRosaryStepIndex += 1
+            }
+        }
 
         displayState = displayMapper.map(
-            rosaryStepIndex: rosaryStepIndex,
+            rosaryStepIndex: currentRosaryStepIndex,
             prayerType: displayMapper.prayerType(for: prompt.text),
             mode: prayerMode,
             style: prayerStyle,

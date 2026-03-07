@@ -5,15 +5,18 @@ import Combine
 final class FamilyRosaryFlowViewModel: ObservableObject {
     enum Screen {
         case setup
+        case microphoneCheck
         case praying
     }
 
     @Published private(set) var screen: Screen = .setup
+    @Published private(set) var microphoneCheckViewModel: MicrophoneCheckViewModel?
     @Published private(set) var prayerModeViewModel: PrayerModeViewModel?
 
     let setupViewModel: SetupViewModel
 
     private let root: AppCompositionRoot
+    private var pendingStartRequest: StartRosaryRequest?
 
     init(root: AppCompositionRoot) {
         self.root = root
@@ -24,8 +27,44 @@ final class FamilyRosaryFlowViewModel: ObservableObject {
             onStartPraying: { _ in }
         )
         self.setupViewModel.setOnStartPraying { [weak self] request in
-            self?.startPraying(request: request)
+            self?.onStartRequested(request: request)
         }
+    }
+
+    private func onStartRequested(request: StartRosaryRequest) {
+        if request.prayerMode == .interactive {
+            pendingStartRequest = request
+            microphoneCheckViewModel = root.makeMicrophoneCheckViewModel(
+                onStartPrayer: { [weak self] in
+                    self?.startFromMicrophoneCheck()
+                },
+                onBack: { [weak self] in
+                    self?.backToSetup()
+                }
+            )
+            screen = .microphoneCheck
+            return
+        }
+
+        startPraying(request: request)
+    }
+
+    private func startFromMicrophoneCheck() {
+        guard let request = pendingStartRequest else {
+            backToSetup()
+            return
+        }
+
+        pendingStartRequest = nil
+        microphoneCheckViewModel = nil
+        startPraying(request: request)
+    }
+
+    private func backToSetup() {
+        pendingStartRequest = nil
+        microphoneCheckViewModel = nil
+        prayerModeViewModel = nil
+        screen = .setup
     }
 
     private func startPraying(request: StartRosaryRequest) {
@@ -44,7 +83,6 @@ final class FamilyRosaryFlowViewModel: ObservableObject {
     }
 
     private func endRosarySession() {
-        prayerModeViewModel = nil
-        screen = .setup
+        backToSetup()
     }
 }

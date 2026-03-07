@@ -143,6 +143,31 @@ final class PrayerSequencePlayerInteractiveTests: XCTestCase {
         let listener: UtteranceListener = EnergyUtteranceListener(engine: AVAudioEngine())
         XCTAssertNotNil(listener as AnyObject)
     }
+
+    func test_user_turn_without_detected_speech_falls_back_to_seed_audio() async throws {
+        let playback = InteractivePlaybackSpy()
+        let listener = TimeoutUtteranceListener()
+        let player = PrayerSequencePlayer(
+            playback: playback,
+            sleeper: ImmediateSleeper(),
+            utteranceListener: listener
+        )
+
+        let fallback = AudioAssetRef(id: "seed:hail_lead", url: URL(fileURLWithPath: "/tmp/hail_lead_seed.m4a"))
+        try await player.play(
+            steps: [
+                .waitForUtteranceOrFallback(
+                    .default,
+                    fallbackAsset: fallback,
+                    prompt: PrayerPrompt(title: "Your turn", text: "Hail Mary, full of grace..."),
+                    fallbackPrompt: PrayerPrompt(title: "Continuing for you", text: "Hail Mary, full of grace...")
+                )
+            ],
+            onPromptChanged: { _ in }
+        )
+
+        XCTAssertEqual(playback.events, ["play:/tmp/hail_lead_seed.m4a"])
+    }
 }
 
 private final class InteractivePlaybackSpy: AudioPlaybackClient {
@@ -182,5 +207,16 @@ private final class FakeUtteranceListener: UtteranceListener {
         onPhaseChanged?(.waitingForSpeech(rms: 0, startThreshold: config.startThreshold, endThreshold: config.endThreshold))
         eventSink("wait")
         onPhaseChanged?(.completed(reason: "hard-silence"))
+    }
+}
+
+private final class TimeoutUtteranceListener: UtteranceListener {
+    func waitForUtterance(
+        config: UtteranceConfig,
+        onPhaseChanged: ((UtteranceDebugPhase) -> Void)?
+    ) async throws {
+        _ = config
+        onPhaseChanged?(.timedOut)
+        throw UtteranceListenerError.timeout
     }
 }

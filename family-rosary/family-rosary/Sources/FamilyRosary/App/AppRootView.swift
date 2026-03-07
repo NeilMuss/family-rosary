@@ -12,6 +12,12 @@ struct AppRootView: View {
             switch viewModel.screen {
             case .setup:
                 SetupView(viewModel: viewModel.setupViewModel)
+            case .microphoneCheck:
+                if let microphoneCheckViewModel = viewModel.microphoneCheckViewModel {
+                    MicrophoneCheckView(viewModel: microphoneCheckViewModel)
+                } else {
+                    Color.white
+                }
             case .praying:
                 if let prayerModeViewModel = viewModel.prayerModeViewModel {
                     PrayerModeView(viewModel: prayerModeViewModel)

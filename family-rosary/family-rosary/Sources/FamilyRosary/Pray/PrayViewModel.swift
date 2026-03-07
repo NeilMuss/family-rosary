@@ -13,6 +13,8 @@ final class PrayViewModel: ObservableObject {
     #endif
     @Published var errorMessage: String?
     @Published var showMicrophoneDeniedAlert = false
+    var interactiveStyle: PrayerStyle = .alternateIStart
+    var interactivePolicy: InteractivePrayerPolicy = .default
 
     private let personID: String
     private let sequencePlayer: PrayerSequencePlaying
@@ -132,29 +134,53 @@ final class PrayViewModel: ObservableObject {
     }
 
     private func buildPrayerSteps() -> [PrayerSequenceStep]? {
-        let planItems: [RosaryPlanItem]
-        if isInteractive {
-            planItems = RosaryDecadePlanBuilder().build(interactive: true)
-        } else {
-            planItems = RosarySequenceBuilder
-                .makeStandardRosary()
-                .map { $0.planItem }
-        }
+        let sequence = RosarySequenceBuilder.makeStandardRosary()
         var steps: [PrayerSequenceStep] = []
-        steps.reserveCapacity(planItems.count * 2)
+        steps.reserveCapacity(sequence.count * 2)
 
-        for item in planItems {
-            switch item {
-            case .play(let token, let pauseAfterMs, let prompt):
-                guard let url = resolver.resolve(personID: personID, token: token) else {
-                    errorMessage = "Missing audio for \(token) (.m4a or .wav)."
-                    return nil
+        let turnPolicy = PrayerTurnPolicy(style: interactiveStyle)
+        let waitConfig = UtteranceConfig(
+            startThreshold: UtteranceConfig.default.startThreshold,
+            endThresholdMultiplier: UtteranceConfig.default.endThresholdMultiplier,
+            minSpeechSec: UtteranceConfig.default.minSpeechSec,
+            silenceSecToEnd: UtteranceConfig.default.silenceSecToEnd,
+            timeoutSec: interactivePolicy.userResponseTimeoutSec
+        )
+
+        for prayerType in sequence {
+            let segment = prayerType.segmentDefinition
+
+            guard let url = resolver.resolve(personID: personID, token: segment.token) else {
+                errorMessage = "Missing audio for \(segment.token) (.m4a or .wav)."
+                return nil
+            }
+            let asset = AudioAssetRef(id: "\(personID):\(segment.token)", url: url)
+
+            if !isInteractive {
+                steps.append(.play(asset: asset, prompt: segment.listenPrompt))
+                steps.append(.pause(ms: segment.pauseAfterMs, prompt: nil))
+                continue
+            }
+
+            switch turnPolicy.speaker(for: segment.role) {
+            case .partner:
+                steps.append(.play(asset: asset, prompt: segment.listenPrompt))
+                steps.append(.pause(ms: segment.pauseAfterMs, prompt: nil))
+            case .user, .prayTogether:
+                let activePrompt = segment.role == .unison ? segment.togetherPrompt : segment.yourTurnPrompt
+                let fallbackPrompt = PrayerPrompt(title: "Continuing for you", text: segment.promptText)
+                if interactivePolicy.fallbackToSeedEnabled {
+                    steps.append(
+                        .waitForUtteranceOrFallback(
+                            waitConfig,
+                            fallbackAsset: asset,
+                            prompt: activePrompt,
+                            fallbackPrompt: fallbackPrompt
+                        )
+                    )
+                } else {
+                    steps.append(.waitForUtterance(waitConfig, prompt: activePrompt))
                 }
-                let asset = AudioAssetRef(id: "\(personID):\(token)", url: url)
-                steps.append(.play(asset: asset, prompt: prompt))
-                steps.append(.pause(ms: pauseAfterMs, prompt: prompt))
-            case .waitForUtterance(let config, let prompt):
-                steps.append(.waitForUtterance(config, prompt: prompt))
             }
         }
 
@@ -239,74 +265,104 @@ final class PrayViewModel: ObservableObject {
 }
 
 private extension PrayerType {
-    var planItem: RosaryPlanItem {
+    var segmentDefinition: PrayerSegmentDefinition {
         switch self {
         case .apostlesCreedLead:
-            return .play(
+            return PrayerSegmentDefinition(
                 token: "apostles_creed_lead",
                 pauseAfterMs: 250,
-                prompt: PrayerPrompt(title: "Listen", text: "I believe in God, the Father almighty...")
+                promptText: "I believe in God, the Father almighty...",
+                role: .lead
             )
         case .apostlesCreedResponse:
-            return .play(
+            return PrayerSegmentDefinition(
                 token: "apostles_creed_response",
                 pauseAfterMs: 400,
-                prompt: PrayerPrompt(title: "Listen", text: "I believe in God, the Father almighty...")
+                promptText: "I believe in God, the Father almighty...",
+                role: .response
             )
         case .ourFatherLead:
-            return .play(
+            return PrayerSegmentDefinition(
                 token: "our_father_lead",
                 pauseAfterMs: 400,
-                prompt: PrayerPrompt(title: "Listen", text: "Our Father, who art in heaven...")
+                promptText: "Our Father, who art in heaven...",
+                role: .lead
             )
         case .ourFatherResponse:
-            return .play(
+            return PrayerSegmentDefinition(
                 token: "our_father_response",
                 pauseAfterMs: 400,
-                prompt: PrayerPrompt(title: "Listen", text: "Our Father, who art in heaven...")
+                promptText: "Our Father, who art in heaven...",
+                role: .response
             )
         case .hailMaryLead:
-            return .play(
+            return PrayerSegmentDefinition(
                 token: "hail_lead",
                 pauseAfterMs: 400,
-                prompt: PrayerPrompt(title: "Listen", text: "Hail Mary, full of grace...")
+                promptText: "Hail Mary, full of grace...",
+                role: .lead
             )
         case .hailMaryResponse:
-            return .play(
+            return PrayerSegmentDefinition(
                 token: "hail_response",
                 pauseAfterMs: 0,
-                prompt: PrayerPrompt(title: "Listen", text: "Hail Mary, full of grace...")
+                promptText: "Hail Mary, full of grace...",
+                role: .response
             )
         case .gloryBeLead:
-            return .play(
+            return PrayerSegmentDefinition(
                 token: "glory_be_lead",
                 pauseAfterMs: 300,
-                prompt: PrayerPrompt(title: "Listen", text: "Glory be to the Father...")
+                promptText: "Glory be to the Father...",
+                role: .lead
             )
         case .gloryBeResponse:
-            return .play(
+            return PrayerSegmentDefinition(
                 token: "glory_be_response",
                 pauseAfterMs: 300,
-                prompt: PrayerPrompt(title: "Listen", text: "Glory be to the Father...")
+                promptText: "Glory be to the Father...",
+                role: .response
             )
         case .fatima:
-            return .play(
+            return PrayerSegmentDefinition(
                 token: "fatima",
                 pauseAfterMs: 300,
-                prompt: PrayerPrompt(title: "Listen", text: "O my Jesus, forgive us our sins...")
+                promptText: "O my Jesus, forgive us our sins...",
+                role: .unison
             )
         case .hailHolyQueenLead:
-            return .play(
+            return PrayerSegmentDefinition(
                 token: "hail_holy_queen_lead",
                 pauseAfterMs: 400,
-                prompt: PrayerPrompt(title: "Listen", text: "Hail, holy Queen, Mother of mercy...")
+                promptText: "Hail, holy Queen, Mother of mercy...",
+                role: .lead
             )
         case .hailHolyQueenResponse:
-            return .play(
+            return PrayerSegmentDefinition(
                 token: "hail_holy_queen_response",
                 pauseAfterMs: 0,
-                prompt: PrayerPrompt(title: "Listen", text: "Hail, holy Queen, Mother of mercy...")
+                promptText: "Hail, holy Queen, Mother of mercy...",
+                role: .response
             )
         }
+    }
+}
+
+private struct PrayerSegmentDefinition {
+    let token: String
+    let pauseAfterMs: Int
+    let promptText: String
+    let role: PrayerSegmentRole
+
+    var listenPrompt: PrayerPrompt {
+        PrayerPrompt(title: "Listen", text: promptText)
+    }
+
+    var yourTurnPrompt: PrayerPrompt {
+        PrayerPrompt(title: "Your turn", text: promptText)
+    }
+
+    var togetherPrompt: PrayerPrompt {
+        PrayerPrompt(title: "Pray together", text: promptText)
     }
 }

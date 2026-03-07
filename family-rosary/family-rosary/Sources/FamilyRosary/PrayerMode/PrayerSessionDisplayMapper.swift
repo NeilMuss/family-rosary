@@ -121,6 +121,9 @@ struct PrayerSessionDisplayMapper {
 
         if let promptTitle {
             let normalized = promptTitle.lowercased()
+            if normalized.contains("continuing for you") {
+                return "Continuing for you"
+            }
             if normalized.contains("your turn") {
                 return "Now your turn"
             }
@@ -136,82 +139,51 @@ struct PrayerSessionDisplayMapper {
             return nil
         }
 
-        guard step.segmentRole != .single else {
+        let policy = PrayerTurnPolicy(style: style)
+        switch policy.speaker(for: step.segmentRole) {
+        case .user:
+            return "Now your turn"
+        case .partner:
+            return "Now listen"
+        case .prayTogether:
             return "Pray together"
         }
-
-        let userTurn: Bool
-        switch style {
-        case .alwaysLead:
-            userTurn = step.segmentRole == .lead
-        case .alwaysRespond:
-            userTurn = step.segmentRole == .response
-        case .alternateIStart:
-            if step.pairIndex.isMultiple(of: 2) {
-                userTurn = step.segmentRole == .response
-            } else {
-                userTurn = step.segmentRole == .lead
-            }
-        case .alternateIRespond:
-            if step.pairIndex.isMultiple(of: 2) {
-                userTurn = step.segmentRole == .lead
-            } else {
-                userTurn = step.segmentRole == .response
-            }
-        }
-
-        return userTurn ? "Now your turn" : "Now listen"
     }
 }
 
-private enum SequenceSegmentRole {
-    case lead
-    case response
-    case single
-}
-
 private struct SequenceStep {
-    let prayerType: SessionPrayerType
-    let segmentRole: SequenceSegmentRole
-    let pairIndex: Int
+    let segmentRole: PrayerSegmentRole
 }
 
 private let sequenceStepByIndex: [Int: SequenceStep] = {
     var result: [Int: SequenceStep] = [:]
     let sequence = RosarySequenceBuilder.makeStandardRosary()
 
-    var pairIndex = 0
-
     for (zeroBasedIndex, step) in sequence.enumerated() {
         let stepIndex = zeroBasedIndex + 1
         switch step {
         case .apostlesCreedLead:
-            pairIndex += 1
-            result[stepIndex] = SequenceStep(prayerType: .apostlesCreed, segmentRole: .lead, pairIndex: pairIndex)
+            result[stepIndex] = SequenceStep(segmentRole: .lead)
         case .apostlesCreedResponse:
-            result[stepIndex] = SequenceStep(prayerType: .apostlesCreed, segmentRole: .response, pairIndex: pairIndex)
+            result[stepIndex] = SequenceStep(segmentRole: .response)
         case .ourFatherLead:
-            pairIndex += 1
-            result[stepIndex] = SequenceStep(prayerType: .ourFather, segmentRole: .lead, pairIndex: pairIndex)
+            result[stepIndex] = SequenceStep(segmentRole: .lead)
         case .ourFatherResponse:
-            result[stepIndex] = SequenceStep(prayerType: .ourFather, segmentRole: .response, pairIndex: pairIndex)
+            result[stepIndex] = SequenceStep(segmentRole: .response)
         case .hailMaryLead:
-            pairIndex += 1
-            result[stepIndex] = SequenceStep(prayerType: .hailMary, segmentRole: .lead, pairIndex: pairIndex)
+            result[stepIndex] = SequenceStep(segmentRole: .lead)
         case .hailMaryResponse:
-            result[stepIndex] = SequenceStep(prayerType: .hailMary, segmentRole: .response, pairIndex: pairIndex)
+            result[stepIndex] = SequenceStep(segmentRole: .response)
         case .gloryBeLead:
-            pairIndex += 1
-            result[stepIndex] = SequenceStep(prayerType: .gloryBe, segmentRole: .lead, pairIndex: pairIndex)
+            result[stepIndex] = SequenceStep(segmentRole: .lead)
         case .gloryBeResponse:
-            result[stepIndex] = SequenceStep(prayerType: .gloryBe, segmentRole: .response, pairIndex: pairIndex)
+            result[stepIndex] = SequenceStep(segmentRole: .response)
         case .fatima:
-            result[stepIndex] = SequenceStep(prayerType: .fatima, segmentRole: .single, pairIndex: pairIndex)
+            result[stepIndex] = SequenceStep(segmentRole: .unison)
         case .hailHolyQueenLead:
-            pairIndex += 1
-            result[stepIndex] = SequenceStep(prayerType: .hailHolyQueen, segmentRole: .lead, pairIndex: pairIndex)
+            result[stepIndex] = SequenceStep(segmentRole: .lead)
         case .hailHolyQueenResponse:
-            result[stepIndex] = SequenceStep(prayerType: .hailHolyQueen, segmentRole: .response, pairIndex: pairIndex)
+            result[stepIndex] = SequenceStep(segmentRole: .response)
         }
     }
 

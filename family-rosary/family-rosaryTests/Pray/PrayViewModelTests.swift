@@ -83,6 +83,81 @@ final class PrayViewModelTests: XCTestCase {
         XCTAssertTrue(viewModel.showMicrophoneDeniedAlert)
     }
 
+    func test_automatic_mode_never_waits_for_user_turn() async {
+        let fakeSequencePlayer = FakePrayerSequencePlayer(blockUntilReleased: true)
+        let resolver = FakeAudioFileResolver()
+        seedResolver(resolver)
+
+        let viewModel = PrayViewModel(
+            personID: "dad",
+            sequencePlayer: fakeSequencePlayer,
+            resolver: resolver,
+            microphonePermissionClient: AlwaysGrantedMicrophonePermissionClient()
+        )
+
+        viewModel.isInteractive = false
+        viewModel.onTapPray()
+        await Task.yield()
+
+        let hasWaitStep = fakeSequencePlayer.receivedSteps.contains { step in
+            switch step {
+            case .waitForUtterance, .waitForUtteranceOrFallback:
+                return true
+            default:
+                return false
+            }
+        }
+        XCTAssertFalse(hasWaitStep)
+
+        fakeSequencePlayer.releasePlay()
+        await Task.yield()
+    }
+
+    func test_alternate_i_start_user_leads_apostles_creed_and_first_our_father() async {
+        let fakeSequencePlayer = FakePrayerSequencePlayer(blockUntilReleased: true)
+        let resolver = FakeAudioFileResolver()
+        seedResolver(resolver)
+
+        let viewModel = PrayViewModel(
+            personID: "dad",
+            sequencePlayer: fakeSequencePlayer,
+            resolver: resolver,
+            microphonePermissionClient: AlwaysGrantedMicrophonePermissionClient()
+        )
+        viewModel.isInteractive = true
+        viewModel.interactiveStyle = .alternateIStart
+
+        viewModel.onTapPray()
+        await Task.yield()
+        await Task.yield()
+
+        guard fakeSequencePlayer.receivedSteps.count > 3 else {
+            XCTFail("Expected multiple interactive steps")
+            return
+        }
+
+        switch fakeSequencePlayer.receivedSteps[0] {
+        case .waitForUtteranceOrFallback(_, _, let prompt, _):
+            XCTAssertEqual(prompt?.title, "Your turn")
+            XCTAssertEqual(prompt?.text, "I believe in God, the Father almighty...")
+        default:
+            XCTFail("Expected first step to be user turn wait")
+        }
+
+        let firstOurFatherLeadIndex = fakeSequencePlayer.receivedSteps.firstIndex { step in
+            switch step {
+            case .waitForUtteranceOrFallback(_, _, let prompt, _):
+                return prompt?.text == "Our Father, who art in heaven..."
+            default:
+                return false
+            }
+        }
+        XCTAssertNotNil(firstOurFatherLeadIndex)
+
+        fakeSequencePlayer.releasePlay()
+        await Task.yield()
+    }
+
     private func seedResolver(_ resolver: FakeAudioFileResolver) {
         resolver.stub(personID: "dad", token: "apostles_creed_lead", path: "/tmp/dad_apostles_creed_lead.m4a")
         resolver.stub(personID: "dad", token: "apostles_creed_response", path: "/tmp/dad_apostles_creed_response.m4a")
