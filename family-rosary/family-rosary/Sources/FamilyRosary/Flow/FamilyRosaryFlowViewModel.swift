@@ -17,6 +17,7 @@ final class FamilyRosaryFlowViewModel: ObservableObject {
 
     private let root: AppCompositionRoot
     private var pendingStartRequest: StartRosaryRequest?
+    private var pendingCalibration: InteractiveCalibration?
 
     init(root: AppCompositionRoot) {
         self.root = root
@@ -34,9 +35,10 @@ final class FamilyRosaryFlowViewModel: ObservableObject {
     private func onStartRequested(request: StartRosaryRequest) {
         if request.prayerMode == .interactive {
             pendingStartRequest = request
+            pendingCalibration = nil
             microphoneCheckViewModel = root.makeMicrophoneCheckViewModel(
-                onStartPrayer: { [weak self] in
-                    self?.startFromMicrophoneCheck()
+                onStartPrayer: { [weak self] calibration in
+                    self?.startFromMicrophoneCheck(calibration: calibration)
                 },
                 onBack: { [weak self] in
                     self?.backToSetup()
@@ -49,27 +51,34 @@ final class FamilyRosaryFlowViewModel: ObservableObject {
         startPraying(request: request)
     }
 
-    private func startFromMicrophoneCheck() {
+    private func startFromMicrophoneCheck(calibration: InteractiveCalibration?) {
         guard let request = pendingStartRequest else {
             backToSetup()
             return
         }
 
+        pendingCalibration = calibration
         pendingStartRequest = nil
         microphoneCheckViewModel = nil
-        startPraying(request: request)
+        startPraying(request: request, calibration: pendingCalibration)
     }
 
     private func backToSetup() {
         pendingStartRequest = nil
+        pendingCalibration = nil
         microphoneCheckViewModel = nil
         prayerModeViewModel = nil
         screen = .setup
     }
 
-    private func startPraying(request: StartRosaryRequest) {
+    private func startPraying(
+        request: StartRosaryRequest,
+        calibration: InteractiveCalibration? = nil
+    ) {
+        let prayViewModel = root.makePrayViewModel(personID: request.partnerID)
+        prayViewModel.interactiveCalibration = calibration
         let prayerModeViewModel = PrayerModeViewModel(
-            prayViewModel: root.makePrayViewModel(personID: request.partnerID),
+            prayViewModel: prayViewModel,
             prayerMode: request.prayerMode,
             prayerStyle: request.prayerStyle,
             onEndRosary: { [weak self] in
@@ -77,6 +86,7 @@ final class FamilyRosaryFlowViewModel: ObservableObject {
             }
         )
 
+        pendingCalibration = nil
         self.prayerModeViewModel = prayerModeViewModel
         screen = .praying
         prayerModeViewModel.start()

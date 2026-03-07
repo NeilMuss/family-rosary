@@ -16,6 +16,7 @@ final class PrayViewModel: ObservableObject {
     @Published var showMicrophoneDeniedAlert = false
     var interactiveStyle: PrayerStyle = .alternateIStart
     var interactivePolicy: InteractivePrayerPolicy = .default
+    var interactiveCalibration: InteractiveCalibration?
 
     private let personID: String
     private let sequencePlayer: PrayerSequencePlaying
@@ -154,14 +155,21 @@ final class PrayViewModel: ObservableObject {
         steps.reserveCapacity(sequence.count * 2)
 
         let turnPolicy = PrayerTurnPolicy(style: interactiveStyle)
-        let waitConfig = UtteranceConfig(
-            speechStartThreshold: UtteranceConfig.default.speechStartThreshold,
-            speechContinueThreshold: UtteranceConfig.default.speechContinueThreshold,
-            minSpeechSec: UtteranceConfig.default.minSpeechSec,
-            completionSilenceSec: UtteranceConfig.default.completionSilenceSec,
-            startTimeoutSec: interactivePolicy.userResponseTimeoutSec,
-            maxUtteranceSec: UtteranceConfig.default.maxUtteranceSec
+        let waitConfig = InteractiveCalibrationHeuristics.utteranceConfig(
+            for: interactiveCalibration,
+            startTimeoutSec: interactivePolicy.userResponseTimeoutSec
         )
+        #if DEBUG
+        DebugLog.shared.log(
+            String(
+                format: "CALIBRATION session start=%.4f continue=%.4f silence=%.2f timeout=%.2f",
+                waitConfig.speechStartThreshold,
+                waitConfig.speechContinueThreshold,
+                waitConfig.completionSilenceSec,
+                waitConfig.startTimeoutSec
+            )
+        )
+        #endif
 
         for prayerType in sequence {
             let segment = prayerType.segmentDefinition

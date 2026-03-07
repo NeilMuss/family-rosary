@@ -165,7 +165,7 @@ struct AppCompositionRoot {
 
     @MainActor
     func makeMicrophoneCheckViewModel(
-        onStartPrayer: @escaping () -> Void,
+        onStartPrayer: @escaping (InteractiveCalibration?) -> Void,
         onBack: @escaping () -> Void
     ) -> MicrophoneCheckViewModel {
         MicrophoneCheckViewModel(
