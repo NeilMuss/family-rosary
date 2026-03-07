@@ -12,7 +12,7 @@ final class EnergyUtteranceListener: UtteranceListener {
     func waitForUtterance(
         config: UtteranceConfig,
         onPhaseChanged: ((UtteranceDebugPhase) -> Void)?
-    ) async throws {
+    ) async throws -> UtteranceWaitResult {
         do {
             try prepareSession()
             try installTap()
@@ -28,15 +28,11 @@ final class EnergyUtteranceListener: UtteranceListener {
             var lastSpeakingEmitAt: Date?
             var lastWaitingEmitAt: Date?
             var lastSilenceEmitAt: Date?
-            var emittedSpeechDetected = false
+            var emittedSpeechStarted = false
             let emitInterval: TimeInterval = 0.2
 
             emitDebug(
-                .waitingForSpeech(
-                    rms: 0,
-                    startThreshold: config.startThreshold,
-                    endThreshold: config.endThreshold
-                ),
+                .userTurnWaitingForSpeechStart(rms: 0, startThreshold: config.startThreshold),
                 to: onPhaseChanged
             )
 
@@ -50,85 +46,53 @@ final class EnergyUtteranceListener: UtteranceListener {
 
                 let snapshot = machine.consume(rms: rms, dt: dt)
 
-                if snapshot.speechDetected && !emittedSpeechDetected {
-                    emitDebug(.speechDetected(rms: rms), to: onPhaseChanged)
-                    emittedSpeechDetected = true
+                if snapshot.didStartSpeaking && !emittedSpeechStarted {
+                    emitDebug(.userTurnSpeechStarted, to: onPhaseChanged)
+                    emittedSpeechStarted = true
                 }
 
                 switch snapshot.state {
-                case .waiting:
+                case .waitingForSpeechStart:
                     if shouldEmit(now: now, lastEmitAt: lastWaitingEmitAt, minInterval: emitInterval) {
                         emitDebug(
-                            .waitingForSpeech(
-                                rms: rms,
-                                startThreshold: config.startThreshold,
-                                endThreshold: config.endThreshold
-                            ),
+                            .userTurnWaitingForSpeechStart(rms: rms, startThreshold: config.startThreshold),
                             to: onPhaseChanged
                         )
                         lastWaitingEmitAt = now
                     }
                 case .speaking:
-                    if snapshot.silenceAccumulated > 0 {
-                        if shouldEmit(now: now, lastEmitAt: lastSilenceEmitAt, minInterval: emitInterval) {
-                            emitDebug(
-                                .silenceCountdown(
-                                    rms: rms,
-                                    elapsed: snapshot.silenceAccumulated,
-                                    required: config.silenceSecToEnd,
-                                    speechDuration: snapshot.speechDuration,
-                                    softSilenceRequired: UtteranceDetectionStateMachine.softEndSilenceSec,
-                                    softMinSpeechSec: UtteranceDetectionStateMachine.softEndMinSpeechSec
-                                ),
-                                to: onPhaseChanged
-                            )
-                            lastSilenceEmitAt = now
-                        }
-                    } else {
-                        if shouldEmit(now: now, lastEmitAt: lastSpeakingEmitAt, minInterval: emitInterval) {
-                            emitDebug(
-                                .speaking(
-                                    rms: rms,
-                                    endThreshold: config.endThreshold,
-                                    speechDuration: snapshot.speechDuration,
-                                    silenceAccumulated: snapshot.silenceAccumulated,
-                                    silenceRequired: config.silenceSecToEnd,
-                                    softSilenceRequired: UtteranceDetectionStateMachine.softEndSilenceSec,
-                                    softMinSpeechSec: UtteranceDetectionStateMachine.softEndMinSpeechSec
-                                ),
-                                to: onPhaseChanged
-                            )
-                            lastSpeakingEmitAt = now
-                        }
+                    if shouldEmit(now: now, lastEmitAt: lastSpeakingEmitAt, minInterval: emitInterval) {
+                        emitDebug(.userTurnSpeaking(rms: rms), to: onPhaseChanged)
+                        lastSpeakingEmitAt = now
+                    }
+                case .waitingForSpeechEnd:
+                    if shouldEmit(now: now, lastEmitAt: lastSilenceEmitAt, minInterval: emitInterval) {
+                        emitDebug(
+                            .userTurnWaitingForSpeechEnd(
+                                rms: rms,
+                                silenceElapsed: snapshot.silenceAccumulated,
+                                required: config.completionSilenceSec
+                            ),
+                            to: onPhaseChanged
+                        )
+                        lastSilenceEmitAt = now
                     }
                 case .completed:
-                    let reason: String
-                    switch snapshot.completionReason {
-                    case .hardSilence:
-                        reason = "hard-silence"
-                    case .softEnd:
-                        reason = "soft-end"
-                    case nil:
-                        reason = "unknown"
-                    }
-                    emitDebug(.completed(reason: reason), to: onPhaseChanged)
-                    return
-                case .timedOut:
+                    emitDebug(.userTurnCompleted, to: onPhaseChanged)
+                    return .completedByUser
+                case .startTimedOut:
                     if machine.hasNoInputSignal {
                         emitDebug(.failed("No input signal / rms~0"), to: onPhaseChanged)
                     }
-                    emitDebug(.timedOut, to: onPhaseChanged)
-                    throw UtteranceListenerError.timeout
+                    emitDebug(.userTurnStartTimedOut, to: onPhaseChanged)
+                    return .startTimedOut
+                case .maxDurationExceeded:
+                    emitDebug(.userTurnMaxDurationExceeded, to: onPhaseChanged)
+                    return .maxDurationExceeded
                 }
 
                 try await Task.sleep(nanoseconds: 20_000_000)
             }
-        } catch let error as UtteranceListenerError {
-            if case .timeout = error {
-                throw error
-            }
-            emitDebug(.failed(error.localizedDescription), to: onPhaseChanged)
-            throw error
         } catch {
             emitDebug(.failed(error.localizedDescription), to: onPhaseChanged)
             throw error

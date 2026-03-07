@@ -4,8 +4,9 @@ struct UtteranceConfig: Equatable {
     let startThreshold: Float
     let endThresholdMultiplier: Float
     let minSpeechSec: TimeInterval
-    let silenceSecToEnd: TimeInterval
-    let timeoutSec: TimeInterval
+    let completionSilenceSec: TimeInterval
+    let startTimeoutSec: TimeInterval
+    let maxUtteranceSec: TimeInterval
 
     var endThreshold: Float {
         startThreshold * endThresholdMultiplier
@@ -15,18 +16,31 @@ struct UtteranceConfig: Equatable {
         startThreshold: 0.015,
         endThresholdMultiplier: 0.55,
         minSpeechSec: 0.5,
-        silenceSecToEnd: 0.7,
-        timeoutSec: 25.0
+        completionSilenceSec: 0.7,
+        startTimeoutSec: 4.0,
+        maxUtteranceSec: 25.0
     )
 }
 
+enum UtteranceWaitResult: Equatable {
+    case completedByUser
+    case startTimedOut
+    case maxDurationExceeded
+}
+
+enum InteractiveTurnResult: Equatable {
+    case completedByUser
+    case fellBackToSeed
+    case timedOutAfterSpeechStarted
+}
+
 enum UtteranceListenerError: Error, LocalizedError {
-    case timeout
+    case configuration(String)
 
     var errorDescription: String? {
         switch self {
-        case .timeout:
-            return "Timed out waiting for spoken response."
+        case .configuration(let message):
+            return message
         }
     }
 }
@@ -35,5 +49,5 @@ protocol UtteranceListener {
     func waitForUtterance(
         config: UtteranceConfig,
         onPhaseChanged: ((UtteranceDebugPhase) -> Void)?
-    ) async throws
+    ) async throws -> UtteranceWaitResult
 }

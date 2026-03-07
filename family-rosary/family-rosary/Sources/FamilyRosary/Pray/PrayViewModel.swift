@@ -143,8 +143,9 @@ final class PrayViewModel: ObservableObject {
             startThreshold: UtteranceConfig.default.startThreshold,
             endThresholdMultiplier: UtteranceConfig.default.endThresholdMultiplier,
             minSpeechSec: UtteranceConfig.default.minSpeechSec,
-            silenceSecToEnd: UtteranceConfig.default.silenceSecToEnd,
-            timeoutSec: interactivePolicy.userResponseTimeoutSec
+            completionSilenceSec: UtteranceConfig.default.completionSilenceSec,
+            startTimeoutSec: interactivePolicy.userResponseTimeoutSec,
+            maxUtteranceSec: UtteranceConfig.default.maxUtteranceSec
         )
 
         for prayerType in sequence {
@@ -205,6 +206,25 @@ final class PrayViewModel: ObservableObject {
     private static func format(debugStatus: PrayDebugStatus) -> String {
         let phaseText: String
         switch debugStatus.listenerPhase {
+        case .userTurnWaitingForSpeechStart(let rms, let startThreshold):
+            phaseText = String(format: "USER_TURN waitingForSpeechStart rms=%.4f start=%.4f", rms, startThreshold)
+        case .userTurnSpeechStarted:
+            phaseText = "USER_TURN speechStarted"
+        case .userTurnSpeaking(let rms):
+            phaseText = String(format: "USER_TURN speaking rms=%.4f", rms)
+        case .userTurnWaitingForSpeechEnd(let rms, let silenceElapsed, let required):
+            phaseText = String(
+                format: "USER_TURN waitingForSpeechEnd rms=%.4f silence=%.2f/%.2f",
+                rms,
+                silenceElapsed,
+                required
+            )
+        case .userTurnCompleted:
+            phaseText = "USER_TURN completed"
+        case .userTurnStartTimedOut:
+            phaseText = "USER_TURN startTimedOut -> fallback"
+        case .userTurnMaxDurationExceeded:
+            phaseText = "USER_TURN maxDurationExceeded -> continue"
         case .idle:
             phaseText = "idle"
         case .waitingForSpeech(let rms, let startThreshold, let endThreshold):

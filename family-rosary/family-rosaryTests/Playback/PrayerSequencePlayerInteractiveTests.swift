@@ -101,11 +101,10 @@ final class PrayerSequencePlayerInteractiveTests: XCTestCase {
         XCTAssertTrue(
             statuses.contains(
                 PrayDebugStatus(
-                    stepSummary: "Step: WAIT",
-                    listenerPhase: .waitingForSpeech(
+                    stepSummary: "USER_TURN",
+                    listenerPhase: .userTurnWaitingForSpeechStart(
                         rms: 0,
-                        startThreshold: UtteranceConfig.default.startThreshold,
-                        endThreshold: UtteranceConfig.default.endThreshold
+                        startThreshold: UtteranceConfig.default.startThreshold
                     )
                 )
             )
@@ -168,6 +167,88 @@ final class PrayerSequencePlayerInteractiveTests: XCTestCase {
 
         XCTAssertEqual(playback.events, ["play:/tmp/hail_lead_seed.m4a"])
     }
+
+    func test_speechStart_then_completion_neverFallsBack() async throws {
+        let playback = InteractivePlaybackSpy()
+        let listener = CompletedUtteranceListener()
+        let player = PrayerSequencePlayer(
+            playback: playback,
+            sleeper: ImmediateSleeper(),
+            utteranceListener: listener
+        )
+
+        let fallback = AudioAssetRef(id: "seed:hail_lead", url: URL(fileURLWithPath: "/tmp/hail_lead_seed.m4a"))
+        try await player.play(
+            steps: [
+                .waitForUtteranceOrFallback(
+                    .default,
+                    fallbackAsset: fallback,
+                    prompt: PrayerPrompt(title: "Your turn", text: "Hail Mary, full of grace..."),
+                    fallbackPrompt: PrayerPrompt(title: "Continuing for you", text: "Hail Mary, full of grace...")
+                )
+            ],
+            onPromptChanged: { _ in }
+        )
+
+        XCTAssertTrue(playback.events.isEmpty)
+    }
+
+    func test_speechStart_then_maxDurationExceeded_doesNotFallback() async throws {
+        let playback = InteractivePlaybackSpy()
+        let listener = MaxDurationUtteranceListener()
+        let player = PrayerSequencePlayer(
+            playback: playback,
+            sleeper: ImmediateSleeper(),
+            utteranceListener: listener
+        )
+
+        let fallback = AudioAssetRef(id: "seed:hail_lead", url: URL(fileURLWithPath: "/tmp/hail_lead_seed.m4a"))
+        try await player.play(
+            steps: [
+                .waitForUtteranceOrFallback(
+                    .default,
+                    fallbackAsset: fallback,
+                    prompt: PrayerPrompt(title: "Your turn", text: "Hail Mary, full of grace..."),
+                    fallbackPrompt: PrayerPrompt(title: "Continuing for you", text: "Hail Mary, full of grace...")
+                )
+            ],
+            onPromptChanged: { _ in }
+        )
+
+        XCTAssertTrue(playback.events.isEmpty)
+    }
+
+    func test_fallback_only_before_speech_starts() async throws {
+        let playback = InteractivePlaybackSpy()
+        let listener = StartTimedOutThenCompletedUtteranceListener()
+        let player = PrayerSequencePlayer(
+            playback: playback,
+            sleeper: ImmediateSleeper(),
+            utteranceListener: listener
+        )
+
+        let fallback1 = AudioAssetRef(id: "seed:first", url: URL(fileURLWithPath: "/tmp/first_seed.m4a"))
+        let fallback2 = AudioAssetRef(id: "seed:second", url: URL(fileURLWithPath: "/tmp/second_seed.m4a"))
+        try await player.play(
+            steps: [
+                .waitForUtteranceOrFallback(
+                    .default,
+                    fallbackAsset: fallback1,
+                    prompt: PrayerPrompt(title: "Your turn", text: "Our Father, who art in heaven..."),
+                    fallbackPrompt: PrayerPrompt(title: "Continuing for you", text: "Our Father, who art in heaven...")
+                ),
+                .waitForUtteranceOrFallback(
+                    .default,
+                    fallbackAsset: fallback2,
+                    prompt: PrayerPrompt(title: "Your turn", text: "Hail Mary, full of grace..."),
+                    fallbackPrompt: PrayerPrompt(title: "Continuing for you", text: "Hail Mary, full of grace...")
+                )
+            ],
+            onPromptChanged: { _ in }
+        )
+
+        XCTAssertEqual(playback.events, ["play:/tmp/first_seed.m4a"])
+    }
 }
 
 private final class InteractivePlaybackSpy: AudioPlaybackClient {
@@ -202,11 +283,12 @@ private final class FakeUtteranceListener: UtteranceListener {
     func waitForUtterance(
         config: UtteranceConfig,
         onPhaseChanged: ((UtteranceDebugPhase) -> Void)?
-    ) async throws {
+    ) async throws -> UtteranceWaitResult {
         waitCalls.append(config)
-        onPhaseChanged?(.waitingForSpeech(rms: 0, startThreshold: config.startThreshold, endThreshold: config.endThreshold))
+        onPhaseChanged?(.userTurnWaitingForSpeechStart(rms: 0, startThreshold: config.startThreshold))
         eventSink("wait")
-        onPhaseChanged?(.completed(reason: "hard-silence"))
+        onPhaseChanged?(.userTurnCompleted)
+        return .completedByUser
     }
 }
 
@@ -214,9 +296,52 @@ private final class TimeoutUtteranceListener: UtteranceListener {
     func waitForUtterance(
         config: UtteranceConfig,
         onPhaseChanged: ((UtteranceDebugPhase) -> Void)?
-    ) async throws {
+    ) async throws -> UtteranceWaitResult {
         _ = config
-        onPhaseChanged?(.timedOut)
-        throw UtteranceListenerError.timeout
+        onPhaseChanged?(.userTurnStartTimedOut)
+        return .startTimedOut
+    }
+}
+
+private final class CompletedUtteranceListener: UtteranceListener {
+    func waitForUtterance(
+        config: UtteranceConfig,
+        onPhaseChanged: ((UtteranceDebugPhase) -> Void)?
+    ) async throws -> UtteranceWaitResult {
+        _ = config
+        onPhaseChanged?(.userTurnSpeechStarted)
+        onPhaseChanged?(.userTurnCompleted)
+        return .completedByUser
+    }
+}
+
+private final class MaxDurationUtteranceListener: UtteranceListener {
+    func waitForUtterance(
+        config: UtteranceConfig,
+        onPhaseChanged: ((UtteranceDebugPhase) -> Void)?
+    ) async throws -> UtteranceWaitResult {
+        _ = config
+        onPhaseChanged?(.userTurnSpeechStarted)
+        onPhaseChanged?(.userTurnMaxDurationExceeded)
+        return .maxDurationExceeded
+    }
+}
+
+private final class StartTimedOutThenCompletedUtteranceListener: UtteranceListener {
+    private var callCount = 0
+
+    func waitForUtterance(
+        config: UtteranceConfig,
+        onPhaseChanged: ((UtteranceDebugPhase) -> Void)?
+    ) async throws -> UtteranceWaitResult {
+        _ = config
+        callCount += 1
+        if callCount == 1 {
+            onPhaseChanged?(.userTurnStartTimedOut)
+            return .startTimedOut
+        }
+        onPhaseChanged?(.userTurnSpeechStarted)
+        onPhaseChanged?(.userTurnCompleted)
+        return .completedByUser
     }
 }

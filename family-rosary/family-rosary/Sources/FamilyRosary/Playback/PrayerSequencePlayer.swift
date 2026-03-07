@@ -92,11 +92,11 @@ final class PrayerSequencePlayer: PrayerSequencePlaying {
                 )
             }
             #if DEBUG
-            try await utteranceListener.waitForUtterance(config: config, onPhaseChanged: { [weak self] phase in
-                self?.emitDebug(stepSummary: "Step: WAIT", phase: phase)
+            _ = try await utteranceListener.waitForUtterance(config: config, onPhaseChanged: { [weak self] phase in
+                self?.emitDebug(stepSummary: "USER_TURN", phase: phase)
             })
             #else
-            try await utteranceListener.waitForUtterance(config: config, onPhaseChanged: nil)
+            _ = try await utteranceListener.waitForUtterance(config: config, onPhaseChanged: nil)
             #endif
         case .waitForUtteranceOrFallback(let config, let fallbackAsset, _, let fallbackPrompt):
             guard let utteranceListener else {
@@ -109,22 +109,26 @@ final class PrayerSequencePlayer: PrayerSequencePlaying {
                     userInfo: [NSLocalizedDescriptionKey: "Interactive utterance listener is not configured."]
                 )
             }
-            do {
-                #if DEBUG
-                try await utteranceListener.waitForUtterance(config: config, onPhaseChanged: { [weak self] phase in
-                    self?.emitDebug(stepSummary: "Step: WAIT", phase: phase)
-                })
-                #else
-                try await utteranceListener.waitForUtterance(config: config, onPhaseChanged: nil)
-                #endif
-            } catch let error as UtteranceListenerError where error == .timeout {
+            #if DEBUG
+            let waitResult = try await utteranceListener.waitForUtterance(config: config, onPhaseChanged: { [weak self] phase in
+                self?.emitDebug(stepSummary: "USER_TURN", phase: phase)
+            })
+            #else
+            let waitResult = try await utteranceListener.waitForUtterance(config: config, onPhaseChanged: nil)
+            #endif
+
+            if waitResult == .startTimedOut {
                 if let fallbackPrompt {
                     onPromptChanged?(fallbackPrompt)
                 }
                 #if DEBUG
-                emitDebug(stepSummary: "Step: FALLBACK \(fallbackAsset.id)", phase: .timedOut)
+                emitDebug(stepSummary: "USER_TURN startTimedOut -> fallback", phase: .userTurnStartTimedOut)
                 #endif
                 try await play(asset: fallbackAsset)
+            } else if waitResult == .maxDurationExceeded {
+                #if DEBUG
+                emitDebug(stepSummary: "USER_TURN maxDurationExceeded -> continue", phase: .userTurnMaxDurationExceeded)
+                #endif
             }
         }
     }

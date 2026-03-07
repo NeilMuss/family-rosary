@@ -2,7 +2,32 @@ import XCTest
 @testable import family_rosary
 
 final class UtteranceDetectionStateMachineTests: XCTestCase {
-    func testContinuousSpeakingAboveEndThresholdNeverCompletes() {
+    func test_noSpeechStart_triggersFallback() {
+        var machine = UtteranceDetectionStateMachine(config: .default)
+
+        while machine.state == .waitingForSpeechStart {
+            _ = machine.consume(rms: 0.001, dt: 0.02)
+        }
+
+        XCTAssertEqual(machine.state, .startTimedOut)
+        XCTAssertFalse(machine.didStartSpeaking)
+    }
+
+    func test_speechStart_then_completion_neverFallsBack() {
+        var machine = UtteranceDetectionStateMachine(config: .default)
+
+        _ = machine.consume(rms: 0.03, dt: 0.02)
+        XCTAssertTrue(machine.didStartSpeaking)
+
+        while machine.state != .completed {
+            _ = machine.consume(rms: 0.001, dt: 0.02)
+        }
+
+        XCTAssertEqual(machine.state, .completed)
+        XCTAssertTrue(machine.didStartSpeaking)
+    }
+
+    func test_longSpeech_waitsForCompletionSilence() {
         var machine = UtteranceDetectionStateMachine(config: .default)
 
         for _ in 0..<300 {
@@ -10,97 +35,53 @@ final class UtteranceDetectionStateMachineTests: XCTestCase {
         }
 
         XCTAssertEqual(machine.state, .speaking)
-        XCTAssertEqual(machine.silenceAccumulated, 0, accuracy: 0.0001)
-    }
 
-    func testSpeakingThenSustainedBelowEndThresholdCompletes() {
-        var machine = UtteranceDetectionStateMachine(config: .default)
-
-        for _ in 0..<35 { // 0.70s speaking
-            _ = machine.consume(rms: 0.05, dt: 0.02)
-        }
-        for _ in 0..<55 { // 1.10s below end threshold
+        for _ in 0..<35 {
             _ = machine.consume(rms: 0.001, dt: 0.02)
-        }
-
-        XCTAssertEqual(machine.state, .completed)
-        XCTAssertEqual(machine.completionReason, .hardSilence)
-    }
-
-    func testDipsBelowStartButAboveEndDoNotAccumulateSilence() {
-        let config = UtteranceConfig.default
-        XCTAssertGreaterThan(config.startThreshold, config.endThreshold)
-        var machine = UtteranceDetectionStateMachine(config: config)
-
-        for _ in 0..<20 {
-            _ = machine.consume(rms: config.startThreshold + 0.002, dt: 0.02)
-        }
-
-        for _ in 0..<60 {
-            _ = machine.consume(rms: config.startThreshold * 0.6, dt: 0.02)
-        }
-
-        XCTAssertEqual(machine.state, .speaking)
-        XCTAssertEqual(machine.silenceAccumulated, 0, accuracy: 0.0001)
-    }
-
-    func testLongSpeechThenShortSilenceTriggersSoftEnd() {
-        var machine = UtteranceDetectionStateMachine(config: .default)
-
-        for _ in 0..<110 { // 2.2s speaking
-            _ = machine.consume(rms: 0.05, dt: 0.02)
-        }
-        for _ in 0..<20 { // 0.4s silence
-            _ = machine.consume(rms: 0.001, dt: 0.02)
-        }
-
-        XCTAssertEqual(machine.state, .completed)
-        XCTAssertEqual(machine.completionReason, .softEnd)
-    }
-
-    func testShortSpeechNeedsHardSilenceRule() {
-        var machine = UtteranceDetectionStateMachine(config: .default)
-
-        for _ in 0..<60 { // 1.2s speaking < soft min
-            _ = machine.consume(rms: 0.05, dt: 0.02)
-        }
-        for _ in 0..<20 { // 0.4s silence not enough for hard rule 0.7s
-            _ = machine.consume(rms: 0.001, dt: 0.02)
-        }
-
-        XCTAssertEqual(machine.state, .speaking)
-    }
-
-    func testRMSAroundEndThresholdResetsAndAccumulatesSilenceCorrectly() {
-        let config = UtteranceConfig.default
-        var machine = UtteranceDetectionStateMachine(config: config)
-
-        for _ in 0..<40 { // start speaking
-            _ = machine.consume(rms: config.startThreshold + 0.003, dt: 0.02)
-        }
-
-        // Slightly below end threshold should accumulate.
-        for _ in 0..<10 {
-            _ = machine.consume(rms: config.endThreshold * 0.95, dt: 0.02)
-        }
-        XCTAssertGreaterThan(machine.silenceAccumulated, 0)
-
-        // Slightly above end threshold should reset.
-        _ = machine.consume(rms: config.endThreshold * 1.05, dt: 0.02)
-        XCTAssertEqual(machine.silenceAccumulated, 0, accuracy: 0.0001)
-    }
-
-    func testNeverCrossingStartThresholdTimesOutNotComplete() {
-        var machine = UtteranceDetectionStateMachine(config: .default)
-
-        for _ in 0..<700 {
-            _ = machine.consume(rms: 0.001, dt: 0.02)
-            if machine.state == .timedOut {
+            if machine.state == .completed {
                 break
             }
         }
 
-        XCTAssertEqual(machine.state, .timedOut)
-        XCTAssertFalse(machine.speechDetected)
+        XCTAssertEqual(machine.state, .completed)
+    }
+
+    func test_speechStart_then_maxDurationExceeded_doesNotFallback() {
+        let config = UtteranceConfig(
+            startThreshold: 0.015,
+            endThresholdMultiplier: 0.55,
+            minSpeechSec: 0.1,
+            completionSilenceSec: 1.0,
+            startTimeoutSec: 1.0,
+            maxUtteranceSec: 0.4
+        )
+        var machine = UtteranceDetectionStateMachine(config: config)
+
+        _ = machine.consume(rms: 0.04, dt: 0.02)
+        XCTAssertTrue(machine.didStartSpeaking)
+
+        while machine.state != .maxDurationExceeded {
+            _ = machine.consume(rms: 0.04, dt: 0.02)
+        }
+
+        XCTAssertEqual(machine.state, .maxDurationExceeded)
+        XCTAssertTrue(machine.didStartSpeaking)
+    }
+
+    func test_fallback_only_before_speech_starts() {
+        let config = UtteranceConfig.default
+        var machine = UtteranceDetectionStateMachine(config: config)
+
+        _ = machine.consume(rms: config.startThreshold + 0.005, dt: 0.02)
+        XCTAssertTrue(machine.didStartSpeaking)
+
+        for _ in 0..<500 {
+            _ = machine.consume(rms: 0.01, dt: 0.02)
+            if machine.state == .completed || machine.state == .maxDurationExceeded {
+                break
+            }
+        }
+
+        XCTAssertNotEqual(machine.state, .startTimedOut)
     }
 }

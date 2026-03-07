@@ -227,9 +227,10 @@ private struct PreviewUtteranceListener: UtteranceListener {
     func waitForUtterance(
         config: UtteranceConfig,
         onPhaseChanged: ((UtteranceDebugPhase) -> Void)?
-    ) async throws {
+    ) async throws -> UtteranceWaitResult {
         _ = config
-        onPhaseChanged?(.completed(reason: "preview"))
+        onPhaseChanged?(.userTurnCompleted)
+        return .completedByUser
     }
 }
 
