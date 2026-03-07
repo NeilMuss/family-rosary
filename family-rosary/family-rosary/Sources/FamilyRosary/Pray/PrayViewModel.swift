@@ -10,6 +10,7 @@ final class PrayViewModel: ObservableObject {
     #if DEBUG
     @Published var debugText: String = ""
     @Published var debugLog: [String] = []
+    @Published var latestDebugStatus: PrayDebugStatus?
     #endif
     @Published var errorMessage: String?
     @Published var showMicrophoneDeniedAlert = false
@@ -41,6 +42,7 @@ final class PrayViewModel: ObservableObject {
         currentPrompt = nil
         #if DEBUG
         debugText = ""
+        latestDebugStatus = nil
         #endif
         showMicrophoneDeniedAlert = false
 
@@ -77,6 +79,7 @@ final class PrayViewModel: ObservableObject {
         currentPrompt = nil
         #if DEBUG
         debugText = ""
+        latestDebugStatus = nil
         #endif
     }
 
@@ -111,6 +114,7 @@ final class PrayViewModel: ObservableObject {
                     onDebugStatusChanged: { [weak self] status in
                         Task { @MainActor in
                             guard let self else { return }
+                            self.latestDebugStatus = status
                             let formatted = Self.format(debugStatus: status)
                             self.debugText = formatted
                             self.appendDebugLine(formatted)
@@ -206,8 +210,14 @@ final class PrayViewModel: ObservableObject {
     private static func format(debugStatus: PrayDebugStatus) -> String {
         let phaseText: String
         switch debugStatus.listenerPhase {
-        case .userTurnWaitingForSpeechStart(let rms, let startThreshold):
-            phaseText = String(format: "USER_TURN waitingForSpeechStart rms=%.4f start=%.4f", rms, startThreshold)
+        case .userTurnWaitingForSpeechStart(let rms, let startThreshold, let elapsed, let timeout):
+            phaseText = String(
+                format: "USER_TURN waitingForSpeechStart rms=%.4f start=%.4f t=%.2f/%.2f",
+                rms,
+                startThreshold,
+                elapsed,
+                timeout
+            )
         case .userTurnSpeechStarted:
             phaseText = "USER_TURN speechStarted"
         case .userTurnSpeaking(let rms):

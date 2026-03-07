@@ -2,7 +2,12 @@ import Foundation
 
 enum UtteranceDebugPhase: Equatable {
     case idle
-    case userTurnWaitingForSpeechStart(rms: Float, startThreshold: Float)
+    case userTurnWaitingForSpeechStart(
+        rms: Float,
+        startThreshold: Float,
+        elapsed: TimeInterval,
+        timeout: TimeInterval
+    )
     case userTurnSpeechStarted
     case userTurnSpeaking(rms: Float)
     case userTurnWaitingForSpeechEnd(rms: Float, silenceElapsed: TimeInterval, required: TimeInterval)

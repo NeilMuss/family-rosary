@@ -104,7 +104,9 @@ final class PrayerSequencePlayerInteractiveTests: XCTestCase {
                     stepSummary: "USER_TURN",
                     listenerPhase: .userTurnWaitingForSpeechStart(
                         rms: 0,
-                        startThreshold: UtteranceConfig.default.startThreshold
+                        startThreshold: UtteranceConfig.default.startThreshold,
+                        elapsed: 0,
+                        timeout: UtteranceConfig.default.startTimeoutSec
                     )
                 )
             )
@@ -285,7 +287,14 @@ private final class FakeUtteranceListener: UtteranceListener {
         onPhaseChanged: ((UtteranceDebugPhase) -> Void)?
     ) async throws -> UtteranceWaitResult {
         waitCalls.append(config)
-        onPhaseChanged?(.userTurnWaitingForSpeechStart(rms: 0, startThreshold: config.startThreshold))
+        onPhaseChanged?(
+            .userTurnWaitingForSpeechStart(
+                rms: 0,
+                startThreshold: config.startThreshold,
+                elapsed: 0,
+                timeout: config.startTimeoutSec
+            )
+        )
         eventSink("wait")
         onPhaseChanged?(.userTurnCompleted)
         return .completedByUser

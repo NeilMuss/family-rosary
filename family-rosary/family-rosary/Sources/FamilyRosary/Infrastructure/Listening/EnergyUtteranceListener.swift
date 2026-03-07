@@ -32,7 +32,12 @@ final class EnergyUtteranceListener: UtteranceListener {
             let emitInterval: TimeInterval = 0.2
 
             emitDebug(
-                .userTurnWaitingForSpeechStart(rms: 0, startThreshold: config.startThreshold),
+                .userTurnWaitingForSpeechStart(
+                    rms: 0,
+                    startThreshold: config.startThreshold,
+                    elapsed: 0,
+                    timeout: config.startTimeoutSec
+                ),
                 to: onPhaseChanged
             )
 
@@ -55,7 +60,12 @@ final class EnergyUtteranceListener: UtteranceListener {
                 case .waitingForSpeechStart:
                     if shouldEmit(now: now, lastEmitAt: lastWaitingEmitAt, minInterval: emitInterval) {
                         emitDebug(
-                            .userTurnWaitingForSpeechStart(rms: rms, startThreshold: config.startThreshold),
+                            .userTurnWaitingForSpeechStart(
+                                rms: rms,
+                                startThreshold: config.startThreshold,
+                                elapsed: snapshot.elapsedBeforeSpeechStart,
+                                timeout: config.startTimeoutSec
+                            ),
                             to: onPhaseChanged
                         )
                         lastWaitingEmitAt = now
