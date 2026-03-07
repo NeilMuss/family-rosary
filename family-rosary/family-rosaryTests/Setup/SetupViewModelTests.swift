@@ -7,6 +7,7 @@ final class SetupViewModelTests: XCTestCase {
         let store = InMemoryRosaryPreferencesStore()
         store.lastPartnerID = "mom"
         store.lastPrayerStyle = .alwaysRespond
+        store.lastPrayerMode = .automatic
 
         let viewModel = SetupViewModel(
             availablePartners: [
@@ -19,6 +20,22 @@ final class SetupViewModelTests: XCTestCase {
 
         XCTAssertEqual(viewModel.selectedPartnerID, "mom")
         XCTAssertEqual(viewModel.selectedStyle, .alwaysRespond)
+        XCTAssertEqual(viewModel.selectedMode, .automatic)
+    }
+
+    func test_default_mode_is_interactive_when_no_saved_value() {
+        let store = InMemoryRosaryPreferencesStore()
+
+        let viewModel = SetupViewModel(
+            availablePartners: [
+                PrayerPartner(id: "dad", displayName: "Dad"),
+                PrayerPartner(id: "mom", displayName: "Mom")
+            ],
+            preferencesStore: store,
+            onStartPraying: { _ in }
+        )
+
+        XCTAssertEqual(viewModel.selectedMode, .interactive)
     }
 
     func testOnTapPraySavesPreferencesAndEmitsRequest() {
@@ -38,17 +55,23 @@ final class SetupViewModelTests: XCTestCase {
 
         viewModel.selectedPartnerID = "mom"
         viewModel.selectedStyle = .alwaysLead
+        viewModel.selectedMode = .automatic
         viewModel.onTapPray()
 
         XCTAssertEqual(store.lastPartnerID, "mom")
         XCTAssertEqual(store.lastPrayerStyle, .alwaysLead)
-        XCTAssertEqual(receivedRequest, StartRosaryRequest(partnerID: "mom", prayerStyle: .alwaysLead))
+        XCTAssertEqual(store.lastPrayerMode, .automatic)
+        XCTAssertEqual(
+            receivedRequest,
+            StartRosaryRequest(partnerID: "mom", prayerStyle: .alwaysLead, prayerMode: .automatic)
+        )
     }
 }
 
 private final class InMemoryRosaryPreferencesStore: RosaryPreferencesStore {
     var lastPartnerID: String?
     var lastPrayerStyle: PrayerStyle?
+    var lastPrayerMode: PrayerMode?
 
     func loadLastPartnerID() -> String? {
         lastPartnerID
@@ -64,5 +87,13 @@ private final class InMemoryRosaryPreferencesStore: RosaryPreferencesStore {
 
     func saveLastPrayerStyle(_ style: PrayerStyle) {
         lastPrayerStyle = style
+    }
+
+    func loadLastPrayerMode() -> PrayerMode? {
+        lastPrayerMode
+    }
+
+    func saveLastPrayerMode(_ mode: PrayerMode) {
+        lastPrayerMode = mode
     }
 }

@@ -43,6 +43,22 @@ struct SetupView: View {
             .frame(maxWidth: .infinity, alignment: .leading)
             .padding(.horizontal, 24)
 
+            VStack(alignment: .leading, spacing: 12) {
+                Text("Mode")
+                    .font(.system(size: 22, weight: .semibold))
+
+                Picker("Mode", selection: $viewModel.selectedMode) {
+                    ForEach(PrayerMode.allCases) { mode in
+                        Text(mode.displayName)
+                            .tag(mode)
+                    }
+                }
+                .pickerStyle(.menu)
+                .font(.system(size: 24, weight: .medium))
+            }
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .padding(.horizontal, 24)
+
             Button(action: viewModel.onTapPray) {
                 Text("Pray")
                     .font(.system(size: 34, weight: .bold))

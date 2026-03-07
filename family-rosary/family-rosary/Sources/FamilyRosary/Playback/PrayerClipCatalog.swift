@@ -24,7 +24,7 @@ struct StaticPrayerClipCatalog: PrayerClipCatalog {
             person: "dad",
             dateRecorded: "2026-03-01",
             startSec: 4.82,
-            endSec: 28.18
+            endSec: 36.0
         ),
         PrayerClip(
             id: "dad:apostles_creed_response",

@@ -31,6 +31,7 @@ final class FamilyRosaryFlowViewModel: ObservableObject {
     private func startPraying(request: StartRosaryRequest) {
         let prayerModeViewModel = PrayerModeViewModel(
             prayViewModel: root.makePrayViewModel(personID: request.partnerID),
+            prayerMode: request.prayerMode,
             prayerStyle: request.prayerStyle,
             onEndRosary: { [weak self] in
                 self?.endRosarySession()

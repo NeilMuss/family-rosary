@@ -5,12 +5,15 @@ protocol RosaryPreferencesStore {
     func saveLastPartnerID(_ id: String)
     func loadLastPrayerStyle() -> PrayerStyle?
     func saveLastPrayerStyle(_ style: PrayerStyle)
+    func loadLastPrayerMode() -> PrayerMode?
+    func saveLastPrayerMode(_ mode: PrayerMode)
 }
 
 struct UserDefaultsRosaryPreferencesStore: RosaryPreferencesStore {
     private enum Keys {
         static let lastPartnerID = "rosary.lastPartnerID"
         static let lastPrayerStyle = "rosary.lastPrayerStyle"
+        static let lastPrayerMode = "rosary.lastPrayerMode"
     }
 
     private let userDefaults: UserDefaults
@@ -36,5 +39,16 @@ struct UserDefaultsRosaryPreferencesStore: RosaryPreferencesStore {
 
     func saveLastPrayerStyle(_ style: PrayerStyle) {
         userDefaults.set(style.rawValue, forKey: Keys.lastPrayerStyle)
+    }
+
+    func loadLastPrayerMode() -> PrayerMode? {
+        guard let rawValue = userDefaults.string(forKey: Keys.lastPrayerMode) else {
+            return nil
+        }
+        return PrayerMode(rawValue: rawValue)
+    }
+
+    func saveLastPrayerMode(_ mode: PrayerMode) {
+        userDefaults.set(mode.rawValue, forKey: Keys.lastPrayerMode)
     }
 }

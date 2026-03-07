@@ -27,14 +27,18 @@ struct PrayerModeView: View {
                 .multilineTextAlignment(.center)
                 .padding(.horizontal, 20)
 
-            Text(viewModel.displayState.countText)
-                .font(.system(size: 24, weight: .medium))
-                .foregroundStyle(.secondary)
+            if let countText = viewModel.displayState.countText {
+                Text(countText)
+                    .font(.system(size: 24, weight: .medium))
+                    .foregroundStyle(.secondary)
+            }
 
-            Text(viewModel.displayState.roleText)
-                .font(.system(size: 34, weight: .bold))
-                .multilineTextAlignment(.center)
-                .padding(.horizontal, 20)
+            if let rolePrompt = viewModel.displayState.rolePrompt {
+                Text(rolePrompt)
+                    .font(.system(size: 34, weight: .bold))
+                    .multilineTextAlignment(.center)
+                    .padding(.horizontal, 20)
+            }
 
             if let errorMessage = viewModel.errorMessage, !errorMessage.isEmpty {
                 Text(errorMessage)

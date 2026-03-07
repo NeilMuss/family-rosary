@@ -4,6 +4,7 @@ import Combine
 struct StartRosaryRequest: Equatable {
     let partnerID: String
     let prayerStyle: PrayerStyle
+    let prayerMode: PrayerMode
 }
 
 @MainActor
@@ -12,6 +13,7 @@ final class SetupViewModel: ObservableObject {
 
     @Published var selectedPartnerID: String
     @Published var selectedStyle: PrayerStyle
+    @Published var selectedMode: PrayerMode
 
     private let preferencesStore: RosaryPreferencesStore
     private var onStartPraying: (StartRosaryRequest) -> Void
@@ -34,6 +36,7 @@ final class SetupViewModel: ObservableObject {
         }
 
         selectedStyle = preferencesStore.loadLastPrayerStyle() ?? .alternateIStart
+        selectedMode = preferencesStore.loadLastPrayerMode() ?? .interactive
     }
 
     func onTapPray() {
@@ -41,11 +44,13 @@ final class SetupViewModel: ObservableObject {
 
         preferencesStore.saveLastPartnerID(selectedPartnerID)
         preferencesStore.saveLastPrayerStyle(selectedStyle)
+        preferencesStore.saveLastPrayerMode(selectedMode)
 
         onStartPraying(
             StartRosaryRequest(
                 partnerID: selectedPartnerID,
-                prayerStyle: selectedStyle
+                prayerStyle: selectedStyle,
+                prayerMode: selectedMode
             )
         )
     }
