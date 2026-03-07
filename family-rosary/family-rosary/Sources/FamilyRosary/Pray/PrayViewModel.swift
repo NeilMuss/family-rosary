@@ -43,6 +43,7 @@ final class PrayViewModel: ObservableObject {
         #if DEBUG
         debugText = ""
         latestDebugStatus = nil
+        DebugLog.shared.log("MODE \(isInteractive ? "interactive" : "automatic")")
         #endif
         showMicrophoneDeniedAlert = false
 
@@ -64,6 +65,9 @@ final class PrayViewModel: ObservableObject {
                 self.debugText = ""
                 #endif
                 self.showMicrophoneDeniedAlert = true
+                #if DEBUG
+                DebugLog.shared.log("MIC permissionDenied")
+                #endif
                 return
             }
 
@@ -80,6 +84,7 @@ final class PrayViewModel: ObservableObject {
         #if DEBUG
         debugText = ""
         latestDebugStatus = nil
+        DebugLog.shared.log("PRAYER stopped")
         #endif
     }
 
@@ -118,6 +123,9 @@ final class PrayViewModel: ObservableObject {
                             let formatted = Self.format(debugStatus: status)
                             self.debugText = formatted
                             self.appendDebugLine(formatted)
+                            if let eventLine = Self.eventLineForDebugLog(status) {
+                                DebugLog.shared.log(eventLine)
+                            }
                         }
                     }
                 )
@@ -133,6 +141,9 @@ final class PrayViewModel: ObservableObject {
                 if self.errorMessage == nil || self.errorMessage?.isEmpty == true {
                     self.errorMessage = error.localizedDescription
                 }
+                #if DEBUG
+                DebugLog.shared.log("PRAYER error \(error.localizedDescription)")
+                #endif
             }
         }
     }
@@ -290,6 +301,39 @@ final class PrayViewModel: ObservableObject {
             phaseText = "failed: \(message)"
         }
         return "\(debugStatus.stepSummary) • \(phaseText)"
+    }
+
+    private static func eventLineForDebugLog(_ status: PrayDebugStatus) -> String? {
+        switch status.listenerPhase {
+        case .userTurnWaitingForSpeechStart(let rms, _, let elapsed, let timeout):
+            return String(
+                format: "USER_TURN waitingForSpeechStart MIC level=%.4f start=%.2f/%.2f",
+                rms,
+                elapsed,
+                timeout
+            )
+        case .userTurnSpeechStarted:
+            return "USER_TURN speechStarted"
+        case .userTurnSpeaking(let rms):
+            return String(format: "USER_TURN speaking MIC level=%.4f", rms)
+        case .userTurnWaitingForSpeechEnd(let rms, let silenceElapsed, let required):
+            return String(
+                format: "USER_TURN waitingForSpeechEnd MIC level=%.4f silence=%.2f/%.2f",
+                rms,
+                silenceElapsed,
+                required
+            )
+        case .userTurnCompleted:
+            return "USER_TURN completedByUser"
+        case .userTurnStartTimedOut:
+            return "USER_TURN startTimedOut -> fallback"
+        case .userTurnMaxDurationExceeded:
+            return "USER_TURN maxDurationExceeded -> continue"
+        case .failed(let message):
+            return "USER_TURN failed \(message)"
+        default:
+            return nil
+        }
     }
     #endif
 }

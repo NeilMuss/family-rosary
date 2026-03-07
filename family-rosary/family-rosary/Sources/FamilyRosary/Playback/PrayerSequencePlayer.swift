@@ -123,11 +123,14 @@ final class PrayerSequencePlayer: PrayerSequencePlaying {
                 }
                 #if DEBUG
                 emitDebug(stepSummary: "USER_TURN startTimedOut -> fallback", phase: .userTurnStartTimedOut)
+                DebugLog.shared.log("USER_TURN startTimedOut -> fallback")
+                DebugLog.shared.log("USER_TURN fallbackPlayingSeed")
                 #endif
                 try await play(asset: fallbackAsset)
             } else if waitResult == .maxDurationExceeded {
                 #if DEBUG
                 emitDebug(stepSummary: "USER_TURN maxDurationExceeded -> continue", phase: .userTurnMaxDurationExceeded)
+                DebugLog.shared.log("USER_TURN maxDurationExceeded -> continue")
                 #endif
             }
         }

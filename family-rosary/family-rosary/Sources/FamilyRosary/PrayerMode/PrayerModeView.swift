@@ -4,8 +4,7 @@ struct PrayerModeView: View {
     @ObservedObject var viewModel: PrayerModeViewModel
 
     var body: some View {
-        ZStack(alignment: .bottomLeading) {
-            VStack(spacing: 20) {
+        VStack(spacing: 20) {
             HStack {
                 Spacer()
 
@@ -60,31 +59,12 @@ struct PrayerModeView: View {
             .buttonStyle(.borderedProminent)
             .padding(.horizontal, 20)
             .padding(.bottom, 24)
-            }
 
             #if DEBUG
-            let showsDebugOverlay = true
-            if showsDebugOverlay, let debug = viewModel.prayerDebugState {
-                VStack(alignment: .leading, spacing: 3) {
-                    Text(debug.modeText)
-                    Text(debug.roleText)
-                    Text(debug.listenerStateText)
-                    Text(debug.micLevelText)
-                    Text(debug.didStartSpeakingText)
-                    Text(debug.fallbackArmedText)
-                    Text(debug.startTimeoutText)
-                    Text(debug.silenceText)
-                    Text(debug.prayerText)
-                }
-                .font(.system(size: 11, weight: .regular, design: .monospaced))
-                .foregroundStyle(.white)
-                .padding(8)
-                .background(Color.black.opacity(0.62))
-                .clipShape(RoundedRectangle(cornerRadius: 8))
-                .padding(.leading, 12)
-                .padding(.bottom, 12)
-                .allowsHitTesting(false)
-            }
+            DebugLogView()
+                .frame(height: 140)
+                .padding(.horizontal, 20)
+                .padding(.bottom, 8)
             #endif
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity)
