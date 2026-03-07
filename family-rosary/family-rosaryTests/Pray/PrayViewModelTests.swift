@@ -4,7 +4,7 @@ import XCTest
 
 @MainActor
 final class PrayViewModelTests: XCTestCase {
-    func testOnTapPrayBuildsAndPlaysFullDecadeSequence() async {
+    func testOnTapPrayBuildsAndPlaysFullRosarySequence() async {
         let fakeSequencePlayer = FakePrayerSequencePlayer(blockUntilReleased: true)
         let resolver = FakeAudioFileResolver()
         seedResolver(resolver)
@@ -20,7 +20,7 @@ final class PrayViewModelTests: XCTestCase {
         await Task.yield()
 
         XCTAssertTrue(fakeSequencePlayer.playCalled)
-        XCTAssertEqual(fakeSequencePlayer.receivedSteps.count, 48)
+        XCTAssertEqual(fakeSequencePlayer.receivedSteps.count, 278)
         XCTAssertEqual(
             fakeSequencePlayer.receivedSteps[0],
             .play(
@@ -90,6 +90,11 @@ final class PrayViewModelTests: XCTestCase {
         resolver.stub(personID: "dad", token: "our_father_response", path: "/tmp/dad_our_father_response.m4a")
         resolver.stub(personID: "dad", token: "hail_lead", path: "/tmp/dad_hail_lead.m4a")
         resolver.stub(personID: "dad", token: "hail_response", path: "/tmp/dad_hail_response.m4a")
+        resolver.stub(personID: "dad", token: "glory_be_lead", path: "/tmp/dad_glory_be_lead.m4a")
+        resolver.stub(personID: "dad", token: "glory_be_response", path: "/tmp/dad_glory_be_response.m4a")
+        resolver.stub(personID: "dad", token: "fatima", path: "/tmp/dad_fatima.m4a")
+        resolver.stub(personID: "dad", token: "hail_holy_queen_lead", path: "/tmp/dad_hail_holy_queen_lead.m4a")
+        resolver.stub(personID: "dad", token: "hail_holy_queen_response", path: "/tmp/dad_hail_holy_queen_response.m4a")
     }
 }
 

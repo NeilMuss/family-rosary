@@ -84,6 +84,17 @@ struct AppCompositionRoot {
         { FamilyRosaryPaths.baseDirURL() }
     }
 
+    func makeRosaryPreferencesStore() -> RosaryPreferencesStore {
+        UserDefaultsRosaryPreferencesStore()
+    }
+
+    func makeAvailablePrayerPartners() -> [PrayerPartner] {
+        [
+            PrayerPartner(id: "dad", displayName: "Dad"),
+            PrayerPartner(id: "mom", displayName: "Mom")
+        ]
+    }
+
     @MainActor
     func makeRecordPrayerViewModel(
         personID: String,
@@ -118,8 +129,9 @@ struct AppCompositionRoot {
     }
 
     @MainActor
-    func makePrayViewModel() -> PrayViewModel {
+    func makePrayViewModel(personID: String = "dad") -> PrayViewModel {
         return PrayViewModel(
+            personID: personID,
             sequencePlayer: makePrayerSequencePlayer(),
             resolver: makeAudioFileResolver(),
             microphonePermissionClient: makeMicrophonePermissionClient()
@@ -137,6 +149,11 @@ struct AppCompositionRoot {
             prayViewModel: makePrayViewModel(),
             importViewModel: makeImportAudioViewModel()
         )
+    }
+
+    @MainActor
+    func makeFamilyRosaryFlowViewModel() -> FamilyRosaryFlowViewModel {
+        FamilyRosaryFlowViewModel(root: self)
     }
 
     #if DEBUG

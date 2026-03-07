@@ -132,7 +132,14 @@ final class PrayViewModel: ObservableObject {
     }
 
     private func buildPrayerSteps() -> [PrayerSequenceStep]? {
-        let planItems = RosaryDecadePlanBuilder().build(interactive: isInteractive)
+        let planItems: [RosaryPlanItem]
+        if isInteractive {
+            planItems = RosaryDecadePlanBuilder().build(interactive: true)
+        } else {
+            planItems = RosarySequenceBuilder
+                .makeStandardRosary()
+                .map { $0.planItem }
+        }
         var steps: [PrayerSequenceStep] = []
         steps.reserveCapacity(planItems.count * 2)
 
@@ -229,4 +236,77 @@ final class PrayViewModel: ObservableObject {
         return "\(debugStatus.stepSummary) • \(phaseText)"
     }
     #endif
+}
+
+private extension PrayerType {
+    var planItem: RosaryPlanItem {
+        switch self {
+        case .apostlesCreedLead:
+            return .play(
+                token: "apostles_creed_lead",
+                pauseAfterMs: 250,
+                prompt: PrayerPrompt(title: "Listen", text: "I believe in God, the Father almighty...")
+            )
+        case .apostlesCreedResponse:
+            return .play(
+                token: "apostles_creed_response",
+                pauseAfterMs: 400,
+                prompt: PrayerPrompt(title: "Listen", text: "I believe in God, the Father almighty...")
+            )
+        case .ourFatherLead:
+            return .play(
+                token: "our_father_lead",
+                pauseAfterMs: 400,
+                prompt: PrayerPrompt(title: "Listen", text: "Our Father, who art in heaven...")
+            )
+        case .ourFatherResponse:
+            return .play(
+                token: "our_father_response",
+                pauseAfterMs: 400,
+                prompt: PrayerPrompt(title: "Listen", text: "Our Father, who art in heaven...")
+            )
+        case .hailMaryLead:
+            return .play(
+                token: "hail_lead",
+                pauseAfterMs: 400,
+                prompt: PrayerPrompt(title: "Listen", text: "Hail Mary, full of grace...")
+            )
+        case .hailMaryResponse:
+            return .play(
+                token: "hail_response",
+                pauseAfterMs: 0,
+                prompt: PrayerPrompt(title: "Listen", text: "Hail Mary, full of grace...")
+            )
+        case .gloryBeLead:
+            return .play(
+                token: "glory_be_lead",
+                pauseAfterMs: 300,
+                prompt: PrayerPrompt(title: "Listen", text: "Glory be to the Father...")
+            )
+        case .gloryBeResponse:
+            return .play(
+                token: "glory_be_response",
+                pauseAfterMs: 300,
+                prompt: PrayerPrompt(title: "Listen", text: "Glory be to the Father...")
+            )
+        case .fatima:
+            return .play(
+                token: "fatima",
+                pauseAfterMs: 300,
+                prompt: PrayerPrompt(title: "Listen", text: "O my Jesus, forgive us our sins...")
+            )
+        case .hailHolyQueenLead:
+            return .play(
+                token: "hail_holy_queen_lead",
+                pauseAfterMs: 400,
+                prompt: PrayerPrompt(title: "Listen", text: "Hail, holy Queen, Mother of mercy...")
+            )
+        case .hailHolyQueenResponse:
+            return .play(
+                token: "hail_holy_queen_response",
+                pauseAfterMs: 0,
+                prompt: PrayerPrompt(title: "Listen", text: "Hail, holy Queen, Mother of mercy...")
+            )
+        }
+    }
 }
