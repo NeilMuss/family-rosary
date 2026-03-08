@@ -2,6 +2,9 @@ import AVFoundation
 import Foundation
 
 final class AVAudioClipPlaybackClient: NSObject, AudioPlaybackClient {
+    private let clipFadeInSec: Double = 0.015
+    private let clipFadeOutSec: Double = 0.015
+
     private let sleeper: Sleeper
     private var player: AVAudioPlayer?
     private var continuation: CheckedContinuation<Void, Error>?
@@ -43,7 +46,6 @@ final class AVAudioClipPlaybackClient: NSObject, AudioPlaybackClient {
 
         let player = try AVAudioPlayer(contentsOf: url)
         player.delegate = self
-        player.prepareToPlay()
 
         let start = max(0, startSec)
         let end = min(player.duration, endSec)
@@ -52,7 +54,29 @@ final class AVAudioClipPlaybackClient: NSObject, AudioPlaybackClient {
             return
         }
 
+        let clipDurationSec = end - start
+        let fades = clampedClipFades(durationSec: clipDurationSec)
+        #if DEBUG
+        DebugLog.shared.log(
+            String(
+                format: "PLAY_CLIP start=%.3f end=%.3f duration=%.3f",
+                start,
+                end,
+                clipDurationSec
+            )
+        )
+        DebugLog.shared.log(
+            String(
+                format: "PLAY_CLIP fadeIn=%.3f fadeOut=%.3f",
+                fades.fadeInSec,
+                fades.fadeOutSec
+            )
+        )
+        #endif
+
+        player.volume = 0
         player.currentTime = start
+        player.prepareToPlay()
         self.player = player
 
         try await withCheckedThrowingContinuation { continuation in
@@ -68,10 +92,18 @@ final class AVAudioClipPlaybackClient: NSObject, AudioPlaybackClient {
                 return
             }
 
-            let durationMs = max(1, Int(((end - start) * 1000).rounded()))
+            player.setVolume(1.0, fadeDuration: TimeInterval(fades.fadeInSec))
+
+            let fadeOutStartSec = max(0, clipDurationSec - fades.fadeOutSec)
             self.stopTask = Task { [weak self] in
-                await self?.sleeper.sleep(ms: durationMs)
+                await self?.sleeper.sleep(ms: max(1, Int((fadeOutStartSec * 1000).rounded())))
                 guard let self, let player = self.player, player.isPlaying else { return }
+
+                if fades.fadeOutSec > 0 {
+                    player.setVolume(0, fadeDuration: TimeInterval(fades.fadeOutSec))
+                    await self.sleeper.sleep(ms: max(1, Int((fades.fadeOutSec * 1000).rounded())))
+                }
+                guard let player = self.player, player.isPlaying else { return }
                 player.stop()
                 self.finish(error: nil)
             }
@@ -96,6 +128,21 @@ final class AVAudioClipPlaybackClient: NSObject, AudioPlaybackClient {
         } else {
             continuation.resume()
         }
+    }
+
+    private func clampedClipFades(durationSec: Double) -> (fadeInSec: Double, fadeOutSec: Double) {
+        let desiredIn = clipFadeInSec
+        let desiredOut = clipFadeOutSec
+        let desiredTotal = desiredIn + desiredOut
+        guard desiredTotal > 0, durationSec > 0 else {
+            return (0, 0)
+        }
+        if desiredTotal <= durationSec {
+            return (desiredIn, desiredOut)
+        }
+
+        let scale = durationSec / desiredTotal
+        return (desiredIn * scale, desiredOut * scale)
     }
 }
 
