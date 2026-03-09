@@ -1,0 +1,42 @@
+name: TestFlight
+
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - main
+
+jobs:
+  beta:
+    runs-on: macos-latest
+    timeout-minutes: 60
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Ruby
+        uses: ruby/setup-ruby@v1
+        with:
+          ruby-version: '3.2'
+
+      - name: Install gems
+        run: |
+          bundle config set path vendor/bundle
+          bundle install --jobs 4 --retry 3
+
+      - name: Build and upload to TestFlight
+        env:
+          ASC_KEY_ID: ${{ secrets.ASC_KEY_ID }}
+          ASC_ISSUER_ID: ${{ secrets.ASC_ISSUER_ID }}
+          ASC_KEY_P8: ${{ secrets.ASC_KEY_P8 }}
+          MATCH_PASSWORD: ${{ secrets.MATCH_PASSWORD }}
+          MATCH_GIT_URL: ${{ secrets.MATCH_GIT_URL }}
+          MATCH_GIT_BASIC_AUTHORIZATION: ${{ secrets.MATCH_GIT_BASIC_AUTHORIZATION }}
+          MATCH_GIT_BRANCH: ${{ secrets.MATCH_GIT_BRANCH }}
+          MATCH_READONLY: ${{ secrets.MATCH_READONLY }}
+          APP_IDENTIFIER: ${{ secrets.APP_IDENTIFIER }}
+          XCODE_SCHEME: ${{ secrets.XCODE_SCHEME }}
+          XCODE_WORKSPACE: ${{ secrets.XCODE_WORKSPACE }}
+          XCODE_PROJECT: ${{ secrets.XCODE_PROJECT }}
+        run: bundle exec fastlane beta
