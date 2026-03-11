@@ -1,9 +1,11 @@
-storage_mode("git")
 git_url(ENV.fetch("MATCH_GIT_URL"))
-git_branch(ENV.fetch("MATCH_GIT_BRANCH", "main"))
-
-git_basic_authorization(ENV["MATCH_GIT_BASIC_AUTHORIZATION"]) if ENV["MATCH_GIT_BASIC_AUTHORIZATION"]
+storage_mode("git")
 
 type("appstore")
-app_identifier([ENV.fetch("APP_IDENTIFIER")])
-readonly(ENV.fetch("MATCH_READONLY", "true") == "true")
+app_identifier(["com.neilmussett.familyrosary"])
+username("")
+
+team_id("438L645H48")
+
+git_branch("main")
+readonly(false)

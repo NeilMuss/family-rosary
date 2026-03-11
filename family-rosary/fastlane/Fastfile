@@ -5,26 +5,6 @@ def ensure_env!(keys)
   UI.user_error!("Missing required environment variables: #{missing.join(', ')}") unless missing.empty?
 end
 
-def resolve_build_options
-  scheme = ENV.fetch("XCODE_SCHEME")
-  workspace = ENV["XCODE_WORKSPACE"].to_s.strip
-  project = ENV["XCODE_PROJECT"].to_s.strip
-
-  if workspace.empty? && project.empty?
-    UI.user_error!("Set XCODE_WORKSPACE or XCODE_PROJECT")
-  end
-
-  options = {
-    scheme: scheme,
-    clean: true,
-    export_method: "app-store"
-  }
-
-  options[:workspace] = workspace unless workspace.empty?
-  options[:project] = project unless project.empty?
-  options
-end
-
 def write_temp_asc_key
   raw = ENV.fetch("ASC_KEY_P8")
   normalized = raw.include?("\\n") ? raw.gsub("\\n", "\n") : raw
@@ -40,35 +20,65 @@ platform :ios do
       ASC_KEY_ID
       ASC_ISSUER_ID
       ASC_KEY_P8
-      APP_IDENTIFIER
-      XCODE_SCHEME
       MATCH_GIT_URL
       MATCH_PASSWORD
     ])
 
     key_path = write_temp_asc_key
 
-    api_key = app_store_connect_api_key(
-      key_id: ENV.fetch("ASC_KEY_ID"),
-      issuer_id: ENV.fetch("ASC_ISSUER_ID"),
-      key_filepath: key_path,
-      duration: 1200
-    )
+    begin
+      api_key = app_store_connect_api_key(
+        key_id: ENV.fetch("ASC_KEY_ID"),
+        issuer_id: ENV.fetch("ASC_ISSUER_ID"),
+        key_filepath: key_path,
+        duration: 1200
+      )
 
-    match(
-      type: "appstore",
-      app_identifier: [ENV.fetch("APP_IDENTIFIER")],
-      readonly: ENV.fetch("MATCH_READONLY", "true") == "true",
-      api_key: api_key
-    )
+      version = get_version_number(
+        xcodeproj: "family-rosary.xcodeproj",
+        target: "family-rosary"
+      )
 
-    gym(**resolve_build_options)
+      latest_build =
+        begin
+          latest_testflight_build_number(
+            api_key: api_key,
+            app_identifier: "com.neilmussett.familyrosary",
+            version: version
+          )
+        rescue
+          0
+        end
 
-    pilot(
-      api_key: api_key,
-      skip_waiting_for_build_processing: true
-    )
-  ensure
-    File.delete(key_path) if key_path && File.exist?(key_path)
+      new_build = latest_build + 1
+
+      UI.message("Setting build number to #{new_build}")
+
+      increment_build_number(
+        xcodeproj: "family-rosary.xcodeproj",
+        build_number: new_build.to_s
+      )
+
+      match(
+        type: "appstore",
+        app_identifier: ["com.neilmussett.familyrosary"],
+        readonly: ENV.fetch("MATCH_READONLY", "true") == "true",
+        api_key: api_key
+      )
+
+      gym(
+        project: "family-rosary.xcodeproj",
+        scheme: "family-rosary",
+        clean: true,
+        export_method: "app-store"
+      )
+
+      pilot(
+        api_key: api_key,
+        skip_waiting_for_build_processing: true
+      )
+    ensure
+      File.delete(key_path) if key_path && File.exist?(key_path)
+    end
   end
 end
