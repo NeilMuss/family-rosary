@@ -64,6 +64,17 @@
                ReferencedContainer = "container:family-rosary.xcodeproj">
             </BuildableReference>
          </TestableReference>
+         <TestableReference
+            skipped = "NO"
+            parallelizable = "YES">
+            <BuildableReference
+               BuildableIdentifier = "primary"
+               BlueprintIdentifier = "FE9103562F49DABE00C9BC5B"
+               BuildableName = "family-rosaryUITests.xctest"
+               BlueprintName = "family-rosaryUITests"
+               ReferencedContainer = "container:family-rosary.xcodeproj">
+            </BuildableReference>
+         </TestableReference>
       </Testables>
    </TestAction>
    <LaunchAction

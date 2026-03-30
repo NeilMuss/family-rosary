@@ -164,6 +164,30 @@ struct AppCompositionRoot {
     }
 
     @MainActor
+    func makeShareImportPreviewViewModel() -> ShareImportPreviewViewModel {
+        let configuration = SharedImportConfiguration.fromMainBundle()
+        let paths = SharedImportPaths(appGroupIdentifier: configuration.appGroupIdentifier)
+        let discovery = SharedRecordingDiscoveryService(paths: paths)
+        let store = FileBackedImportedRecordingStore(
+            indexFileURL: FamilyRosaryPaths.importedRecordingIndexFileURL(baseDirURL: makeBaseDirURLProvider()())
+        )
+        let pipeline = SharedRecordingImportPipeline(
+            paths: paths,
+            discoveryService: discovery,
+            audioInspector: AVSharedAudioInspector(),
+            recordingStore: store,
+            baseDirURLProvider: makeBaseDirURLProvider()
+        )
+        return ShareImportPreviewViewModel(
+            discoveryService: discovery,
+            audioInspector: AVSharedAudioInspector(),
+            pipeline: pipeline,
+            deepLinkHandler: ShareImportDeepLinkHandler(configuration: configuration),
+            previewPlayer: AVSharedImportPreviewPlayer()
+        )
+    }
+
+    @MainActor
     func makeMicrophoneCheckViewModel(
         onStartPrayer: @escaping (InteractiveCalibration?) -> Void,
         onBack: @escaping () -> Void

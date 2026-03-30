@@ -6,7 +6,18 @@
 	objectVersion = 77;
 	objects = {
 
+/* Begin PBXBuildFile section */
+		FE80E0CA2F7AE8F200C919CD /* FamilyRosaryShareExtension.appex in Embed Foundation Extensions */ = {isa = PBXBuildFile; fileRef = FE80E0C02F7AE8F200C919CD /* FamilyRosaryShareExtension.appex */; settings = {ATTRIBUTES = (RemoveHeadersOnCopy, ); }; };
+/* End PBXBuildFile section */
+
 /* Begin PBXContainerItemProxy section */
+		FE80E0C82F7AE8F200C919CD /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = FE9103382F49DABC00C9BC5B /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = FE80E0BF2F7AE8F200C919CD;
+			remoteInfo = FamilyRosaryShareExtension;
+		};
 		FE91034E2F49DABE00C9BC5B /* PBXContainerItemProxy */ = {
 			isa = PBXContainerItemProxy;
 			containerPortal = FE9103382F49DABC00C9BC5B /* Project object */;
@@ -23,13 +34,46 @@
 		};
 /* End PBXContainerItemProxy section */
 
+/* Begin PBXCopyFilesBuildPhase section */
+		FE80E0CF2F7AE8F200C919CD /* Embed Foundation Extensions */ = {
+			isa = PBXCopyFilesBuildPhase;
+			buildActionMask = 2147483647;
+			dstPath = "";
+			dstSubfolderSpec = 13;
+			files = (
+				FE80E0CA2F7AE8F200C919CD /* FamilyRosaryShareExtension.appex in Embed Foundation Extensions */,
+			);
+			name = "Embed Foundation Extensions";
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXCopyFilesBuildPhase section */
+
 /* Begin PBXFileReference section */
+		FE80E0C02F7AE8F200C919CD /* FamilyRosaryShareExtension.appex */ = {isa = PBXFileReference; explicitFileType = "wrapper.app-extension"; includeInIndex = 0; path = FamilyRosaryShareExtension.appex; sourceTree = BUILT_PRODUCTS_DIR; };
 		FE9103402F49DABC00C9BC5B /* family-rosary.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = "family-rosary.app"; sourceTree = BUILT_PRODUCTS_DIR; };
 		FE91034D2F49DABE00C9BC5B /* family-rosaryTests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = "family-rosaryTests.xctest"; sourceTree = BUILT_PRODUCTS_DIR; };
 		FE9103572F49DABE00C9BC5B /* family-rosaryUITests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = "family-rosaryUITests.xctest"; sourceTree = BUILT_PRODUCTS_DIR; };
 /* End PBXFileReference section */
 
+/* Begin PBXFileSystemSynchronizedBuildFileExceptionSet section */
+		FE80E0CB2F7AE8F200C919CD /* Exceptions for "FamilyRosaryShareExtension" folder in "FamilyRosaryShareExtension" target */ = {
+			isa = PBXFileSystemSynchronizedBuildFileExceptionSet;
+			membershipExceptions = (
+				Info.plist,
+			);
+			target = FE80E0BF2F7AE8F200C919CD /* FamilyRosaryShareExtension */;
+		};
+/* End PBXFileSystemSynchronizedBuildFileExceptionSet section */
+
 /* Begin PBXFileSystemSynchronizedRootGroup section */
+		FE80E0C12F7AE8F200C919CD /* FamilyRosaryShareExtension */ = {
+			isa = PBXFileSystemSynchronizedRootGroup;
+			exceptions = (
+				FE80E0CB2F7AE8F200C919CD /* Exceptions for "FamilyRosaryShareExtension" folder in "FamilyRosaryShareExtension" target */,
+			);
+			path = FamilyRosaryShareExtension;
+			sourceTree = "<group>";
+		};
 		FE9103422F49DABC00C9BC5B /* family-rosary */ = {
 			isa = PBXFileSystemSynchronizedRootGroup;
 			path = "family-rosary";
@@ -48,6 +92,13 @@
 /* End PBXFileSystemSynchronizedRootGroup section */
 
 /* Begin PBXFrameworksBuildPhase section */
+		FE80E0BD2F7AE8F200C919CD /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
 		FE91033D2F49DABC00C9BC5B /* Frameworks */ = {
 			isa = PBXFrameworksBuildPhase;
 			buildActionMask = 2147483647;
@@ -78,6 +129,7 @@
 				FE9103422F49DABC00C9BC5B /* family-rosary */,
 				FE9103502F49DABE00C9BC5B /* family-rosaryTests */,
 				FE91035A2F49DABE00C9BC5B /* family-rosaryUITests */,
+				FE80E0C12F7AE8F200C919CD /* FamilyRosaryShareExtension */,
 				FE9103412F49DABC00C9BC5B /* Products */,
 			);
 			sourceTree = "<group>";
@@ -88,6 +140,7 @@
 				FE9103402F49DABC00C9BC5B /* family-rosary.app */,
 				FE91034D2F49DABE00C9BC5B /* family-rosaryTests.xctest */,
 				FE9103572F49DABE00C9BC5B /* family-rosaryUITests.xctest */,
+				FE80E0C02F7AE8F200C919CD /* FamilyRosaryShareExtension.appex */,
 			);
 			name = Products;
 			sourceTree = "<group>";
@@ -95,6 +148,28 @@
 /* End PBXGroup section */
 
 /* Begin PBXNativeTarget section */
+		FE80E0BF2F7AE8F200C919CD /* FamilyRosaryShareExtension */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = FE80E0CC2F7AE8F200C919CD /* Build configuration list for PBXNativeTarget "FamilyRosaryShareExtension" */;
+			buildPhases = (
+				FE80E0BC2F7AE8F200C919CD /* Sources */,
+				FE80E0BD2F7AE8F200C919CD /* Frameworks */,
+				FE80E0BE2F7AE8F200C919CD /* Resources */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+			);
+			fileSystemSynchronizedGroups = (
+				FE80E0C12F7AE8F200C919CD /* FamilyRosaryShareExtension */,
+			);
+			name = FamilyRosaryShareExtension;
+			packageProductDependencies = (
+			);
+			productName = FamilyRosaryShareExtension;
+			productReference = FE80E0C02F7AE8F200C919CD /* FamilyRosaryShareExtension.appex */;
+			productType = "com.apple.product-type.app-extension";
+		};
 		FE91033F2F49DABC00C9BC5B /* family-rosary */ = {
 			isa = PBXNativeTarget;
 			buildConfigurationList = FE9103612F49DABF00C9BC5B /* Build configuration list for PBXNativeTarget "family-rosary" */;
@@ -102,10 +177,12 @@
 				FE91033C2F49DABC00C9BC5B /* Sources */,
 				FE91033D2F49DABC00C9BC5B /* Frameworks */,
 				FE91033E2F49DABC00C9BC5B /* Resources */,
+				FE80E0CF2F7AE8F200C919CD /* Embed Foundation Extensions */,
 			);
 			buildRules = (
 			);
 			dependencies = (
+				FE80E0C92F7AE8F200C919CD /* PBXTargetDependency */,
 			);
 			fileSystemSynchronizedGroups = (
 				FE9103422F49DABC00C9BC5B /* family-rosary */,
@@ -173,6 +250,9 @@
 				LastSwiftUpdateCheck = 2620;
 				LastUpgradeCheck = 2620;
 				TargetAttributes = {
+					FE80E0BF2F7AE8F200C919CD = {
+						CreatedOnToolsVersion = 26.2;
+					};
 					FE91033F2F49DABC00C9BC5B = {
 						CreatedOnToolsVersion = 26.2;
 					};
@@ -203,11 +283,19 @@
 				FE91033F2F49DABC00C9BC5B /* family-rosary */,
 				FE91034C2F49DABE00C9BC5B /* family-rosaryTests */,
 				FE9103562F49DABE00C9BC5B /* family-rosaryUITests */,
+				FE80E0BF2F7AE8F200C919CD /* FamilyRosaryShareExtension */,
 			);
 		};
 /* End PBXProject section */
 
 /* Begin PBXResourcesBuildPhase section */
+		FE80E0BE2F7AE8F200C919CD /* Resources */ = {
+			isa = PBXResourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
 		FE91033E2F49DABC00C9BC5B /* Resources */ = {
 			isa = PBXResourcesBuildPhase;
 			buildActionMask = 2147483647;
@@ -232,6 +320,13 @@
 /* End PBXResourcesBuildPhase section */
 
 /* Begin PBXSourcesBuildPhase section */
+		FE80E0BC2F7AE8F200C919CD /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
 		FE91033C2F49DABC00C9BC5B /* Sources */ = {
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
@@ -256,6 +351,11 @@
 /* End PBXSourcesBuildPhase section */
 
 /* Begin PBXTargetDependency section */
+		FE80E0C92F7AE8F200C919CD /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = FE80E0BF2F7AE8F200C919CD /* FamilyRosaryShareExtension */;
+			targetProxy = FE80E0C82F7AE8F200C919CD /* PBXContainerItemProxy */;
+		};
 		FE91034F2F49DABE00C9BC5B /* PBXTargetDependency */ = {
 			isa = PBXTargetDependency;
 			target = FE91033F2F49DABC00C9BC5B /* family-rosary */;
@@ -269,6 +369,66 @@
 /* End PBXTargetDependency section */
 
 /* Begin XCBuildConfiguration section */
+		FE80E0CD2F7AE8F200C919CD /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				CODE_SIGN_ENTITLEMENTS = FamilyRosaryShareExtension/FamilyRosaryShareExtension.entitlements;
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = 1;
+				DEVELOPMENT_TEAM = 438L645H48;
+				GENERATE_INFOPLIST_FILE = YES;
+				INFOPLIST_FILE = FamilyRosaryShareExtension/Info.plist;
+				INFOPLIST_KEY_CFBundleDisplayName = FamilyRosaryShareExtension;
+				INFOPLIST_KEY_NSHumanReadableCopyright = "";
+				IPHONEOS_DEPLOYMENT_TARGET = 26.2;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+					"@executable_path/../../Frameworks",
+				);
+				MARKETING_VERSION = 1.0;
+				PRODUCT_BUNDLE_IDENTIFIER = com.neilmussett.familyrosary.FamilyRosaryShareExtension;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SKIP_INSTALL = YES;
+				STRING_CATALOG_GENERATE_SYMBOLS = YES;
+				SWIFT_APPROACHABLE_CONCURRENCY = YES;
+				SWIFT_EMIT_LOC_STRINGS = YES;
+				SWIFT_UPCOMING_FEATURE_MEMBER_IMPORT_VISIBILITY = YES;
+				SWIFT_VERSION = 5.0;
+				TARGETED_DEVICE_FAMILY = "1,2";
+			};
+			name = Debug;
+		};
+		FE80E0CE2F7AE8F200C919CD /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				CODE_SIGN_ENTITLEMENTS = FamilyRosaryShareExtension/FamilyRosaryShareExtension.entitlements;
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = 1;
+				DEVELOPMENT_TEAM = 438L645H48;
+				GENERATE_INFOPLIST_FILE = YES;
+				INFOPLIST_FILE = FamilyRosaryShareExtension/Info.plist;
+				INFOPLIST_KEY_CFBundleDisplayName = FamilyRosaryShareExtension;
+				INFOPLIST_KEY_NSHumanReadableCopyright = "";
+				IPHONEOS_DEPLOYMENT_TARGET = 26.2;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+					"@executable_path/../../Frameworks",
+				);
+				MARKETING_VERSION = 1.0;
+				PRODUCT_BUNDLE_IDENTIFIER = com.neilmussett.familyrosary.FamilyRosaryShareExtension;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SKIP_INSTALL = YES;
+				STRING_CATALOG_GENERATE_SYMBOLS = YES;
+				SWIFT_APPROACHABLE_CONCURRENCY = YES;
+				SWIFT_EMIT_LOC_STRINGS = YES;
+				SWIFT_UPCOMING_FEATURE_MEMBER_IMPORT_VISIBILITY = YES;
+				SWIFT_VERSION = 5.0;
+				TARGETED_DEVICE_FAMILY = "1,2";
+			};
+			name = Release;
+		};
 		FE91035F2F49DABF00C9BC5B /* Debug */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
@@ -395,11 +555,16 @@
 			buildSettings = {
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
 				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
+				CODE_SIGN_ENTITLEMENTS = "family-rosary/family-rosary.entitlements";
 				CODE_SIGN_STYLE = Automatic;
 				CURRENT_PROJECT_VERSION = 1;
 				DEVELOPMENT_TEAM = 438L645H48;
 				ENABLE_PREVIEWS = YES;
 				GENERATE_INFOPLIST_FILE = YES;
+				INFOPLIST_KEY_CFBundleURLTypes_0_CFBundleURLName = FamilyRosaryShareImport;
+				INFOPLIST_KEY_CFBundleURLTypes_0_CFBundleURLSchemes_0 = familyrosary;
+				INFOPLIST_KEY_FRAppGroupIdentifier = group.com.neilmussett.familyrosary;
+				INFOPLIST_KEY_FRShareImportURLScheme = familyrosary;
 				INFOPLIST_KEY_LSSupportsOpeningDocumentsInPlace = YES;
 				INFOPLIST_KEY_NSMicrophoneUsageDescription = "Used to detect spoken responses during prayer.";
 				INFOPLIST_KEY_UIApplicationSceneManifest_Generation = YES;
@@ -432,6 +597,7 @@
 			buildSettings = {
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
 				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
+				CODE_SIGN_ENTITLEMENTS = "family-rosary/family-rosary.entitlements";
 				"CODE_SIGN_IDENTITY[sdk=iphoneos*]" = "iPhone Distribution";
 				CODE_SIGN_STYLE = Manual;
 				CURRENT_PROJECT_VERSION = 1;
@@ -439,6 +605,10 @@
 				"DEVELOPMENT_TEAM[sdk=iphoneos*]" = 438L645H48;
 				ENABLE_PREVIEWS = YES;
 				GENERATE_INFOPLIST_FILE = YES;
+				INFOPLIST_KEY_CFBundleURLTypes_0_CFBundleURLName = FamilyRosaryShareImport;
+				INFOPLIST_KEY_CFBundleURLTypes_0_CFBundleURLSchemes_0 = familyrosary;
+				INFOPLIST_KEY_FRAppGroupIdentifier = group.com.neilmussett.familyrosary;
+				INFOPLIST_KEY_FRShareImportURLScheme = familyrosary;
 				INFOPLIST_KEY_LSSupportsOpeningDocumentsInPlace = YES;
 				INFOPLIST_KEY_NSMicrophoneUsageDescription = "Used to detect spoken responses during prayer.";
 				INFOPLIST_KEY_UIApplicationSceneManifest_Generation = YES;
@@ -554,6 +724,15 @@
 /* End XCBuildConfiguration section */
 
 /* Begin XCConfigurationList section */
+		FE80E0CC2F7AE8F200C919CD /* Build configuration list for PBXNativeTarget "FamilyRosaryShareExtension" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				FE80E0CD2F7AE8F200C919CD /* Debug */,
+				FE80E0CE2F7AE8F200C919CD /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
 		FE91033B2F49DABC00C9BC5B /* Build configuration list for PBXProject "family-rosary" */ = {
 			isa = XCConfigurationList;
 			buildConfigurations = (

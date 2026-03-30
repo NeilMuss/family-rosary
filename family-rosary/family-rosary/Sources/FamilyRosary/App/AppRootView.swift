@@ -2,9 +2,11 @@ import SwiftUI
 
 struct AppRootView: View {
     @StateObject private var viewModel: FamilyRosaryFlowViewModel
+    @StateObject private var shareImportPreviewViewModel: ShareImportPreviewViewModel
 
     init(root: AppCompositionRoot) {
         _viewModel = StateObject(wrappedValue: root.makeFamilyRosaryFlowViewModel())
+        _shareImportPreviewViewModel = StateObject(wrappedValue: root.makeShareImportPreviewViewModel())
     }
 
     var body: some View {
@@ -25,6 +27,12 @@ struct AppRootView: View {
                     Color.white
                 }
             }
+        }
+        .onOpenURL { url in
+            shareImportPreviewViewModel.handleIncomingURL(url)
+        }
+        .sheet(isPresented: $shareImportPreviewViewModel.isPresented) {
+            ShareImportPreviewSheet(viewModel: shareImportPreviewViewModel)
         }
     }
 }

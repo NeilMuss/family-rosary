@@ -16,6 +16,23 @@ enum FamilyRosaryPaths {
         return rawAudioURL
     }
 
+    @discardableResult
+    nonisolated static func importedSharedAudioDirURL(baseDirURL: URL? = nil) throws -> URL {
+        let baseURL = baseDirURL ?? Self.baseDirURL()
+        try FileManager.default.createDirectory(at: baseURL, withIntermediateDirectories: true)
+
+        let importedURL = baseURL.appendingPathComponent("imported_shared_audio", isDirectory: true)
+        try FileManager.default.createDirectory(at: importedURL, withIntermediateDirectories: true)
+        return importedURL
+    }
+
+    nonisolated static func importedRecordingIndexFileURL(baseDirURL: URL? = nil) -> URL {
+        let baseURL = baseDirURL ?? Self.baseDirURL()
+        return baseURL
+            .appendingPathComponent("imports", isDirectory: true)
+            .appendingPathComponent("imported_recordings.json")
+    }
+
     nonisolated static func fileURL(personID: String, part: AudioRecordingPart, baseDirURL: URL? = nil) throws -> URL {
         let rawAudioURL = try rawAudioDirURL(baseDirURL: baseDirURL)
         let filename = "\(personID)_\(part.filenameToken).wav"
