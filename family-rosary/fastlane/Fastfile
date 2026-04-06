@@ -1,5 +1,7 @@
 require "base64"
 
+default_platform(:ios)
+
 def ci?
   ENV["CI"] == "true"
 end
