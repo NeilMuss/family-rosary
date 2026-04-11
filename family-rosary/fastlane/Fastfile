@@ -354,6 +354,9 @@ platform :ios do
       scheme: "family-rosary",
       clean: true,
       export_method: "app-store",
+      silent: false,
+      xcodebuild_formatter: "",
+      build_timing_summary: true,
       export_options: {
         provisioningProfiles: match_mapping
       }
