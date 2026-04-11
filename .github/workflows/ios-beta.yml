@@ -25,6 +25,17 @@ jobs:
           ruby-version: "3.2"
           bundler-cache: true
 
+      - name: Install signing assets with match
+        working-directory: family-rosary
+        env:
+          ASC_KEY_ID: ${{ secrets.ASC_KEY_ID }}
+          ASC_ISSUER_ID: ${{ secrets.ASC_ISSUER_ID }}
+          ASC_PRIVATE_KEY_BASE64: ${{ secrets.ASC_PRIVATE_KEY_BASE64 }}
+          MATCH_GIT_URL: ${{ secrets.MATCH_GIT_URL }}
+          MATCH_PASSWORD: ${{ secrets.MATCH_PASSWORD }}
+          MATCH_GIT_BASIC_AUTHORIZATION: ${{ secrets.MATCH_GIT_BASIC_AUTHORIZATION }}
+        run: bundle exec fastlane run match type:appstore readonly:true
+
       - name: Diagnostic Archive (raw xcodebuild)
         timeout-minutes: 5
         working-directory: family-rosary
