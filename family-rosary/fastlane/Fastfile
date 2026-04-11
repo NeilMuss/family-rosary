@@ -1,5 +1,6 @@
 require "base64"
 require "shellwords"
+require "tmpdir"
 
 default_platform(:ios)
 
@@ -26,6 +27,59 @@ def next_build_number(api_key:, app_identifier:, version:)
     end
 
   latest.to_i > 0 ? latest + 1 : 1
+end
+
+def safe_sh(label, command)
+  output = sh("#{command} || true", log: false)
+  lines = output.to_s.split("\n")
+  if lines.empty?
+    UI.message("CI_DIAG #{label}: (no output)")
+  else
+    lines.each do |line|
+      UI.message("CI_DIAG #{label}: #{line}")
+    end
+  end
+  output.to_s
+rescue StandardError => error
+  UI.message("CI_DIAG #{label}: ERROR #{error.message}")
+  ""
+end
+
+def print_file_lines(label, path, patterns)
+  unless File.exist?(path)
+    UI.message("CI_DIAG #{label}: MISSING #{path}")
+    return
+  end
+
+  lines = File.readlines(path, chomp: true)
+  matching_lines = lines.select do |line|
+    patterns.any? { |pattern| line.include?(pattern) }
+  end
+
+  if matching_lines.empty?
+    UI.message("CI_DIAG #{label}: no matching lines found")
+  else
+    matching_lines.each do |line|
+      UI.message("CI_DIAG #{label}: #{line}")
+    end
+  end
+rescue StandardError => error
+  UI.message("CI_DIAG #{label}: ERROR #{error.message}")
+end
+
+def decode_profile_field(profile_path, plistbuddy_key)
+  return nil if profile_path.to_s.strip.empty? || !File.exist?(profile_path)
+
+  decoded_plist = File.join(Dir.tmpdir, "family-rosary-profile-#{Process.pid}-#{Time.now.to_i}-#{rand(1000)}.plist")
+  begin
+    sh("security cms -D -i #{Shellwords.escape(profile_path)} > #{Shellwords.escape(decoded_plist)}", log: false)
+    value = sh("/usr/libexec/PlistBuddy -c #{Shellwords.escape("Print #{plistbuddy_key}")} #{Shellwords.escape(decoded_plist)}", log: false).strip
+    value.empty? ? nil : value
+  rescue StandardError
+    nil
+  ensure
+    File.delete(decoded_plist) if File.exist?(decoded_plist)
+  end
 end
 
 platform :ios do
@@ -78,10 +132,48 @@ platform :ios do
     UI.message("Chosen build number: #{build_number}")
     UI.message("Running in CI: #{ci?}")
 
+    project_file_path = "family-rosary.xcodeproj/project.pbxproj"
+    suspicious_project_patterns = ["INFO", "ENTITLE", "PROFILE", "PLIST", "CODE_SIGN", "GROUP"]
+    print_project_file_diagnostics = lambda do |stage_label|
+      safe_sh("#{stage_label} pwd", "pwd")
+      UI.message("CI_DIAG #{stage_label} cwd: #{Dir.pwd}")
+      safe_sh("#{stage_label} repo entries", "ls -la")
+      safe_sh("#{stage_label} fastlane entries", "ls -la fastlane")
+      safe_sh("#{stage_label} xcodeproj files", "find . -name '*.xcodeproj' -print")
+      safe_sh("#{stage_label} entitlements files", "find . -name '*.entitlements' -print")
+      safe_sh("#{stage_label} xcodebuild list", "xcodebuild -list -project family-rosary.xcodeproj 2>&1")
+      print_file_lines("#{stage_label} project CURRENT_PROJECT_VERSION", project_file_path, ["CURRENT_PROJECT_VERSION"])
+      print_file_lines("#{stage_label} project MARKETING_VERSION", project_file_path, ["MARKETING_VERSION"])
+      print_file_lines("#{stage_label} project INFOPLIST_FILE", project_file_path, ["INFOPLIST_FILE"])
+      print_file_lines("#{stage_label} project GENERATE_INFOPLIST_FILE", project_file_path, ["GENERATE_INFOPLIST_FILE"])
+      print_file_lines("#{stage_label} project CODE_SIGN_ENTITLEMENTS", project_file_path, ["CODE_SIGN_ENTITLEMENTS"])
+
+      begin
+        suspicious_lines = File.readlines(project_file_path, chomp: true).select do |line|
+          (line.include?("YES;") || line.include?("NO;")) &&
+            suspicious_project_patterns.any? { |pattern| line.include?(pattern) }
+        end
+
+        if suspicious_lines.empty?
+          UI.message("CI_DIAG #{stage_label} project suspicious YES_NO: no matching lines found")
+        else
+          suspicious_lines.each do |line|
+            UI.message("CI_DIAG #{stage_label} project suspicious YES_NO: #{line}")
+          end
+        end
+      rescue StandardError => error
+        UI.message("CI_DIAG #{stage_label} project suspicious YES_NO: ERROR #{error.message}")
+      end
+    end
+
+    print_project_file_diagnostics.call("before increment_build_number")
+
     increment_build_number(
       xcodeproj: "family-rosary.xcodeproj",
       build_number: build_number.to_s
     )
+
+    print_project_file_diagnostics.call("after increment_build_number")
 
     UI.message("Match app identifiers: com.neilmussett.familyrosary, com.neilmussett.familyrosary.FamilyRosaryShareExtension")
 
@@ -92,6 +184,7 @@ platform :ios do
 
     profile_mapping = lane_context[SharedValues::MATCH_PROVISIONING_PROFILE_MAPPING] || {}
     UI.message("CI_DIAG profile mapping: #{profile_mapping}")
+    safe_sh("codesigning identities", "security find-identity -v -p codesigning 2>&1")
 
     provisioning_profile_dirs = [
       "/Users/runner/Library/Developer/Xcode/UserData/Provisioning Profiles",
@@ -135,26 +228,68 @@ platform :ios do
 
       UI.message("CI_DIAG #{label} profile path: #{profile_path || 'MISSING'}")
       UI.message("CI_DIAG #{label} profile app groups: #{app_groups.to_s.empty? ? 'MISSING' : app_groups}")
+
+      if profile_path
+        {
+          "profile name" => ":Name",
+          "profile uuid" => ":UUID",
+          "profile team identifier" => ":TeamIdentifier:0",
+          "profile application identifier" => ":Entitlements:application-identifier",
+          "profile app groups" => ":Entitlements:com.apple.security.application-groups",
+          "profile aps environment" => ":Entitlements:aps-environment"
+        }.each do |field_label, plist_key|
+          value = decode_profile_field(profile_path, plist_key)
+          UI.message("CI_DIAG #{label} #{field_label}: #{value.to_s.empty? ? 'MISSING' : value}")
+        end
+      else
+        UI.message("CI_DIAG #{label} profile name: MISSING")
+        UI.message("CI_DIAG #{label} profile uuid: MISSING")
+        UI.message("CI_DIAG #{label} profile team identifier: MISSING")
+        UI.message("CI_DIAG #{label} profile application identifier: MISSING")
+        UI.message("CI_DIAG #{label} profile app groups: MISSING")
+        UI.message("CI_DIAG #{label} profile aps environment: MISSING")
+      end
+    end
+
+    {
+      "app match profile path env" => [
+        "sigh_com.neilmussett.familyrosary_appstore_profile-path",
+        "SIGH_COM.NEILMUSSETT.FAMILYROSARY_APPSTORE_PROFILE-PATH"
+      ],
+      "extension match profile path env" => [
+        "sigh_com.neilmussett.familyrosary.FamilyRosaryShareExtension_appstore_profile-path",
+        "SIGH_COM.NEILMUSSETT.FAMILYROSARY.FAMILYROSARYSHAREEXTENSION_APPSTORE_PROFILE-PATH"
+      ]
+    }.each do |label, keys|
+      value = keys.map { |key| ENV[key] }.find { |candidate| !candidate.to_s.strip.empty? }
+      UI.message("CI_DIAG #{label}: #{value.to_s.empty? ? 'MISSING' : value}")
     end
 
     print_profile_diagnostics.call("com.neilmussett.familyrosary", "app")
     print_profile_diagnostics.call("com.neilmussett.familyrosary.FamilyRosaryShareExtension", "extension")
 
-    build_settings_output = sh("xcodebuild -showBuildSettings -scheme family-rosary -project family-rosary.xcodeproj 2>&1 || true", log: false)
+    build_settings_output = safe_sh("pre-gym xcodebuild showBuildSettings raw", "xcodebuild -showBuildSettings -scheme family-rosary -project family-rosary.xcodeproj 2>&1")
     build_settings_patterns = [
-      "CODE_SIGN_ENTITLEMENTS",
       "PRODUCT_BUNDLE_IDENTIFIER",
       "DEVELOPMENT_TEAM",
+      "CODE_SIGN_STYLE",
+      "CODE_SIGN_IDENTITY",
+      "CODE_SIGN_ENTITLEMENTS",
+      "INFOPLIST_FILE",
+      "GENERATE_INFOPLIST_FILE",
       "PROVISIONING_PROFILE",
       "PROVISIONING_PROFILE_SPECIFIER",
-      "CODE_SIGN_STYLE"
+      "CODE_SIGNING_ALLOWED",
+      "CODE_SIGNING_REQUIRED",
+      "CODE_SIGNING_FOLDER_PATH",
+      "APP_GROUP"
     ]
     matching_build_settings = build_settings_output.to_s.split("\n").select do |line|
       build_settings_patterns.any? { |pattern| line.include?(pattern) }
     end
 
     if matching_build_settings.empty?
-      UI.message("CI_DIAG build settings: no matching build settings were found")
+      UI.message("CI_DIAG build settings: no matching lines found")
     else
       matching_build_settings.each do |line|
         UI.message("CI_DIAG build settings: #{line}")
@@ -163,6 +298,12 @@ platform :ios do
 
     match_mapping = lane_context[SharedValues::MATCH_PROVISIONING_PROFILE_MAPPING] || {}
     UI.message("Passing provisioning profile mapping to gym: #{match_mapping}")
+    UI.message("CI_DIAG gym preflight project: family-rosary.xcodeproj")
+    UI.message("CI_DIAG gym preflight scheme: family-rosary")
+    UI.message("CI_DIAG gym preflight export_method: app-store")
+    UI.message("CI_DIAG gym preflight provisioningProfiles: #{match_mapping}")
+    safe_sh("xcode path", "xcode-select -p")
+    UI.message("CI_DIAG gym preflight DEVELOPER_DIR: #{ENV['DEVELOPER_DIR'].to_s.empty? ? 'MISSING' : ENV['DEVELOPER_DIR']}")
 
     gym(
       project: "family-rosary.xcodeproj",
