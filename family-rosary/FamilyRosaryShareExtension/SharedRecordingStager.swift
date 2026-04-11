@@ -4,8 +4,19 @@ import UniformTypeIdentifiers
 
 struct ShareImportLogger {
     let sessionID: String
+    let appGroupIdentifier: String
+    let fileManager: FileManager
 
     func log(_ stage: String, details: [String: String?] = [:]) {
+        let entry = SharedDiagnosticsEntry(
+            timestampISO8601: Self.iso8601Formatter.string(from: Date()),
+            category: "SHARE_EXT",
+            stage: stage,
+            event: "INFO",
+            detail: formatDetails(details)
+        )
+        persist(entry)
+
         var components = ["SHARE_EXT", "session=\(sessionID)", "stage=\(stage)"]
         for key in details.keys.sorted() {
             if let value = details[key] ?? nil, value.isEmpty == false {
@@ -22,8 +33,41 @@ struct ShareImportLogger {
             merged["nsErrorDomain"] = error.domain
             merged["nsErrorCode"] = String(error.code)
         }
+        let entry = SharedDiagnosticsEntry(
+            timestampISO8601: Self.iso8601Formatter.string(from: Date()),
+            category: "SHARE_EXT",
+            stage: "FAIL \(stage)",
+            event: "FAIL",
+            detail: formatDetails(merged)
+        )
+        persist(entry)
         log("FAIL \(stage)", details: merged)
     }
+
+    private func persist(_ entry: SharedDiagnosticsEntry) {
+        do {
+            try SharedDiagnosticsLogStore(
+                appGroupIdentifier: appGroupIdentifier,
+                fileManager: fileManager
+            ).append(entry)
+        } catch {
+            NSLog("SHARE_EXT | session=%@ | stage=LOG_WRITE_FAIL | reason=%@", sessionID, error.localizedDescription)
+        }
+    }
+
+    private func formatDetails(_ details: [String: String?]) -> String? {
+        let rendered = details.keys.sorted().compactMap { key -> String? in
+            guard let value = details[key] ?? nil, value.isEmpty == false else { return nil }
+            return "\(key)=\(value)"
+        }
+        return rendered.isEmpty ? nil : rendered.joined(separator: " | ")
+    }
+
+    private static let iso8601Formatter: ISO8601DateFormatter = {
+        let formatter = ISO8601DateFormatter()
+        formatter.formatOptions = [.withInternetDateTime, .withFractionalSeconds]
+        return formatter
+    }()
 }
 
 enum ShareImportError: LocalizedError {
@@ -136,16 +180,15 @@ struct ShareAttachmentExtractor {
 
         let providers = inputItems.flatMap { $0.attachments ?? [] }
         guard providers.isEmpty == false else {
-            logger.fail("No attachments were found on the shared item.", stage: "ATTACHMENT_PROVIDER_FOUND")
+            logger.fail("No attachments were found on the shared item.", stage: "AUDIO_PROVIDER_FOUND")
             throw ShareImportError.noAttachmentsOnExtensionItem
         }
 
         let candidate = try firstAudioCandidate(from: providers)
         logger.log(
-            "ATTACHMENT_PROVIDER_FOUND",
+            "AUDIO_PROVIDER_FOUND",
             details: ["registeredTypeIdentifiers": candidate.registeredTypeIdentifiers.joined(separator: ",")]
         )
-        logger.log("PROVIDER_TYPE_CONFIRMED", details: ["typeIdentifier": candidate.preferredTypeIdentifier])
         logger.log("LOAD_ITEM_BEGIN", details: ["typeIdentifier": candidate.preferredTypeIdentifier])
 
         return try await withCheckedThrowingContinuation { continuation in
@@ -255,7 +298,7 @@ struct ShareAttachmentExtractor {
 
         logger.fail(
             "No audio attachment provider was found.",
-            stage: "ATTACHMENT_PROVIDER_FOUND",
+            stage: "AUDIO_PROVIDER_FOUND",
             details: ["registeredTypeIdentifiers": seenTypeIdentifiers.joined(separator: ",")]
         )
         throw ShareImportError.noAudioAttachmentProviderFound(registeredTypeIdentifiers: seenTypeIdentifiers)
@@ -289,7 +332,7 @@ struct SharedAudioInboxWriter {
     }
 
     func write(attachment: LoadedShareAttachment) throws -> SharedAudioInboxWriteResult {
-        logger.log("COPY_TO_APP_GROUP_BEGIN", details: [
+        logger.log("COPY_BEGIN", details: [
             "sourceFilename": attachment.sourceFilename,
             "sourceTypeIdentifier": attachment.sourceTypeIdentifier,
             "byteCount": String(attachment.byteCount)
@@ -299,7 +342,7 @@ struct SharedAudioInboxWriter {
         guard let containerURL else {
             logger.fail(
                 "The app group container was unavailable.",
-                stage: "COPY_TO_APP_GROUP_BEGIN",
+                stage: "COPY_BEGIN",
                 details: ["appGroupIdentifier": configuration.appGroupIdentifier]
             )
             throw ShareImportError.appGroupContainerUnavailable(appGroupIdentifier: configuration.appGroupIdentifier)
@@ -309,7 +352,7 @@ struct SharedAudioInboxWriter {
         do {
             try fileManager.createDirectory(at: inboxURL, withIntermediateDirectories: true)
         } catch {
-            logger.fail("The shared inbox directory could not be created.", stage: "COPY_TO_APP_GROUP_BEGIN", error: error)
+            logger.fail("The shared inbox directory could not be created.", stage: "COPY_BEGIN", error: error)
             throw ShareImportError.failedToCreateInboxDirectory(underlying: error)
         }
 
@@ -330,25 +373,26 @@ struct SharedAudioInboxWriter {
         }
 
         if fileManager.fileExists(atPath: stagedAudioURL.path) || fileManager.fileExists(atPath: receiptURL.path) {
-            logger.fail("The destination file already exists.", stage: "COPY_TO_APP_GROUP_BEGIN", details: ["path": stagedFolderURL.path])
+            logger.fail("The destination file already exists.", stage: "COPY_BEGIN", details: ["path": stagedFolderURL.path])
             throw ShareImportError.destinationFileAlreadyExists(path: stagedFolderURL.path)
         }
 
         do {
             try fileManager.copyItem(at: attachment.fileURL, to: stagedAudioURL)
         } catch {
-            logger.fail("The shared audio file could not be copied into the app group container.", stage: "COPY_TO_APP_GROUP_BEGIN", error: error)
+            logger.fail("The shared audio file could not be copied into the app group container.", stage: "COPY_BEGIN", error: error)
             throw ShareImportError.failedToCopySharedAudioIntoAppGroup(underlying: error)
         }
 
         let copiedByteCount = try Self.byteCount(for: stagedAudioURL, fileManager: fileManager)
         guard copiedByteCount > 0 else {
-            logger.fail("The copied shared audio file was empty.", stage: "COPY_TO_APP_GROUP_BEGIN")
+            logger.fail("The copied shared audio file was empty.", stage: "COPY_BEGIN")
             throw ShareImportError.copiedFileIsEmpty
         }
 
-        logger.log("COPY_TO_APP_GROUP_SUCCESS", details: [
+        logger.log("COPY_SUCCESS", details: [
             "destinationFilename": stagedAudioURL.lastPathComponent,
+            "destinationPath": stagedAudioURL.path,
             "byteCount": String(copiedByteCount)
         ])
 
@@ -361,6 +405,11 @@ struct SharedAudioInboxWriter {
             byteCount: copiedByteCount,
             stagedAtISO8601: SharedRecordingReceiptISO8601Formatter.value.string(from: nowProvider())
         )
+
+        logger.log("MANIFEST_WRITE_BEGIN", details: [
+            "importID": importID,
+            "receiptPath": receiptURL.path
+        ])
 
         do {
             let receiptData = try JSONEncoder().encode(record)
@@ -414,7 +463,7 @@ struct SharedAudioInboxWriter {
         } else if let type = UTType(fallbackTypeIdentifier ?? ""), let inferred = type.preferredFilenameExtension, inferred.isEmpty == false {
             finalExtension = inferred.lowercased()
         } else {
-            logger.fail("The shared file extension was missing and no audio type could be inferred.", stage: "COPY_TO_APP_GROUP_BEGIN")
+            logger.fail("The shared file extension was missing and no audio type could be inferred.", stage: "COPY_BEGIN")
             throw ShareImportError.missingFileExtension
         }
 
@@ -428,4 +477,41 @@ private enum SharedRecordingReceiptISO8601Formatter {
         formatter.formatOptions = [.withInternetDateTime, .withFractionalSeconds]
         return formatter
     }()
+}
+
+private struct SharedDiagnosticsEntry: Codable {
+    let timestampISO8601: String
+    let category: String
+    let stage: String
+    let event: String
+    let detail: String?
+}
+
+private struct SharedDiagnosticsLogStore {
+    let appGroupIdentifier: String
+    let fileManager: FileManager
+
+    func append(_ entry: SharedDiagnosticsEntry) throws {
+        let fileURL = try logFileURL()
+        let data = try JSONEncoder().encode(entry)
+
+        if fileManager.fileExists(atPath: fileURL.path) == false {
+            fileManager.createFile(atPath: fileURL.path, contents: nil)
+        }
+
+        let handle = try FileHandle(forWritingTo: fileURL)
+        defer { try? handle.close() }
+        try handle.seekToEnd()
+        try handle.write(contentsOf: data)
+        try handle.write(contentsOf: Data([0x0A]))
+    }
+
+    private func logFileURL() throws -> URL {
+        guard let containerURL = fileManager.containerURL(forSecurityApplicationGroupIdentifier: appGroupIdentifier) else {
+            throw ShareImportError.appGroupContainerUnavailable(appGroupIdentifier: appGroupIdentifier)
+        }
+        let diagnosticsURL = containerURL.appendingPathComponent("SharedDiagnostics", isDirectory: true)
+        try fileManager.createDirectory(at: diagnosticsURL, withIntermediateDirectories: true)
+        return diagnosticsURL.appendingPathComponent("entries.jsonl")
+    }
 }

@@ -170,7 +170,11 @@ struct AppCompositionRoot {
     func makeShareImportPreviewViewModel() -> ShareImportPreviewViewModel {
         let configuration = SharedImportConfiguration.fromMainBundle()
         let paths = SharedImportPaths(appGroupIdentifier: configuration.appGroupIdentifier)
-        let discovery = SharedRecordingDiscoveryService(paths: paths)
+        let diagnosticsLogger = makeSharedDiagnosticsLogger(category: "APP_IMPORT")
+        let discovery = SharedRecordingDiscoveryService(
+            paths: paths,
+            logger: SharedImportDiagnosticsLogger(sharedLogger: diagnosticsLogger)
+        )
         let store = FileBackedImportedRecordingStore(
             indexFileURL: FamilyRosaryPaths.importedRecordingIndexFileURL(baseDirURL: makeBaseDirURLProvider()())
         )
@@ -180,6 +184,7 @@ struct AppCompositionRoot {
             audioInspector: AVSharedAudioInspector(),
             audioPreparationService: makeImportedAudioPreparationService(),
             recordingStore: store,
+            logger: SharedImportDiagnosticsLogger(sharedLogger: diagnosticsLogger),
             baseDirURLProvider: makeBaseDirURLProvider()
         )
         return ShareImportPreviewViewModel(
@@ -188,6 +193,38 @@ struct AppCompositionRoot {
             pipeline: pipeline,
             deepLinkHandler: ShareImportDeepLinkHandler(configuration: configuration),
             previewPlayer: AVSharedImportPreviewPlayer()
+        )
+    }
+
+    @MainActor
+    func makeSharedInboxScanCoordinator() -> SharedInboxScanCoordinator {
+        let configuration = SharedImportConfiguration.fromMainBundle()
+        let paths = SharedImportPaths(appGroupIdentifier: configuration.appGroupIdentifier)
+        let diagnosticsStore = makeSharedDiagnosticsLogStore()
+        let diagnosticsLogger = makeSharedDiagnosticsLogger(category: "APP_IMPORT")
+        let discovery = SharedRecordingDiscoveryService(
+            paths: paths,
+            logger: SharedImportDiagnosticsLogger(sharedLogger: diagnosticsLogger)
+        )
+        let recordingStore = FileBackedImportedRecordingStore(
+            indexFileURL: FamilyRosaryPaths.importedRecordingIndexFileURL(baseDirURL: makeBaseDirURLProvider()())
+        )
+        let pipeline = SharedRecordingImportPipeline(
+            paths: paths,
+            discoveryService: discovery,
+            audioInspector: AVSharedAudioInspector(),
+            audioPreparationService: makeImportedAudioPreparationService(),
+            recordingStore: recordingStore,
+            logger: SharedImportDiagnosticsLogger(sharedLogger: diagnosticsLogger),
+            baseDirURLProvider: makeBaseDirURLProvider()
+        )
+        return SharedInboxScanCoordinator(
+            inspector: SharedInboxInspector(paths: paths),
+            discoveryService: discovery,
+            pipeline: pipeline,
+            paths: paths,
+            logStore: diagnosticsStore,
+            logger: makeSharedDiagnosticsLogger(category: "SHARE_INBOX")
         )
     }
 
@@ -225,6 +262,15 @@ struct AppCompositionRoot {
             validator: validator,
             transcoder: transcoder
         )
+    }
+
+    func makeSharedDiagnosticsLogStore() -> SharedDiagnosticsLogStore {
+        let configuration = SharedImportConfiguration.fromMainBundle()
+        return SharedDiagnosticsLogStore(appGroupIdentifier: configuration.appGroupIdentifier)
+    }
+
+    func makeSharedDiagnosticsLogger(category: String) -> SharedDiagnosticsLogger {
+        SharedDiagnosticsLogger(category: category, store: makeSharedDiagnosticsLogStore())
     }
 
     #if DEBUG

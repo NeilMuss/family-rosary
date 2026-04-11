@@ -7,6 +7,12 @@ struct SharedImportDiagnosticsLogger {
         case info = "INFO"
     }
 
+    private let sharedLogger: SharedDiagnosticsLogger?
+
+    init(sharedLogger: SharedDiagnosticsLogger? = nil) {
+        self.sharedLogger = sharedLogger
+    }
+
     func log(
         sessionID: String,
         importID: String?,
@@ -32,6 +38,8 @@ struct SharedImportDiagnosticsLogger {
             components.append("reason=\(reason)")
         }
 
-        DebugLog.shared.log(components.joined(separator: " | "))
+        let line = components.joined(separator: " | ")
+        DebugLog.shared.log(line)
+        sharedLogger?.log(stage: stage, event: event.rawValue, detail: line)
     }
 }

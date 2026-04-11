@@ -42,7 +42,11 @@ final class ShareViewController: SLComposeServiceViewController {
         // The previous flow treated "cannot open the main app right now" as a hard share failure.
         // This extension now succeeds once the audio file is durably staged into the shared inbox.
         let configuration = SharedImportConfiguration.fromMainBundle()
-        let logger = ShareImportLogger(sessionID: UUID().uuidString)
+        let logger = ShareImportLogger(
+            sessionID: UUID().uuidString,
+            appGroupIdentifier: configuration.appGroupIdentifier,
+            fileManager: .default
+        )
         let extractor = ShareAttachmentExtractor(logger: logger)
         let writer = SharedAudioInboxWriter(configuration: configuration, logger: logger)
         logger.log("SESSION_BEGIN", details: ["controller": "ShareViewController"])
