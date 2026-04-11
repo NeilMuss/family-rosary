@@ -70,6 +70,20 @@
 			);
 			target = FE91033F2F49DABC00C9BC5B /* family-rosary */;
 		};
+		FEA0D0022FE818A700C919CD /* Exceptions for "family-rosaryTests" folder in "family-rosaryTests" target */ = {
+			isa = PBXFileSystemSynchronizedBuildFileExceptionSet;
+			membershipExceptions = (
+				Info.plist,
+			);
+			target = FE91034C2F49DABE00C9BC5B /* family-rosaryTests */;
+		};
+		FEA0D0032FE818A700C919CD /* Exceptions for "family-rosaryUITests" folder in "family-rosaryUITests" target */ = {
+			isa = PBXFileSystemSynchronizedBuildFileExceptionSet;
+			membershipExceptions = (
+				Info.plist,
+			);
+			target = FE9103562F49DABE00C9BC5B /* family-rosaryUITests */;
+		};
 /* End PBXFileSystemSynchronizedBuildFileExceptionSet section */
 
 /* Begin PBXFileSystemSynchronizedRootGroup section */
@@ -91,11 +105,17 @@
 		};
 		FE9103502F49DABE00C9BC5B /* family-rosaryTests */ = {
 			isa = PBXFileSystemSynchronizedRootGroup;
+			exceptions = (
+				FEA0D0022FE818A700C919CD /* Exceptions for "family-rosaryTests" folder in "family-rosaryTests" target */,
+			);
 			path = "family-rosaryTests";
 			sourceTree = "<group>";
 		};
 		FE91035A2F49DABE00C9BC5B /* family-rosaryUITests */ = {
 			isa = PBXFileSystemSynchronizedRootGroup;
+			exceptions = (
+				FEA0D0032FE818A700C919CD /* Exceptions for "family-rosaryUITests" folder in "family-rosaryUITests" target */,
+			);
 			path = "family-rosaryUITests";
 			sourceTree = "<group>";
 		};
@@ -667,7 +687,8 @@
 				CODE_SIGN_STYLE = Automatic;
 				CURRENT_PROJECT_VERSION = 1;
 				DEVELOPMENT_TEAM = 438L645H48;
-				GENERATE_INFOPLIST_FILE = YES;
+				GENERATE_INFOPLIST_FILE = NO;
+				INFOPLIST_FILE = "family-rosaryTests/Info.plist";
 				IPHONEOS_DEPLOYMENT_TARGET = 16.4;
 				MARKETING_VERSION = 1.0;
 				PRODUCT_BUNDLE_IDENTIFIER = "mussett.family-rosaryTests";
@@ -689,7 +710,8 @@
 				CODE_SIGN_STYLE = Automatic;
 				CURRENT_PROJECT_VERSION = 1;
 				DEVELOPMENT_TEAM = 438L645H48;
-				GENERATE_INFOPLIST_FILE = YES;
+				GENERATE_INFOPLIST_FILE = NO;
+				INFOPLIST_FILE = "family-rosaryTests/Info.plist";
 				IPHONEOS_DEPLOYMENT_TARGET = 16.4;
 				MARKETING_VERSION = 1.0;
 				PRODUCT_BUNDLE_IDENTIFIER = "mussett.family-rosaryTests";
@@ -710,7 +732,8 @@
 				CODE_SIGN_STYLE = Automatic;
 				CURRENT_PROJECT_VERSION = 1;
 				DEVELOPMENT_TEAM = 438L645H48;
-				GENERATE_INFOPLIST_FILE = YES;
+				GENERATE_INFOPLIST_FILE = NO;
+				INFOPLIST_FILE = "family-rosaryUITests/Info.plist";
 				MARKETING_VERSION = 1.0;
 				PRODUCT_BUNDLE_IDENTIFIER = "mussett.family-rosaryUITests";
 				PRODUCT_NAME = "$(TARGET_NAME)";
@@ -730,7 +753,8 @@
 				CODE_SIGN_STYLE = Automatic;
 				CURRENT_PROJECT_VERSION = 1;
 				DEVELOPMENT_TEAM = 438L645H48;
-				GENERATE_INFOPLIST_FILE = YES;
+				GENERATE_INFOPLIST_FILE = NO;
+				INFOPLIST_FILE = "family-rosaryUITests/Info.plist";
 				MARKETING_VERSION = 1.0;
 				PRODUCT_BUNDLE_IDENTIFIER = "mussett.family-rosaryUITests";
 				PRODUCT_NAME = "$(TARGET_NAME)";
