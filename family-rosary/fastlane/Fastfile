@@ -38,14 +38,29 @@ platform :ios do
       MATCH_PASSWORD
     ])
 
-    api_key = app_store_connect_api_key(
-      key_id: ENV["ASC_KEY_ID"],
-      issuer_id: ENV["ASC_ISSUER_ID"],
-      key_content: ENV["ASC_PRIVATE_KEY_BASE64"],
-      is_key_content_base64: true,
-      duration: 1200,
-      in_house: false
-    )
+    key_value = ENV["ASC_PRIVATE_KEY_BASE64"]
+    is_raw_key = key_value.to_s.include?("-----BEGIN")
+    UI.message("ASC key format: #{is_raw_key ? "raw" : "base64"}")
+
+    api_key =
+      if is_raw_key
+        app_store_connect_api_key(
+          key_id: ENV["ASC_KEY_ID"],
+          issuer_id: ENV["ASC_ISSUER_ID"],
+          key_content: key_value,
+          duration: 1200,
+          in_house: false
+        )
+      else
+        app_store_connect_api_key(
+          key_id: ENV["ASC_KEY_ID"],
+          issuer_id: ENV["ASC_ISSUER_ID"],
+          key_content: key_value,
+          is_key_content_base64: true,
+          duration: 1200,
+          in_house: false
+        )
+      end
 
     version = get_version_number(
       xcodeproj: "family-rosary.xcodeproj",
