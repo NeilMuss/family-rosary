@@ -250,9 +250,13 @@ platform :ios do
     UI.message("Match app identifiers: com.neilmussett.familyrosary, com.neilmussett.familyrosary.FamilyRosaryShareExtension")
     safe_sh("keychains list", "security list-keychains")
     safe_sh("default keychain", "security default-keychain")
+    UI.message("MATCH_KEYCHAIN_NAME=#{ENV['MATCH_KEYCHAIN_NAME']}")
+    UI.message("MATCH_KEYCHAIN_PASSWORD_PRESENT=#{ENV['MATCH_KEYCHAIN_PASSWORD'].to_s.empty? ? 'NO' : 'YES'}")
 
     match(
       type: "appstore",
+      keychain_name: ENV["MATCH_KEYCHAIN_NAME"],
+      keychain_password: ENV["MATCH_KEYCHAIN_PASSWORD"],
       readonly: ci?
     )
     print_signing_forensics("after match")

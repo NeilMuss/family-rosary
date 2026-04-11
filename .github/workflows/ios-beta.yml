@@ -32,52 +32,7 @@ jobs:
           xcodebuild -version
           xcode-select -p
 
-      - name: Prepare CI keychain with setup_ci
-        working-directory: family-rosary
-        run: bundle exec fastlane run setup_ci
-
-      - name: Install signing assets with match
-        working-directory: family-rosary
-        env:
-          ASC_KEY_ID: ${{ secrets.ASC_KEY_ID }}
-          ASC_ISSUER_ID: ${{ secrets.ASC_ISSUER_ID }}
-          ASC_PRIVATE_KEY_BASE64: ${{ secrets.ASC_PRIVATE_KEY_BASE64 }}
-          MATCH_GIT_URL: ${{ secrets.MATCH_GIT_URL }}
-          MATCH_PASSWORD: ${{ secrets.MATCH_PASSWORD }}
-          MATCH_GIT_BASIC_AUTHORIZATION: ${{ secrets.MATCH_GIT_BASIC_AUTHORIZATION }}
-        run: bundle exec fastlane run match type:appstore readonly:true
-
-      - name: Diagnostic Archive (raw xcodebuild)
-        timeout-minutes: 5
-        working-directory: family-rosary
-        shell: bash
-        run: |
-          set -o pipefail
-          xcodebuild \
-            -scheme family-rosary \
-            -project family-rosary.xcodeproj \
-            -destination 'generic/platform=iOS' \
-            -archivePath "$HOME/Library/Developer/Xcode/Archives/family-rosary.xcarchive" \
-            clean archive | tee xcodebuild-archive.log
-
-      - name: Dump process state on failure
-        if: failure()
-        shell: bash
-        run: |
-          echo "=== PROCESS LIST ==="
-          ps aux | grep -E 'codesign|xcodebuild|XCBBuildService|swift' | grep -v grep || true
-
-      - name: Upload archive logs
-        if: always()
-        uses: actions/upload-artifact@v4
-        with:
-          name: archive-logs
-          path: |
-            family-rosary/xcodebuild-archive.log
-            /Users/runner/Library/Logs/gym/*.log
-
       - name: Build and upload to TestFlight
-        if: false
         timeout-minutes: 35
         working-directory: family-rosary
         env:
