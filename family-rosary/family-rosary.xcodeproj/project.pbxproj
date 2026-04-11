@@ -262,9 +262,19 @@
 				TargetAttributes = {
 					FE80E0BF2F7AE8F200C919CD = {
 						CreatedOnToolsVersion = 26.2;
+						SystemCapabilities = {
+							com.apple.ApplicationGroups.iOS = {
+								enabled = 1;
+							};
+						};
 					};
 					FE91033F2F49DABC00C9BC5B = {
 						CreatedOnToolsVersion = 26.2;
+						SystemCapabilities = {
+							com.apple.ApplicationGroups.iOS = {
+								enabled = 1;
+							};
+						};
 					};
 					FE91034C2F49DABE00C9BC5B = {
 						CreatedOnToolsVersion = 26.2;
