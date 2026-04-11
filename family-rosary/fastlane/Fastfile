@@ -161,11 +161,17 @@ platform :ios do
       end
     end
 
+    match_mapping = lane_context[SharedValues::MATCH_PROVISIONING_PROFILE_MAPPING] || {}
+    UI.message("Passing provisioning profile mapping to gym: #{match_mapping}")
+
     gym(
       project: "family-rosary.xcodeproj",
       scheme: "family-rosary",
       clean: true,
-      export_method: "app-store"
+      export_method: "app-store",
+      export_options: {
+        provisioningProfiles: match_mapping
+      }
     )
 
     pilot(
