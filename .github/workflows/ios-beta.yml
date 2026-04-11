@@ -53,6 +53,61 @@ jobs:
             -archivePath "$RUNNER_TEMP/family-rosary-direct.xcarchive" \
             2>&1 | tee "$RUNNER_TEMP/direct-xcodebuild-archive.log"
 
+      - name: Failure archive forensic dump
+        if: failure()
+        continue-on-error: true
+        working-directory: family-rosary
+        shell: bash
+        run: |
+          source_entitlements="FamilyRosaryShareExtension/FamilyRosaryShareExtension.entitlements"
+          {
+            echo "=== ps aux snapshot ==="
+            ps aux | grep -E 'codesign|xcodebuild|XCBBuildService' | grep -v grep || true
+          } | tee "$RUNNER_TEMP/failure-process-snapshot.log"
+
+          {
+            echo "=== source extension entitlements ==="
+            if [ -f "$source_entitlements" ]; then
+              plutil -p "$source_entitlements"
+            else
+              echo "MISSING: $source_entitlements"
+            fi
+          } | tee "$RUNNER_TEMP/source-extension-entitlements.log"
+
+          built_appex="$(find "$RUNNER_TEMP" "$HOME/Library/Developer/Xcode/DerivedData" -type d -name 'FamilyRosaryShareExtension.appex' 2>/dev/null | head -n 1)"
+          {
+            echo "=== built appex path ==="
+            if [ -n "$built_appex" ]; then
+              echo "$built_appex"
+            else
+              echo "MISSING"
+            fi
+            echo
+            echo "=== built appex recursive listing ==="
+            if [ -n "$built_appex" ]; then
+              ls -laR "$built_appex"
+            else
+              echo "MISSING"
+            fi
+          } | tee "$RUNNER_TEMP/built-appex-listing.log"
+
+          generated_xcent="$(find "$RUNNER_TEMP" "$HOME/Library/Developer/Xcode/DerivedData" -type f \\( -name '*.xcent' -o -name '*.xcent.der' \\) 2>/dev/null | grep 'FamilyRosaryShareExtension' | head -n 1 || true)"
+          {
+            echo "=== generated extension xcent path ==="
+            if [ -n "$generated_xcent" ]; then
+              echo "$generated_xcent"
+            else
+              echo "MISSING"
+            fi
+            echo
+            echo "=== generated extension xcent contents ==="
+            if [ -n "$generated_xcent" ]; then
+              plutil -p "$generated_xcent" || cat "$generated_xcent" || true
+            else
+              echo "MISSING"
+            fi
+          } | tee "$RUNNER_TEMP/generated-extension-xcent.log"
+
       - name: Failure process snapshot
         if: failure()
         shell: bash
@@ -68,3 +123,7 @@ jobs:
           path: |
             /Users/runner/Library/Logs/gym/**/*.log
             ${{ runner.temp }}/direct-xcodebuild-archive.log
+            ${{ runner.temp }}/failure-process-snapshot.log
+            ${{ runner.temp }}/source-extension-entitlements.log
+            ${{ runner.temp }}/built-appex-listing.log
+            ${{ runner.temp }}/generated-extension-xcent.log
