@@ -8,7 +8,7 @@ enum SharedRecordingImportError: LocalizedError {
     case sharedAudioEmpty(importID: String)
     case sharedAudioUnreadable(importID: String)
     case sharedAudioUndecodable(importID: String)
-    case appLibraryCopyFailed(importID: String, underlying: Error)
+    case canonicalizationFailed(importID: String, reason: String)
     case appLibraryRegisterFailed(importID: String, underlying: Error)
 
     var errorDescription: String? {
@@ -27,8 +27,8 @@ enum SharedRecordingImportError: LocalizedError {
             return "The app could not read the staged shared audio file (import \(importID))."
         case let .sharedAudioUndecodable(importID):
             return "The app could not decode the shared audio file to read its duration (import \(importID))."
-        case let .appLibraryCopyFailed(importID, _):
-            return "The recording was staged successfully, but the app could not move it into its library (import \(importID))."
+        case let .canonicalizationFailed(importID, reason):
+            return "The shared audio file could not be converted to the app's canonical format: \(reason) (import \(importID))."
         case let .appLibraryRegisterFailed(importID, _):
             return "The recording file was copied, but the app could not register it in the imported recording store (import \(importID))."
         }

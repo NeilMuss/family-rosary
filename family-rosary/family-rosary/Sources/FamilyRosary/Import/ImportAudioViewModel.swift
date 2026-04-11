@@ -30,16 +30,18 @@ final class ImportAudioViewModel: ObservableObject {
             return
         }
 
-        do {
-            let destination = try importer.import(
-                sourceURL: url,
-                personID: trimmedPersonID,
-                slot: selectedSlot
-            )
-            personID = trimmedPersonID
-            lastImportedFilename = destination.lastPathComponent
-        } catch {
-            errorMessage = error.localizedDescription
+        Task { @MainActor in
+            do {
+                let destination = try await importer.import(
+                    sourceURL: url,
+                    personID: trimmedPersonID,
+                    slot: selectedSlot
+                )
+                personID = trimmedPersonID
+                lastImportedFilename = destination.lastPathComponent
+            } catch {
+                errorMessage = error.localizedDescription
+            }
         }
     }
 

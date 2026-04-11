@@ -1,4 +1,0 @@
-Target dependency graph (2 targets)
-Target 'family-rosaryTests' in project 'family-rosary'
-➜ Explicit dependency on target 'family-rosary' in project 'family-rosary'
-Target 'family-rosary' in project 'family-rosary' (no dependencies)

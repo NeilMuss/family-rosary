@@ -48,8 +48,16 @@ final class ShareViewController: SLComposeServiceViewController {
             NSLog("SHARE_IMPORT_EXT staged import=%@", staged.importID)
             if let url = configuration.makeShareImportURL(importID: staged.importID) {
                 NSLog("SHARE_IMPORT_EXT opening app via URL=%@", url.absoluteString)
-                extensionContext?.open(url) { [weak self] _ in
-                    self?.extensionContext?.completeRequest(returningItems: [], completionHandler: nil)
+                let didOpen = await extensionContext?.open(url) ?? false
+                if didOpen {
+                    extensionContext?.completeRequest(returningItems: [], completionHandler: nil)
+                } else {
+                    let message = "Share failed: Could not open Family Rosary."
+                    NSLog("SHARE_IMPORT_EXT could not open app for URL=%@", url.absoluteString)
+                    statusText = message
+                    placeholder = message
+                    presentErrorAlert(message: message)
+                    didStartStaging = false
                 }
             } else {
                 NSLog("SHARE_IMPORT_EXT could not build deep link URL")

@@ -1,19 +1,22 @@
+import AudioToolbox
 import Foundation
 import XCTest
 @testable import family_rosary
 
+@MainActor
 final class SharedRecordingImportPipelineTests: XCTestCase {
-    func testPipelineSuccessCopiesRegistersAndCleansUp() throws {
+    func testPipelineSuccessCopiesRegistersAndCleansUp() async throws {
         let fixture = try PipelineFixture.make()
         let importID = "success-1"
         try fixture.writeStagedImport(importID: importID, receipt: true, audioData: Data("audio".utf8))
 
         let pipeline = fixture.makePipeline()
-        let result = pipeline.process(importID: importID)
+        let result = await pipeline.process(importID: importID)
 
         switch result.status {
         case .imported(let imported):
             XCTAssertTrue(imported.filename.contains(importID))
+            XCTAssertEqual(imported.filename, "shared_success-1_memo.m4a")
             let destinationURL = fixture.baseDirURL
                 .appendingPathComponent("imported_shared_audio", isDirectory: true)
                 .appendingPathComponent(imported.filename)
@@ -24,58 +27,63 @@ final class SharedRecordingImportPipelineTests: XCTestCase {
         }
     }
 
-    func testPipelineFailsWhenReceiptMissing() throws {
+    func testPipelineFailsWhenReceiptMissing() async throws {
         let fixture = try PipelineFixture.make()
         let importID = "missing-receipt"
         try fixture.writeStagedImport(importID: importID, receipt: false, audioData: Data("audio".utf8))
 
-        let result = fixture.makePipeline().process(importID: importID)
+        let result = await fixture.makePipeline().process(importID: importID)
         assertFailure(result, contains: "receipt is missing")
         XCTAssertTrue(FileManager.default.fileExists(atPath: fixture.stagedFolderURL(importID: importID).path))
     }
 
-    func testPipelineFailsWhenAudioMissing() throws {
+    func testPipelineFailsWhenAudioMissing() async throws {
         let fixture = try PipelineFixture.make()
         let importID = "missing-audio"
         try fixture.writeStagedImport(importID: importID, receipt: true, audioData: nil)
 
-        let result = fixture.makePipeline().process(importID: importID)
+        let result = await fixture.makePipeline().process(importID: importID)
         assertFailure(result, contains: "could not be found")
     }
 
-    func testPipelineFailsWhenAudioIsZeroBytes() throws {
+    func testPipelineFailsWhenAudioIsZeroBytes() async throws {
         let fixture = try PipelineFixture.make()
         let importID = "zero-bytes"
         try fixture.writeStagedImport(importID: importID, receipt: true, audioData: Data())
 
-        let result = fixture.makePipeline().process(importID: importID)
+        let result = await fixture.makePipeline().process(importID: importID)
         assertFailure(result, contains: "empty (0 bytes)")
     }
 
-    func testPipelineFailsWhenAudioUndecodable() throws {
+    func testPipelineFailsWhenAudioUndecodable() async throws {
         let fixture = try PipelineFixture.make(audioInspector: FailingAudioInspector())
         let importID = "undecodable"
         try fixture.writeStagedImport(importID: importID, receipt: true, audioData: Data("audio".utf8))
 
-        let result = fixture.makePipeline().process(importID: importID)
+        let result = await fixture.makePipeline().process(importID: importID)
         assertFailure(result, contains: "could not decode")
     }
 
-    func testPipelineFailsWhenCopyIntoLibraryFails() throws {
-        let fixture = try PipelineFixture.make(fileManager: AlwaysFailingCopyFileManager())
+    func testPipelineFailsWhenCopyIntoLibraryFails() async throws {
+        let fixture = try PipelineFixture.make(
+            audioPreparationService: FailingImportedAudioPreparationService(
+                error: AudioTranscodingError.exportCreationFailed
+            ),
+            fileManager: AlwaysFailingCopyFileManager()
+        )
         let importID = "copy-fail"
         try fixture.writeStagedImport(importID: importID, receipt: true, audioData: Data("audio".utf8))
 
-        let result = fixture.makePipeline().process(importID: importID)
-        assertFailure(result, contains: "could not move it into its library")
+        let result = await fixture.makePipeline().process(importID: importID)
+        assertFailure(result, contains: "canonical format")
     }
 
-    func testProcessAllPendingUsesStableOrdering() throws {
+    func testProcessAllPendingUsesStableOrdering() async throws {
         let fixture = try PipelineFixture.make()
         try fixture.writeStagedImport(importID: "b", receipt: true, audioData: Data("audio".utf8))
         try fixture.writeStagedImport(importID: "a", receipt: true, audioData: Data("audio".utf8))
 
-        let results = fixture.makePipeline().processAllPending()
+        let results = await fixture.makePipeline().processAllPending()
         XCTAssertEqual(results.map(\.importID), ["a", "b"])
     }
 
@@ -95,11 +103,13 @@ private struct PipelineFixture {
     let paths: SharedImportPaths
     let discovery: SharedRecordingDiscoveryService
     let audioInspector: SharedAudioInspecting
+    let audioPreparationService: ImportedAudioPreparing
     let recordingStore: FileBackedImportedRecordingStore
     let fileManager: FileManager
 
     static func make(
         audioInspector: SharedAudioInspecting = PassingAudioInspector(),
+        audioPreparationService: ImportedAudioPreparing = PassingImportedAudioPreparationService(),
         fileManager: FileManager = .default
     ) throws -> PipelineFixture {
         let containerURL = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString, isDirectory: true)
@@ -124,6 +134,7 @@ private struct PipelineFixture {
             paths: paths,
             discovery: discovery,
             audioInspector: audioInspector,
+            audioPreparationService: audioPreparationService,
             recordingStore: store,
             fileManager: fileManager
         )
@@ -134,6 +145,7 @@ private struct PipelineFixture {
             paths: paths,
             discoveryService: discovery,
             audioInspector: audioInspector,
+            audioPreparationService: audioPreparationService,
             recordingStore: recordingStore,
             fileManager: fileManager,
             sessionIDProvider: { "session" },
@@ -190,5 +202,35 @@ private final class AlwaysFailingCopyFileManager: FileManager {
         _ = srcURL
         _ = dstURL
         throw NSError(domain: "tests", code: 999, userInfo: [NSLocalizedDescriptionKey: "copy failed"])
+    }
+}
+
+private struct PassingImportedAudioPreparationService: ImportedAudioPreparing {
+    func prepare(sourceURL: URL, destinationURL: URL) async throws -> PreparedAudioFile {
+        try FileManager.default.createDirectory(at: destinationURL.deletingLastPathComponent(), withIntermediateDirectories: true)
+        try FileManager.default.copyItem(at: sourceURL, to: destinationURL)
+        return PreparedAudioFile(
+            fileURL: destinationURL,
+            inspection: AudioAssetInspection(
+                pathExtension: "m4a",
+                fileSizeBytes: (try FileManager.default.attributesOfItem(atPath: destinationURL.path)[.size] as? NSNumber)?.int64Value ?? 0,
+                durationSeconds: 4.2,
+                sampleRate: 24_000,
+                channelCount: 1,
+                codecFormatID: kAudioFormatMPEG4AAC,
+                estimatedBitRate: 48_000
+            ),
+            strategy: .bypassedCanonical
+        )
+    }
+}
+
+private struct FailingImportedAudioPreparationService: ImportedAudioPreparing {
+    let error: Error
+
+    func prepare(sourceURL: URL, destinationURL: URL) async throws -> PreparedAudioFile {
+        _ = sourceURL
+        _ = destinationURL
+        throw error
     }
 }

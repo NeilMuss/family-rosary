@@ -29,7 +29,10 @@ struct AppCompositionRoot {
     }
 
     func makeAudioImportUseCase() -> AudioImporting {
-        AudioImportUseCase(baseDirURL: makeBaseDirURLProvider())
+        AudioImportUseCase(
+            baseDirURL: makeBaseDirURLProvider(),
+            audioPreparationService: makeImportedAudioPreparationService()
+        )
     }
 
     func makeAudioFileResolver() -> AudioFileResolving {
@@ -175,6 +178,7 @@ struct AppCompositionRoot {
             paths: paths,
             discoveryService: discovery,
             audioInspector: AVSharedAudioInspector(),
+            audioPreparationService: makeImportedAudioPreparationService(),
             recordingStore: store,
             baseDirURLProvider: makeBaseDirURLProvider()
         )
@@ -197,6 +201,29 @@ struct AppCompositionRoot {
             levelMonitor: makeMicrophoneLevelMonitor(),
             onStartPrayer: onStartPrayer,
             onBack: onBack
+        )
+    }
+
+    func makeImportedAudioPreparationService() -> ImportedAudioPreparing {
+        let format = CanonicalAudioFormat.speech
+        let inspector = AVAudioAssetInspector(format: format)
+        let validator = CanonicalAudioValidator(
+            format: format,
+            inspector: inspector,
+            matcher: CanonicalAudioMatcher(format: format)
+        )
+        let transcoder = AudioTranscodingService(
+            format: format,
+            validator: validator,
+            exporter: AVAssetReaderWriterAudioExporter(),
+            inspector: inspector
+        )
+        return ImportedAudioPreparationService(
+            format: format,
+            inspector: inspector,
+            matcher: CanonicalAudioMatcher(format: format),
+            validator: validator,
+            transcoder: transcoder
         )
     }
 

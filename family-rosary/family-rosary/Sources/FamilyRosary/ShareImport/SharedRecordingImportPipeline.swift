@@ -11,14 +11,15 @@ struct SharedRecordingImportResult: Equatable {
 }
 
 protocol SharedRecordingImportRunning {
-    func processAllPending() -> [SharedRecordingImportResult]
-    func process(importID: String) -> SharedRecordingImportResult
+    func processAllPending() async -> [SharedRecordingImportResult]
+    func process(importID: String) async -> SharedRecordingImportResult
 }
 
 struct SharedRecordingImportPipeline: SharedRecordingImportRunning {
     let paths: SharedImportPaths
     let discoveryService: SharedRecordingDiscovering
     let audioInspector: SharedAudioInspecting
+    let audioPreparationService: ImportedAudioPreparing
     let recordingStore: ImportedRecordingStoring
     let fileManager: FileManager
     let logger: SharedImportDiagnosticsLogger
@@ -30,6 +31,7 @@ struct SharedRecordingImportPipeline: SharedRecordingImportRunning {
         paths: SharedImportPaths,
         discoveryService: SharedRecordingDiscovering,
         audioInspector: SharedAudioInspecting,
+        audioPreparationService: ImportedAudioPreparing,
         recordingStore: ImportedRecordingStoring,
         fileManager: FileManager = .default,
         logger: SharedImportDiagnosticsLogger = SharedImportDiagnosticsLogger(),
@@ -40,6 +42,7 @@ struct SharedRecordingImportPipeline: SharedRecordingImportRunning {
         self.paths = paths
         self.discoveryService = discoveryService
         self.audioInspector = audioInspector
+        self.audioPreparationService = audioPreparationService
         self.recordingStore = recordingStore
         self.fileManager = fileManager
         self.logger = logger
@@ -48,12 +51,16 @@ struct SharedRecordingImportPipeline: SharedRecordingImportRunning {
         self.baseDirURLProvider = baseDirURLProvider
     }
 
-    func processAllPending() -> [SharedRecordingImportResult] {
+    func processAllPending() async -> [SharedRecordingImportResult] {
         let items = discoveryService.discover().sorted { $0.importID < $1.importID }
-        return items.map { process(importID: $0.importID) }
+        var results: [SharedRecordingImportResult] = []
+        for item in items {
+            results.append(await process(importID: item.importID))
+        }
+        return results
     }
 
-    func process(importID: String) -> SharedRecordingImportResult {
+    func process(importID: String) async -> SharedRecordingImportResult {
         let sessionID = sessionIDProvider()
         logger.log(sessionID: sessionID, importID: importID, stage: "SESSION", event: .info, reason: "started")
 
@@ -113,16 +120,28 @@ struct SharedRecordingImportPipeline: SharedRecordingImportRunning {
             )
 
             let libraryDirURL = try FamilyRosaryPaths.importedSharedAudioDirURL(baseDirURL: baseDirURLProvider())
-            let destinationFilename = "shared_\(importID)_\(receipt.normalizedFilename)"
+            let normalizedStem = URL(fileURLWithPath: receipt.normalizedFilename).deletingPathExtension().lastPathComponent
+            let destinationFilename = "shared_\(importID)_\(normalizedStem).\(CanonicalAudioFormat.speech.fileExtension)"
             let destinationURL = libraryDirURL.appendingPathComponent(destinationFilename)
 
             do {
-                if fileManager.fileExists(atPath: destinationURL.path) {
-                    try fileManager.removeItem(at: destinationURL)
-                }
-                try fileManager.copyItem(at: stagedAudioURL, to: destinationURL)
+                let preparedAudio = try await audioPreparationService.prepare(
+                    sourceURL: stagedAudioURL,
+                    destinationURL: destinationURL
+                )
+                logger.log(
+                    sessionID: sessionID,
+                    importID: importID,
+                    stage: "CANONICALIZE_AUDIO",
+                    event: .pass,
+                    path: preparedAudio.fileURL.path,
+                    reason: "strategy=\(preparedAudio.strategy) bytes=\(preparedAudio.inspection.fileSizeBytes)"
+                )
             } catch {
-                throw SharedRecordingImportError.appLibraryCopyFailed(importID: importID, underlying: error)
+                throw SharedRecordingImportError.canonicalizationFailed(
+                    importID: importID,
+                    reason: error.localizedDescription
+                )
             }
             logger.log(sessionID: sessionID, importID: importID, stage: "COPY_TO_LIBRARY", event: .pass, path: destinationURL.path)
 

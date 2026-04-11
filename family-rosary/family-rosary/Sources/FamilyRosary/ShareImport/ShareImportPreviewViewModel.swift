@@ -152,14 +152,16 @@ final class ShareImportPreviewViewModel: ObservableObject {
     }
 
     func useRecording(importID: String) {
-        let result = pipeline.process(importID: importID)
-        switch result.status {
-        case .imported:
-            errorMessage = nil
-            scanInboxAndPresent()
-        case let .failed(message):
-            errorMessage = message
-            scanInboxAndPresent()
+        Task { @MainActor in
+            let result = await pipeline.process(importID: importID)
+            switch result.status {
+            case .imported:
+                errorMessage = nil
+                scanInboxAndPresent()
+            case let .failed(message):
+                errorMessage = message
+                scanInboxAndPresent()
+            }
         }
     }
 

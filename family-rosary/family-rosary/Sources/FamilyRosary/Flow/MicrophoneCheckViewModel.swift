@@ -34,7 +34,10 @@ final class MicrophoneCheckViewModel: ObservableObject {
     }
 
     deinit {
-        levelMonitor.stop()
+        let levelMonitor = self.levelMonitor
+        Task { @MainActor in
+            levelMonitor.stop()
+        }
     }
 
     func onAppear() {

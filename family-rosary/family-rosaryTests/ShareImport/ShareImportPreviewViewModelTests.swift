@@ -97,8 +97,8 @@ private struct FakeDiscoveryService: SharedRecordingDiscovering {
 }
 
 private struct FakePipeline: SharedRecordingImportRunning {
-    func processAllPending() -> [SharedRecordingImportResult] { [] }
-    func process(importID: String) -> SharedRecordingImportResult {
+    func processAllPending() async -> [SharedRecordingImportResult] { [] }
+    func process(importID: String) async -> SharedRecordingImportResult {
         SharedRecordingImportResult(
             importID: importID,
             status: .failed(message: "not implemented in fake")
