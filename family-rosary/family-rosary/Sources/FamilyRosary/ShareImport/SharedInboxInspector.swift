@@ -1,4 +1,5 @@
 import Foundation
+import Combine
 
 struct SharedInboxItem: Identifiable, Equatable {
     let id: String

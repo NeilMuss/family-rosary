@@ -127,7 +127,7 @@ enum ShareImportError: LocalizedError {
     }
 }
 
-struct ShareAttachmentCandidate: @unchecked Sendable {
+struct ShareAttachmentCandidate {
     let provider: NSItemProvider
     let preferredTypeIdentifier: String
     let registeredTypeIdentifiers: [String]
@@ -191,40 +191,44 @@ struct ShareAttachmentExtractor {
         )
         logger.log("LOAD_ITEM_BEGIN", details: ["typeIdentifier": candidate.preferredTypeIdentifier])
 
+        let provider = candidate.provider
+        let preferredTypeIdentifier = candidate.preferredTypeIdentifier
+        let logger = self.logger
+
         return try await withCheckedThrowingContinuation { continuation in
-            candidate.provider.loadFileRepresentation(forTypeIdentifier: candidate.preferredTypeIdentifier) { sourceURL, error in
+            provider.loadFileRepresentation(forTypeIdentifier: preferredTypeIdentifier) { sourceURL, error in
                 if let error {
-                    self.logger.fail(
-                        "The provider could not load audio for \(candidate.preferredTypeIdentifier).",
+                    logger.fail(
+                        "The provider could not load audio for \(preferredTypeIdentifier).",
                         stage: "LOAD_ITEM_BEGIN",
                         error: error
                     )
                     continuation.resume(throwing: ShareImportError.providerCouldNotLoadItem(
-                        typeIdentifier: candidate.preferredTypeIdentifier,
+                        typeIdentifier: preferredTypeIdentifier,
                         underlying: error
                     ))
                     return
                 }
 
                 guard let sourceURL else {
-                    self.logger.fail(
+                    logger.fail(
                         "The provider did not return a file URL.",
                         stage: "LOAD_ITEM_BEGIN"
                     )
                     continuation.resume(throwing: ShareImportError.providerCouldNotLoadItem(
-                        typeIdentifier: candidate.preferredTypeIdentifier,
+                        typeIdentifier: preferredTypeIdentifier,
                         underlying: nil
                     ))
                     return
                 }
 
                 guard sourceURL.isFileURL else {
-                    self.logger.fail("The shared item did not resolve to a file URL.", stage: "LOAD_ITEM_BEGIN")
+                    logger.fail("The shared item did not resolve to a file URL.", stage: "LOAD_ITEM_BEGIN")
                     continuation.resume(throwing: ShareImportError.loadedItemWasNotFileURL)
                     return
                 }
 
-                self.logger.log("SECURITY_SCOPE_BEGIN", details: ["path": sourceURL.path])
+                logger.log("SECURITY_SCOPE_BEGIN", details: ["path": sourceURL.path])
                 let securityScoped = sourceURL.startAccessingSecurityScopedResource()
                 defer {
                     if securityScoped {
@@ -241,7 +245,7 @@ struct ShareAttachmentExtractor {
                     }
                     try FileManager.default.copyItem(at: sourceURL, to: tempURL)
                     let byteCount = try Self.byteCount(for: tempURL, fileManager: .default)
-                    self.logger.log(
+                    logger.log(
                         "LOAD_ITEM_SUCCESS",
                         details: [
                             "sourceFilename": sourceURL.lastPathComponent,
@@ -256,13 +260,13 @@ struct ShareAttachmentExtractor {
                         byteCount: byteCount
                     ))
                 } catch {
-                    self.logger.fail(
+                    logger.fail(
                         "The provider copy into a temporary file failed.",
                         stage: "LOAD_ITEM_BEGIN",
                         error: error
                     )
                     continuation.resume(throwing: ShareImportError.providerCouldNotLoadItem(
-                        typeIdentifier: candidate.preferredTypeIdentifier,
+                        typeIdentifier: preferredTypeIdentifier,
                         underlying: error
                     ))
                 }
