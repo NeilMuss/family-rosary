@@ -98,6 +98,51 @@ rescue StandardError => error
   UI.message("CI_DIAG #{label}: ERROR #{error.message}")
 end
 
+def print_signing_forensics(stage_label)
+  safe_sh("#{stage_label} pwd", "pwd")
+  safe_sh("#{stage_label} xcode-select", "xcode-select -p")
+  safe_sh("#{stage_label} xcodebuild version", "xcodebuild -version")
+  safe_sh("#{stage_label} keychains list", "security list-keychains")
+  safe_sh("#{stage_label} default keychain", "security default-keychain")
+  safe_sh("#{stage_label} env", "env | sort | grep -E 'MATCH|SIGH|FASTLANE|GYM|XCODE|DEVELOPER|CI|ASC'")
+  safe_sh("#{stage_label} codesigning identities", "security find-identity -v -p codesigning")
+  safe_sh("#{stage_label} mobiledevice profiles", "find ~/Library/MobileDevice/Provisioning\\ Profiles -name '*.mobileprovision' -print 2>/dev/null")
+  safe_sh("#{stage_label} xcode userdata profiles", "find ~/Library/Developer/Xcode/UserData/Provisioning\\ Profiles -name '*.mobileprovision' -print 2>/dev/null")
+
+  app_buildsettings_path = "/tmp/app-buildsettings.txt"
+  ext_buildsettings_path = "/tmp/ext-buildsettings.txt"
+  build_settings_patterns = [
+    "CODE_SIGN_IDENTITY",
+    "EXPANDED_CODE_SIGN_IDENTITY",
+    "EXPANDED_CODE_SIGN_IDENTITY_NAME",
+    "PROVISIONING_PROFILE",
+    "PROVISIONING_PROFILE_SPECIFIER",
+    "DEVELOPMENT_TEAM",
+    "PRODUCT_BUNDLE_IDENTIFIER",
+    "CODE_SIGN_STYLE",
+    "CODE_SIGN_ENTITLEMENTS",
+    "INFOPLIST_FILE"
+  ]
+
+  safe_sh(
+    "#{stage_label} app build settings raw",
+    "xcodebuild -showBuildSettings -project family-rosary.xcodeproj -target family-rosary -configuration Release > #{Shellwords.escape(app_buildsettings_path)} 2>&1"
+  )
+  print_file_lines("#{stage_label} app build settings", app_buildsettings_path, build_settings_patterns)
+
+  safe_sh(
+    "#{stage_label} extension build settings raw",
+    "xcodebuild -showBuildSettings -project family-rosary.xcodeproj -target FamilyRosaryShareExtension -configuration Release > #{Shellwords.escape(ext_buildsettings_path)} 2>&1"
+  )
+  print_file_lines("#{stage_label} extension build settings", ext_buildsettings_path, build_settings_patterns)
+
+  UI.message("CI_DIAG #{stage_label} lane_context MATCH_KEYCHAIN_NAME: #{lane_context[SharedValues::MATCH_KEYCHAIN_NAME] || 'MISSING'}")
+  UI.message("CI_DIAG #{stage_label} lane_context MATCH_KEYCHAIN_PASSWORD present: #{lane_context[SharedValues::MATCH_KEYCHAIN_PASSWORD].to_s.empty? ? 'false' : 'true'}")
+  UI.message("CI_DIAG #{stage_label} lane_context MATCH_PROVISIONING_PROFILE_MAPPING: #{lane_context[SharedValues::MATCH_PROVISIONING_PROFILE_MAPPING] || {}}")
+rescue StandardError => error
+  UI.message("CI_DIAG #{stage_label} signing forensics: ERROR #{error.message}")
+end
+
 platform :ios do
   desc "Build and upload to TestFlight"
   lane :beta do
@@ -109,7 +154,9 @@ platform :ios do
       MATCH_PASSWORD
     ])
 
+    print_signing_forensics("before setup_ci")
     setup_ci if ci?
+    print_signing_forensics("after setup_ci")
 
     repo_root = File.expand_path("..", __dir__)
     project_path = File.join(repo_root, "family-rosary.xcodeproj")
@@ -208,6 +255,7 @@ platform :ios do
       type: "appstore",
       readonly: ci?
     )
+    print_signing_forensics("after match")
 
     profile_mapping = lane_context[SharedValues::MATCH_PROVISIONING_PROFILE_MAPPING] || {}
     UI.message("CI_DIAG profile mapping: #{profile_mapping}")
@@ -352,6 +400,7 @@ platform :ios do
     UI.message("CI_DIAG gym preflight provisioningProfiles: #{match_mapping}")
     safe_sh("xcode path", "xcode-select -p")
     UI.message("CI_DIAG gym preflight DEVELOPER_DIR: #{ENV['DEVELOPER_DIR'].to_s.empty? ? 'MISSING' : ENV['DEVELOPER_DIR']}")
+    print_signing_forensics("before gym")
 
     gym(
       project: "family-rosary.xcodeproj",
