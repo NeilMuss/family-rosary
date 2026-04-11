@@ -25,6 +25,10 @@ jobs:
           ruby-version: "3.2"
           bundler-cache: true
 
+      - name: Prepare CI keychain with setup_ci
+        working-directory: family-rosary
+        run: bundle exec fastlane run setup_ci
+
       - name: Install signing assets with match
         working-directory: family-rosary
         env:
