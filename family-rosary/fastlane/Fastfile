@@ -82,6 +82,8 @@ platform :ios do
       build_number: build_number.to_s
     )
 
+    UI.message("Match app identifiers: com.neilmussett.familyrosary, com.neilmussett.familyrosary.FamilyRosaryShareExtension")
+
     match(
       type: "appstore",
       readonly: ci?

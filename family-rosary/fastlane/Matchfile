@@ -5,7 +5,10 @@ if ENV["MATCH_GIT_URL"].to_s.strip != ""
 end
 
 type("appstore")
-app_identifier(["com.neilmussett.familyrosary"])
+app_identifier([
+  "com.neilmussett.familyrosary",
+  "com.neilmussett.familyrosary.FamilyRosaryShareExtension"
+])
 team_id("438L645H48")
 
 if ENV["MATCH_GIT_BASIC_AUTHORIZATION"].to_s.strip != ""
