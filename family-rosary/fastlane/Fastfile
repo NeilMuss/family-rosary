@@ -93,47 +93,72 @@ platform :ios do
     profile_mapping = lane_context[SharedValues::MATCH_PROVISIONING_PROFILE_MAPPING] || {}
     UI.message("CI_DIAG profile mapping: #{profile_mapping}")
 
+    provisioning_profile_dirs = [
+      "/Users/runner/Library/Developer/Xcode/UserData/Provisioning Profiles",
+      File.expand_path("~/Library/MobileDevice/Provisioning Profiles")
+    ]
+
     print_profile_diagnostics = lambda do |bundle_id, label|
       profile_path = nil
-      decoded_plist = nil
+      app_groups = nil
 
-      Dir[File.expand_path("~/Library/MobileDevice/Provisioning Profiles/*.mobileprovision")].sort.each do |candidate|
-        candidate_plist = "#{candidate}.plist"
-        begin
-          sh("security cms -D -i #{Shellwords.escape(candidate)} > #{Shellwords.escape(candidate_plist)}")
-          application_identifier = sh("/usr/libexec/PlistBuddy -c #{Shellwords.escape("Print :Entitlements:application-identifier")} #{Shellwords.escape(candidate_plist)}", log: false).strip
-          if application_identifier == "438L645H48.#{bundle_id}"
+      provisioning_profile_dirs.each do |directory|
+        next unless Dir.exist?(directory)
+
+        Dir[File.join(directory, "*.mobileprovision")].sort.each do |candidate|
+          decoded_plist = "#{candidate}.plist"
+
+          begin
+            sh("security cms -D -i #{Shellwords.escape(candidate)} > #{Shellwords.escape(decoded_plist)}")
+            application_identifier =
+              sh("/usr/libexec/PlistBuddy -c #{Shellwords.escape('Print :Entitlements:application-identifier')} #{Shellwords.escape(decoded_plist)}", log: false).strip
+
+            next unless application_identifier == "438L645H48.#{bundle_id}"
+
             profile_path = candidate
-            decoded_plist = candidate_plist
+            begin
+              app_groups =
+                sh("/usr/libexec/PlistBuddy -c #{Shellwords.escape('Print :Entitlements:com.apple.security.application-groups')} #{Shellwords.escape(decoded_plist)}", log: false).strip
+            rescue StandardError
+              app_groups = nil
+            end
             break
+          rescue StandardError
+            nil
+          ensure
+            File.delete(decoded_plist) if File.exist?(decoded_plist)
           end
-        rescue StandardError
-          File.delete(candidate_plist) if File.exist?(candidate_plist)
         end
+
+        break if profile_path
       end
 
       UI.message("CI_DIAG #{label} profile path: #{profile_path || 'MISSING'}")
-
-      if decoded_plist && File.exist?(decoded_plist)
-        begin
-          app_groups = sh("/usr/libexec/PlistBuddy -c #{Shellwords.escape("Print :Entitlements:com.apple.security.application-groups")} #{Shellwords.escape(decoded_plist)}", log: false).strip
-          UI.message("CI_DIAG #{label} profile app groups: #{app_groups.empty? ? 'MISSING' : app_groups}")
-        rescue StandardError
-          UI.message("CI_DIAG #{label} profile app groups: MISSING")
-        ensure
-          File.delete(decoded_plist) if File.exist?(decoded_plist)
-        end
-      else
-        UI.message("CI_DIAG #{label} profile app groups: MISSING")
-      end
+      UI.message("CI_DIAG #{label} profile app groups: #{app_groups.to_s.empty? ? 'MISSING' : app_groups}")
     end
 
     print_profile_diagnostics.call("com.neilmussett.familyrosary", "app")
     print_profile_diagnostics.call("com.neilmussett.familyrosary.FamilyRosaryShareExtension", "extension")
 
-    build_settings_output = sh("xcodebuild -showBuildSettings -scheme family-rosary -project family-rosary.xcodeproj | egrep 'CODE_SIGN_ENTITLEMENTS|PRODUCT_BUNDLE_IDENTIFIER|DEVELOPMENT_TEAM|PROVISIONING_PROFILE|PROVISIONING_PROFILE_SPECIFIER|CODE_SIGN_STYLE'", log: false)
-    build_settings_output.to_s.split("\n").each do |line|
-      UI.message("CI_DIAG build settings: #{line}")
+    build_settings_output = sh("xcodebuild -showBuildSettings -scheme family-rosary -project family-rosary.xcodeproj 2>&1 || true", log: false)
+    build_settings_patterns = [
+      "CODE_SIGN_ENTITLEMENTS",
+      "PRODUCT_BUNDLE_IDENTIFIER",
+      "DEVELOPMENT_TEAM",
+      "PROVISIONING_PROFILE",
+      "PROVISIONING_PROFILE_SPECIFIER",
+      "CODE_SIGN_STYLE"
+    ]
+    matching_build_settings = build_settings_output.to_s.split("\n").select do |line|
+      build_settings_patterns.any? { |pattern| line.include?(pattern) }
+    end
+
+    if matching_build_settings.empty?
+      UI.message("CI_DIAG build settings: no matching build settings were found")
+    else
+      matching_build_settings.each do |line|
+        UI.message("CI_DIAG build settings: #{line}")
+      end
     end
 
     gym(
