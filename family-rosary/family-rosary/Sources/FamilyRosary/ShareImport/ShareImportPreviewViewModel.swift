@@ -130,6 +130,8 @@ final class ShareImportPreviewViewModel: ObservableObject {
             return
         }
 
+        DebugLog.shared.log("SHARE_IMPORT_APP pending_items=\(mapped.count)")
+
         headline = mapped.count == 1 ? "Review Shared Recording" : "Shared Recordings"
         isPresented = true
     }

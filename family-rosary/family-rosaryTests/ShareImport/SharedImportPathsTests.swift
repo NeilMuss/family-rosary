@@ -44,4 +44,26 @@ final class SharedImportPathsTests: XCTestCase {
             XCTAssertEqual(error as? SharedImportPathsError, .missingFileExtension)
         }
     }
+
+    func testSharedContainerFailsWhenIdentifierMissing() {
+        let paths = SharedImportPaths(appGroupIdentifier: "   ", sharedContainerURLProvider: { nil })
+
+        XCTAssertThrowsError(try paths.sharedContainerURL()) { error in
+            XCTAssertEqual(error as? SharedImportPathsError, .appGroupIdentifierMissing)
+        }
+    }
+
+    func testSharedContainerFailsWhenContainerUnavailable() {
+        let paths = SharedImportPaths(
+            appGroupIdentifier: "group.com.neilmussett.familyrosary",
+            sharedContainerURLProvider: { nil }
+        )
+
+        XCTAssertThrowsError(try paths.sharedContainerURL()) { error in
+            XCTAssertEqual(
+                error as? SharedImportPathsError,
+                .appGroupContainerUnavailable(appGroupIdentifier: "group.com.neilmussett.familyrosary")
+            )
+        }
+    }
 }

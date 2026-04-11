@@ -28,6 +28,9 @@ struct AppRootView: View {
                 }
             }
         }
+        .task {
+            shareImportPreviewViewModel.scanInboxAndPresent()
+        }
         .onOpenURL { url in
             shareImportPreviewViewModel.handleIncomingURL(url)
         }

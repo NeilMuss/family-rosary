@@ -3,7 +3,7 @@ import Social
 
 final class ShareViewController: SLComposeServiceViewController {
     private var didStartStaging = false
-    private var statusText = "Preparing recording…"
+    private var statusText = "Importing recording…"
 
     override func isContentValid() -> Bool {
         true
@@ -29,53 +29,43 @@ final class ShareViewController: SLComposeServiceViewController {
         }
         didStartStaging = true
 
-        statusText = "Preparing recording…"
+        statusText = "Importing recording…"
         placeholder = statusText
 
         Task { @MainActor in
-            await stageAndOpenApp()
+            await stageIntoSharedInbox()
         }
     }
 
     @MainActor
-    private func stageAndOpenApp() async {
+    private func stageIntoSharedInbox() async {
+        // The previous flow treated "cannot open the main app right now" as a hard share failure.
+        // This extension now succeeds once the audio file is durably staged into the shared inbox.
         let configuration = SharedImportConfiguration.fromMainBundle()
-        let stager = SharedRecordingStager(configuration: configuration)
-        NSLog("SHARE_IMPORT_EXT controller started")
+        let logger = ShareImportLogger(sessionID: UUID().uuidString)
+        let extractor = ShareAttachmentExtractor(logger: logger)
+        let writer = SharedAudioInboxWriter(configuration: configuration, logger: logger)
+        logger.log("SESSION_BEGIN", details: ["controller": "ShareViewController"])
 
         do {
-            let staged = try await stager.stageFirstAudio(from: extensionContext?.inputItems as? [NSExtensionItem] ?? [])
-            NSLog("SHARE_IMPORT_EXT staged import=%@", staged.importID)
-            if let url = configuration.makeShareImportURL(importID: staged.importID) {
-                NSLog("SHARE_IMPORT_EXT opening app via URL=%@", url.absoluteString)
-                let didOpen = await extensionContext?.open(url) ?? false
-                if didOpen {
-                    extensionContext?.completeRequest(returningItems: [], completionHandler: nil)
-                } else {
-                    let message = "Share failed: Could not open Family Rosary."
-                    NSLog("SHARE_IMPORT_EXT could not open app for URL=%@", url.absoluteString)
-                    statusText = message
-                    placeholder = message
-                    presentErrorAlert(message: message)
-                    didStartStaging = false
-                }
-            } else {
-                NSLog("SHARE_IMPORT_EXT could not build deep link URL")
-                extensionContext?.completeRequest(returningItems: [], completionHandler: nil)
-            }
+            let inputItems = extensionContext?.inputItems as? [NSExtensionItem] ?? []
+            let attachment = try await extractor.extractFirstAudioAttachment(from: inputItems)
+            let result = try writer.write(attachment: attachment)
+            logger.log("COMPLETE_REQUEST", details: [
+                "importID": result.importID,
+                "receiptFilename": result.receiptURL.lastPathComponent
+            ])
+            statusText = "Saved to Family Rosary inbox."
+            placeholder = statusText
+            extensionContext?.completeRequest(returningItems: [], completionHandler: nil)
         } catch {
-            NSLog("SHARE_IMPORT_EXT failed with error=%@", error.localizedDescription)
-            let message = error.localizedDescription
+            let shareError = (error as? ShareImportError) ?? .providerCouldNotLoadItem(typeIdentifier: "public.audio", underlying: error)
+            logger.fail(shareError.localizedDescription, stage: "SESSION", error: shareError)
+            let message = shareError.localizedDescription
             statusText = message
             placeholder = message
-            presentErrorAlert(message: message)
+            extensionContext?.cancelRequest(withError: shareError.asNSError)
             didStartStaging = false
         }
-    }
-
-    private func presentErrorAlert(message: String) {
-        let alert = UIAlertController(title: "Share Failed", message: message, preferredStyle: .alert)
-        alert.addAction(UIAlertAction(title: "Close", style: .cancel))
-        present(alert, animated: true)
     }
 }
