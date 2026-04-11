@@ -82,6 +82,22 @@ def decode_profile_field(profile_path, plistbuddy_key)
   end
 end
 
+def print_filtered_lines(label, output, patterns)
+  matching_lines = output.to_s.split("\n").select do |line|
+    patterns.any? { |pattern| line.include?(pattern) }
+  end
+
+  if matching_lines.empty?
+    UI.message("CI_DIAG #{label}: no matching lines found")
+  else
+    matching_lines.each do |line|
+      UI.message("CI_DIAG #{label}: #{line}")
+    end
+  end
+rescue StandardError => error
+  UI.message("CI_DIAG #{label}: ERROR #{error.message}")
+end
+
 platform :ios do
   desc "Build and upload to TestFlight"
   lane :beta do
@@ -92,6 +108,9 @@ platform :ios do
       MATCH_GIT_URL
       MATCH_PASSWORD
     ])
+
+    repo_root = File.expand_path("..", __dir__)
+    project_path = File.join(repo_root, "family-rosary.xcodeproj")
 
     key_value = ENV["ASC_PRIVATE_KEY_BASE64"]
     is_raw_key = key_value.to_s.include?("-----BEGIN")
@@ -132,16 +151,20 @@ platform :ios do
     UI.message("Chosen build number: #{build_number}")
     UI.message("Running in CI: #{ci?}")
 
-    project_file_path = "family-rosary.xcodeproj/project.pbxproj"
+    project_file_path = File.join(project_path, "project.pbxproj")
     suspicious_project_patterns = ["INFO", "ENTITLE", "PROFILE", "PLIST", "CODE_SIGN", "GROUP"]
     print_project_file_diagnostics = lambda do |stage_label|
       safe_sh("#{stage_label} pwd", "pwd")
       UI.message("CI_DIAG #{stage_label} cwd: #{Dir.pwd}")
+      UI.message("CI_DIAG #{stage_label} repo_root: #{repo_root}")
+      UI.message("CI_DIAG #{stage_label} project_path: #{project_path}")
+      UI.message("CI_DIAG #{stage_label} project_path exists: #{File.exist?(project_path)}")
       safe_sh("#{stage_label} repo entries", "ls -la")
       safe_sh("#{stage_label} fastlane entries", "ls -la fastlane")
-      safe_sh("#{stage_label} xcodeproj files", "find . -name '*.xcodeproj' -print")
-      safe_sh("#{stage_label} entitlements files", "find . -name '*.entitlements' -print")
-      safe_sh("#{stage_label} xcodebuild list", "xcodebuild -list -project family-rosary.xcodeproj 2>&1")
+      safe_sh("#{stage_label} repo root entries", "ls -la #{Shellwords.escape(repo_root)}")
+      safe_sh("#{stage_label} xcodeproj files", "find #{Shellwords.escape(repo_root)} -name '*.xcodeproj' -print")
+      safe_sh("#{stage_label} entitlements files", "find #{Shellwords.escape(repo_root)} -name '*.entitlements' -print")
+      safe_sh("#{stage_label} xcodebuild list", "xcodebuild -list -project #{Shellwords.escape(project_path)} 2>&1")
       print_file_lines("#{stage_label} project CURRENT_PROJECT_VERSION", project_file_path, ["CURRENT_PROJECT_VERSION"])
       print_file_lines("#{stage_label} project MARKETING_VERSION", project_file_path, ["MARKETING_VERSION"])
       print_file_lines("#{stage_label} project INFOPLIST_FILE", project_file_path, ["INFOPLIST_FILE"])
@@ -268,7 +291,23 @@ platform :ios do
     print_profile_diagnostics.call("com.neilmussett.familyrosary", "app")
     print_profile_diagnostics.call("com.neilmussett.familyrosary.FamilyRosaryShareExtension", "extension")
 
-    build_settings_output = safe_sh("pre-gym xcodebuild showBuildSettings raw", "xcodebuild -showBuildSettings -scheme family-rosary -project family-rosary.xcodeproj 2>&1")
+    print_file_lines(
+      "project.pbxproj signing lines",
+      project_file_path,
+      [
+        "CURRENT_PROJECT_VERSION",
+        "MARKETING_VERSION",
+        "INFOPLIST_FILE",
+        "GENERATE_INFOPLIST_FILE",
+        "CODE_SIGN_ENTITLEMENTS",
+        "PROVISIONING_PROFILE",
+        "PROVISIONING_PROFILE_SPECIFIER",
+        "PRODUCT_BUNDLE_IDENTIFIER",
+        "DEVELOPMENT_TEAM",
+        "CODE_SIGN_STYLE"
+      ]
+    )
+
     build_settings_patterns = [
       "PRODUCT_BUNDLE_IDENTIFIER",
       "DEVELOPMENT_TEAM",
@@ -282,23 +321,28 @@ platform :ios do
       "CODE_SIGNING_ALLOWED",
       "CODE_SIGNING_REQUIRED",
       "CODE_SIGNING_FOLDER_PATH",
-      "APP_GROUP"
+      "ENTITLEMENTS_REQUIRED",
+      "APP_GROUP",
+      "SUPPORTS_MACCATALYST",
+      "SDKROOT",
+      "TARGET_NAME"
     ]
-    matching_build_settings = build_settings_output.to_s.split("\n").select do |line|
-      build_settings_patterns.any? { |pattern| line.include?(pattern) }
-    end
+    app_release_build_settings = safe_sh(
+      "app release xcodebuild showBuildSettings raw",
+      "xcodebuild -showBuildSettings -project #{Shellwords.escape(project_path)} -target #{Shellwords.escape('family-rosary')} -configuration Release 2>&1"
+    )
+    print_filtered_lines("app release build settings", app_release_build_settings, build_settings_patterns)
 
-    if matching_build_settings.empty?
-      UI.message("CI_DIAG build settings: no matching lines found")
-    else
-      matching_build_settings.each do |line|
-        UI.message("CI_DIAG build settings: #{line}")
-      end
-    end
+    extension_release_build_settings = safe_sh(
+      "extension release xcodebuild showBuildSettings raw",
+      "xcodebuild -showBuildSettings -project #{Shellwords.escape(project_path)} -target #{Shellwords.escape('FamilyRosaryShareExtension')} -configuration Release 2>&1"
+    )
+    print_filtered_lines("extension release build settings", extension_release_build_settings, build_settings_patterns)
 
     match_mapping = lane_context[SharedValues::MATCH_PROVISIONING_PROFILE_MAPPING] || {}
     UI.message("Passing provisioning profile mapping to gym: #{match_mapping}")
-    UI.message("CI_DIAG gym preflight project: family-rosary.xcodeproj")
+    UI.message("CI_DIAG gym preflight repo_root: #{repo_root}")
+    UI.message("CI_DIAG gym preflight project: #{project_path}")
     UI.message("CI_DIAG gym preflight scheme: family-rosary")
     UI.message("CI_DIAG gym preflight export_method: app-store")
     UI.message("CI_DIAG gym preflight provisioningProfiles: #{match_mapping}")
