@@ -2,6 +2,12 @@ import CryptoKit
 import Foundation
 import UniformTypeIdentifiers
 
+private enum SharedContainerLayout {
+    static let diagnosticsDirectoryName = "SharedDiagnostics"
+    static let logFilename = "entries.jsonl"
+    static let inboxDirectoryName = "SharedInbox"
+}
+
 struct ShareImportLogger {
     let sessionID: String
     let appGroupIdentifier: String
@@ -44,6 +50,58 @@ struct ShareImportLogger {
         log("FAIL \(stage)", details: merged)
     }
 
+    func logSharedContainerDetails() {
+        log("APP_GROUP_ID", details: ["value": appGroupIdentifier])
+
+        do {
+            let store = SharedDiagnosticsLogStore(
+                appGroupIdentifier: appGroupIdentifier,
+                fileManager: fileManager
+            )
+            log("APP_GROUP_CONTAINER_URL", details: ["path": try store.containerURL().path])
+            log("LOG_FILE_URL", details: ["path": try store.logFileURL().path])
+            log("INBOX_URL", details: ["path": try store.inboxURL().path])
+        } catch {
+            fail(
+                "The app group container was unavailable.",
+                stage: "APP_GROUP_CONTAINER_URL",
+                error: error,
+                details: ["appGroupIdentifier": appGroupIdentifier]
+            )
+        }
+    }
+
+    func validateSharedContainerAvailability() throws {
+        _ = try SharedDiagnosticsLogStore(
+            appGroupIdentifier: appGroupIdentifier,
+            fileManager: fileManager
+        ).containerURL()
+    }
+
+    func writeExtensionCanary() {
+        do {
+            let store = SharedDiagnosticsLogStore(
+                appGroupIdentifier: appGroupIdentifier,
+                fileManager: fileManager
+            )
+            let inboxURL = try store.inboxURL()
+            let filename = "extension-canary-\(Self.canaryTimestampFormatter.string(from: Date())).txt"
+            let canaryURL = inboxURL.appendingPathComponent(filename)
+            let content = "extension-canary session=\(sessionID)\n"
+            guard let data = content.data(using: .utf8) else {
+                throw ShareImportError.failedToPersistSharedAudioManifest(underlying: NSError(
+                    domain: "FamilyRosaryShareExtension.ShareImport",
+                    code: 1,
+                    userInfo: [NSLocalizedDescriptionKey: "Failed to encode extension canary text."]
+                ))
+            }
+            try data.write(to: canaryURL, options: .atomic)
+            log("EXTENSION_CANARY_WRITE_SUCCESS", details: ["path": canaryURL.path])
+        } catch {
+            fail("The extension canary file could not be written.", stage: "EXTENSION_CANARY_WRITE", error: error)
+        }
+    }
+
     private func persist(_ entry: SharedDiagnosticsEntry) {
         do {
             try SharedDiagnosticsLogStore(
@@ -66,6 +124,13 @@ struct ShareImportLogger {
     private static let iso8601Formatter: ISO8601DateFormatter = {
         let formatter = ISO8601DateFormatter()
         formatter.formatOptions = [.withInternetDateTime, .withFractionalSeconds]
+        return formatter
+    }()
+
+    private static let canaryTimestampFormatter: DateFormatter = {
+        let formatter = DateFormatter()
+        formatter.locale = Locale(identifier: "en_US_POSIX")
+        formatter.dateFormat = "yyyyMMdd-HHmmss-SSS"
         return formatter
     }()
 }
@@ -352,7 +417,7 @@ struct SharedAudioInboxWriter {
             throw ShareImportError.appGroupContainerUnavailable(appGroupIdentifier: configuration.appGroupIdentifier)
         }
 
-        let inboxURL = containerURL.appendingPathComponent("SharedInbox", isDirectory: true)
+        let inboxURL = containerURL.appendingPathComponent(SharedContainerLayout.inboxDirectoryName, isDirectory: true)
         do {
             try fileManager.createDirectory(at: inboxURL, withIntermediateDirectories: true)
         } catch {
@@ -510,12 +575,22 @@ private struct SharedDiagnosticsLogStore {
         try handle.write(contentsOf: Data([0x0A]))
     }
 
-    private func logFileURL() throws -> URL {
+    func containerURL() throws -> URL {
         guard let containerURL = fileManager.containerURL(forSecurityApplicationGroupIdentifier: appGroupIdentifier) else {
             throw ShareImportError.appGroupContainerUnavailable(appGroupIdentifier: appGroupIdentifier)
         }
-        let diagnosticsURL = containerURL.appendingPathComponent("SharedDiagnostics", isDirectory: true)
+        return containerURL
+    }
+
+    func inboxURL() throws -> URL {
+        let inboxURL = try containerURL().appendingPathComponent(SharedContainerLayout.inboxDirectoryName, isDirectory: true)
+        try fileManager.createDirectory(at: inboxURL, withIntermediateDirectories: true)
+        return inboxURL
+    }
+
+    func logFileURL() throws -> URL {
+        let diagnosticsURL = try containerURL().appendingPathComponent(SharedContainerLayout.diagnosticsDirectoryName, isDirectory: true)
         try fileManager.createDirectory(at: diagnosticsURL, withIntermediateDirectories: true)
-        return diagnosticsURL.appendingPathComponent("entries.jsonl")
+        return diagnosticsURL.appendingPathComponent(SharedContainerLayout.logFilename)
     }
 }

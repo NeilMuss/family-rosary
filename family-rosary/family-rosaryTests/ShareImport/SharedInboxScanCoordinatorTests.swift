@@ -43,11 +43,23 @@ final class SharedInboxScanCoordinatorTests: XCTestCase {
         XCTAssertTrue(lines.contains("APP_IMPORT | FAIL | importID=a reason=copy failed"))
     }
 
+    func testReadSharedContainerListsFiles() async throws {
+        let fixture = try Fixture.make()
+        let coordinator = fixture.makeCoordinator(discoveredItems: [], results: [])
+        let inboxURL = try fixture.paths.ensureSharedInboxDirectory()
+        try Data("canary".utf8).write(to: inboxURL.appendingPathComponent("app-canary.txt"))
+
+        coordinator.readSharedContainer()
+
+        XCTAssertTrue(coordinator.sharedContainerEntries.contains("SharedInbox/app-canary.txt"))
+    }
+
     private struct Fixture {
         let containerURL: URL
         let logStore: SharedDiagnosticsLogStore
         let paths: SharedImportPaths
 
+        @MainActor
         static func make() throws -> Fixture {
             let containerURL = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString, isDirectory: true)
             try FileManager.default.createDirectory(at: containerURL, withIntermediateDirectories: true)
@@ -62,6 +74,7 @@ final class SharedInboxScanCoordinatorTests: XCTestCase {
             return Fixture(containerURL: containerURL, logStore: logStore, paths: paths)
         }
 
+        @MainActor
         func makeCoordinator(
             discoveredItems: [SharedRecordingDiscoveredItem],
             results: [SharedRecordingImportResult]
@@ -73,9 +86,23 @@ final class SharedInboxScanCoordinatorTests: XCTestCase {
                 paths: paths,
                 logStore: logStore,
                 logger: SharedDiagnosticsLogger(
+                    category: "SHARE_INBOX",
+                    store: logStore,
+                    mirrorToDebugLog: false
+                ),
+                appLogger: SharedDiagnosticsLogger(
                     category: "APP_IMPORT",
                     store: logStore,
                     mirrorToDebugLog: false
+                ),
+                debugInjector: SharedInboxDebugInjector(
+                    paths: paths,
+                    logger: SharedDiagnosticsLogger(
+                        category: "SHARE_INBOX",
+                        store: logStore,
+                        mirrorToDebugLog: false
+                    ),
+                    bundledAssetURLProvider: { nil }
                 )
             )
         }

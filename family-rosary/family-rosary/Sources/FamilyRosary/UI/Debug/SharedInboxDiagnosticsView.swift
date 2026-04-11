@@ -41,6 +41,60 @@ struct SharedInboxDiagnosticsView: View {
             }
             .font(.caption)
 
+            HStack {
+                Button("Inject Bundled Test Audio") {
+                    viewModel.injectBundledTestAudio()
+                }
+
+                Button("Write Extension Canary (App-Side Emulation)") {
+                    viewModel.writeExtensionCanaryEmulation()
+                }
+            }
+            .font(.caption)
+
+            HStack {
+                Button("Write App Canary") {
+                    viewModel.writeAppCanary()
+                }
+
+                Button("Read Shared Container") {
+                    viewModel.readSharedContainer()
+                }
+            }
+            .font(.caption)
+
+            if let snapshot = viewModel.sharedContainerSnapshot {
+                Text("Shared Container")
+                    .font(.subheadline.weight(.semibold))
+
+                VStack(alignment: .leading, spacing: 2) {
+                    Text("appGroup: \(snapshot.appGroupIdentifier)")
+                    Text("container exists: \(snapshot.containerExists ? "YES" : "NO")")
+                    Text(snapshot.containerPath ?? "container path: nil")
+                    Text("log exists: \(snapshot.logFileExists ? "YES" : "NO")")
+                    Text(snapshot.logFilePath ?? "log file path: nil")
+                    Text("inbox exists: \(snapshot.inboxExists ? "YES" : "NO")")
+                    Text(snapshot.inboxPath ?? "inbox path: nil")
+                }
+                .font(.system(size: 10, design: .monospaced))
+                .frame(maxWidth: .infinity, alignment: .leading)
+            }
+
+            Text("Shared Container Files")
+                .font(.subheadline.weight(.semibold))
+
+            if viewModel.sharedContainerEntries.isEmpty {
+                Text("No shared container files listed yet.")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+            } else {
+                ForEach(viewModel.sharedContainerEntries, id: \.self) { entry in
+                    Text(entry)
+                        .font(.system(size: 10, design: .monospaced))
+                        .frame(maxWidth: .infinity, alignment: .leading)
+                }
+            }
+
             Text("Pending Shared Inbox Items")
                 .font(.subheadline.weight(.semibold))
 

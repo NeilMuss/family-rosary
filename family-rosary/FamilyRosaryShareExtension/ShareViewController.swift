@@ -47,9 +47,23 @@ final class ShareViewController: SLComposeServiceViewController {
             appGroupIdentifier: configuration.appGroupIdentifier,
             fileManager: .default
         )
+        logger.log("SESSION_BEGIN", details: ["controller": "ShareViewController"])
+        logger.logSharedContainerDetails()
+        do {
+            try logger.validateSharedContainerAvailability()
+        } catch {
+            let shareError = (error as? ShareImportError) ?? .appGroupContainerUnavailable(appGroupIdentifier: configuration.appGroupIdentifier)
+            logger.fail(shareError.localizedDescription, stage: "SESSION_BEGIN", error: shareError)
+            let message = shareError.localizedDescription
+            statusText = message
+            placeholder = message
+            extensionContext?.cancelRequest(withError: shareError.asNSError)
+            didStartStaging = false
+            return
+        }
+        logger.writeExtensionCanary()
         let extractor = ShareAttachmentExtractor(logger: logger)
         let writer = SharedAudioInboxWriter(configuration: configuration, logger: logger)
-        logger.log("SESSION_BEGIN", details: ["controller": "ShareViewController"])
 
         do {
             let inputItems = extensionContext?.inputItems as? [NSExtensionItem] ?? []

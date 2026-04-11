@@ -1,5 +1,11 @@
 import Foundation
 
+enum SharedContainerLayout {
+    static let diagnosticsDirectoryName = "SharedDiagnostics"
+    static let logFilename = "entries.jsonl"
+    static let inboxDirectoryName = "SharedInbox"
+}
+
 struct SharedDiagnosticsEntry: Codable, Equatable, Identifiable {
     let timestampISO8601: String
     let category: String
@@ -118,25 +124,36 @@ struct SharedDiagnosticsLogStore {
         try loadEntries().map(\.formattedLine).joined(separator: "\n")
     }
 
-    private func logFileURL() throws -> URL {
+    func resolvedAppGroupIdentifier() throws -> String {
         let trimmed = appGroupIdentifier.trimmingCharacters(in: .whitespacesAndNewlines)
         guard trimmed.isEmpty == false else {
             throw SharedDiagnosticsLogStoreError.appGroupIdentifierMissing
         }
+        return trimmed
+    }
+
+    func containerURL() throws -> URL {
+        let trimmed = try resolvedAppGroupIdentifier()
 
         let containerURL = sharedContainerURLProvider?() ?? fileManager.containerURL(forSecurityApplicationGroupIdentifier: trimmed)
         guard let containerURL else {
             throw SharedDiagnosticsLogStoreError.appGroupContainerUnavailable(appGroupIdentifier: trimmed)
         }
+        return containerURL
+    }
 
-        let diagnosticsURL = containerURL.appendingPathComponent("SharedDiagnostics", isDirectory: true)
+    func diagnosticsDirectoryURL() throws -> URL {
+        let diagnosticsURL = try containerURL().appendingPathComponent(SharedContainerLayout.diagnosticsDirectoryName, isDirectory: true)
         do {
             try fileManager.createDirectory(at: diagnosticsURL, withIntermediateDirectories: true)
         } catch {
             throw SharedDiagnosticsLogStoreError.failedToCreateLogDirectory
         }
+        return diagnosticsURL
+    }
 
-        return diagnosticsURL.appendingPathComponent("entries.jsonl")
+    func logFileURL() throws -> URL {
+        try diagnosticsDirectoryURL().appendingPathComponent(SharedContainerLayout.logFilename)
     }
 }
 

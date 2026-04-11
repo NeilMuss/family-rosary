@@ -50,6 +50,24 @@ final class SharedDiagnosticsLogStoreTests: XCTestCase {
         XCTAssertEqual(try store.loadEntries(), [])
     }
 
+    func testResolvedURLsUseSharedDiagnosticsLayout() throws {
+        let containerURL = makeTempDirectory()
+        let store = SharedDiagnosticsLogStore(
+            appGroupIdentifier: "group.com.neilmussett.familyrosary",
+            sharedContainerURLProvider: { containerURL }
+        )
+
+        XCTAssertEqual(try store.containerURL().path, containerURL.path)
+        XCTAssertEqual(
+            try store.diagnosticsDirectoryURL().path,
+            containerURL.appendingPathComponent("SharedDiagnostics", isDirectory: true).path
+        )
+        XCTAssertEqual(
+            try store.logFileURL().path,
+            containerURL.appendingPathComponent("SharedDiagnostics/entries.jsonl").path
+        )
+    }
+
     private func makeTempDirectory() -> URL {
         let url = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString, isDirectory: true)
         try? FileManager.default.createDirectory(at: url, withIntermediateDirectories: true)

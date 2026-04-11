@@ -55,7 +55,7 @@ struct SharedImportPaths {
     }
 
     func sharedInboxDirectoryURL() throws -> URL {
-        try sharedContainerURL().appendingPathComponent("SharedInbox", isDirectory: true)
+        try sharedContainerURL().appendingPathComponent(SharedContainerLayout.inboxDirectoryName, isDirectory: true)
     }
 
     func stagedImportDirectoryURL(importID: String) throws -> URL {

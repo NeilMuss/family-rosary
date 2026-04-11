@@ -218,13 +218,19 @@ struct AppCompositionRoot {
             logger: SharedImportDiagnosticsLogger(sharedLogger: diagnosticsLogger),
             baseDirURLProvider: makeBaseDirURLProvider()
         )
+        let debugInjector = SharedInboxDebugInjector(
+            paths: paths,
+            logger: makeSharedDiagnosticsLogger(category: "SHARE_INBOX")
+        )
         return SharedInboxScanCoordinator(
             inspector: SharedInboxInspector(paths: paths),
             discoveryService: discovery,
             pipeline: pipeline,
             paths: paths,
             logStore: diagnosticsStore,
-            logger: makeSharedDiagnosticsLogger(category: "SHARE_INBOX")
+            logger: makeSharedDiagnosticsLogger(category: "SHARE_INBOX"),
+            appLogger: makeSharedDiagnosticsLogger(category: "APP_IMPORT"),
+            debugInjector: debugInjector
         )
     }
 
