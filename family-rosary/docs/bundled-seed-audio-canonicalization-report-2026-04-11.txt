@@ -1,0 +1,61 @@
+BUNDLED SEED AUDIO CANONICALIZATION REPORT
+Date: 2026-04-11
+Source folder: family-rosary/family-rosary/Sources/FamilyRosary/Resources/SeedAudio
+Canonical format: .m4a / AAC / 24000 Hz / mono / 48000 bps target
+Staging folder used during migration: /tmp/family-rosary-seed-audio-canonical
+Backup of replaced originals: /tmp/family-rosary-seed-audio-backup-20260411-105750
+
+Reference status:
+- All files in Resources/SeedAudio are still bundled and reachable by the existing resolver.
+- The prayer clip catalog explicitly references:
+  dad_apostles_creed_lead.m4a
+  dad_apostles_creed_response.m4a
+  dad_our_father_lead.m4a
+  dad_our_father_response.m4a
+  dad_hail_lead.m4a
+  dad_hail_response.m4a
+- The bundle resolver still searches SeedAudio / Resources/SeedAudio by stable filename stem and .m4a first, then .wav fallback.
+- Additional bundled prayer files kept with stable stems for resolver-based playback:
+  dad_fatima.m4a
+  dad_glory_be_lead.m4a
+  dad_glory_be_response.m4a
+  dad_hail_holy_queen_lead.m4a
+  dad_hail_holy_queen_response.m4a
+
+Totals:
+- Total old bundled audio bytes: 2355519
+- Total new bundled audio bytes: 899930
+- Total bytes saved: 1455589
+- Total reduction: 61.8%
+
+Per-file results:
+- dad_apostles_creed_lead.m4a | old=516521 | new=196136 | saved=320385 | reduction=62.0%
+- dad_apostles_creed_response.m4a | old=234288 | new=87225 | saved=147063 | reduction=62.8%
+- dad_fatima.m4a | old=183010 | new=70638 | saved=112372 | reduction=61.4%
+- dad_glory_be_lead.m4a | old=101246 | new=40450 | saved=60796 | reduction=60.0%
+- dad_glory_be_response.m4a | old=108451 | new=43794 | saved=64657 | reduction=59.6%
+- dad_hail_holy_queen_lead.m4a | old=379261 | new=141379 | saved=237882 | reduction=62.7%
+- dad_hail_holy_queen_response.m4a | old=161822 | new=62263 | saved=99559 | reduction=61.5%
+- dad_hail_lead.m4a | old=167146 | new=64145 | saved=103001 | reduction=61.6%
+- dad_hail_response.m4a | old=133332 | new=52058 | saved=81274 | reduction=61.0%
+- dad_our_father_lead.m4a | old=147043 | new=56562 | saved=90481 | reduction=61.5%
+- dad_our_father_response.m4a | old=223399 | new=85280 | saved=138119 | reduction=61.8%
+
+Validation:
+- All 11 staged outputs existed and were non-zero before replacement.
+- All 11 replaced repo files were re-checked with afinfo after replacement.
+- Each replaced file now reports:
+  Data format: 1 ch, 24000 Hz, aac
+  Channel layout: Mono
+  Duration > 0
+
+Skipped files:
+- None
+
+Failed validations:
+- None
+
+Notes:
+- Filename stems were preserved exactly, so no Xcode project reference updates were required.
+- No duplicate old-format prayer audio files remain in the app target bundle folder after replacement.
+- These changes reduce app bundle size immediately, but old larger binaries still remain in git history, so repository history size will not shrink unless history is rewritten separately.
