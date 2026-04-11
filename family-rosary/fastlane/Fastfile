@@ -1,4 +1,5 @@
 require "base64"
+require "shellwords"
 
 default_platform(:ios)
 
@@ -88,6 +89,52 @@ platform :ios do
       type: "appstore",
       readonly: ci?
     )
+
+    profile_mapping = lane_context[SharedValues::MATCH_PROVISIONING_PROFILE_MAPPING] || {}
+    UI.message("CI_DIAG profile mapping: #{profile_mapping}")
+
+    print_profile_diagnostics = lambda do |bundle_id, label|
+      profile_path = nil
+      decoded_plist = nil
+
+      Dir[File.expand_path("~/Library/MobileDevice/Provisioning Profiles/*.mobileprovision")].sort.each do |candidate|
+        candidate_plist = "#{candidate}.plist"
+        begin
+          sh("security cms -D -i #{Shellwords.escape(candidate)} > #{Shellwords.escape(candidate_plist)}")
+          application_identifier = sh("/usr/libexec/PlistBuddy -c #{Shellwords.escape("Print :Entitlements:application-identifier")} #{Shellwords.escape(candidate_plist)}", log: false).strip
+          if application_identifier == "438L645H48.#{bundle_id}"
+            profile_path = candidate
+            decoded_plist = candidate_plist
+            break
+          end
+        rescue StandardError
+          File.delete(candidate_plist) if File.exist?(candidate_plist)
+        end
+      end
+
+      UI.message("CI_DIAG #{label} profile path: #{profile_path || 'MISSING'}")
+
+      if decoded_plist && File.exist?(decoded_plist)
+        begin
+          app_groups = sh("/usr/libexec/PlistBuddy -c #{Shellwords.escape("Print :Entitlements:com.apple.security.application-groups")} #{Shellwords.escape(decoded_plist)}", log: false).strip
+          UI.message("CI_DIAG #{label} profile app groups: #{app_groups.empty? ? 'MISSING' : app_groups}")
+        rescue StandardError
+          UI.message("CI_DIAG #{label} profile app groups: MISSING")
+        ensure
+          File.delete(decoded_plist) if File.exist?(decoded_plist)
+        end
+      else
+        UI.message("CI_DIAG #{label} profile app groups: MISSING")
+      end
+    end
+
+    print_profile_diagnostics.call("com.neilmussett.familyrosary", "app")
+    print_profile_diagnostics.call("com.neilmussett.familyrosary.FamilyRosaryShareExtension", "extension")
+
+    build_settings_output = sh("xcodebuild -showBuildSettings -scheme family-rosary -project family-rosary.xcodeproj | egrep 'CODE_SIGN_ENTITLEMENTS|PRODUCT_BUNDLE_IDENTIFIER|DEVELOPMENT_TEAM|PROVISIONING_PROFILE|PROVISIONING_PROFILE_SPECIFIER|CODE_SIGN_STYLE'", log: false)
+    build_settings_output.to_s.split("\n").each do |line|
+      UI.message("CI_DIAG build settings: #{line}")
+    end
 
     gym(
       project: "family-rosary.xcodeproj",
