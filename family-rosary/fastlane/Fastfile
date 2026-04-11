@@ -109,6 +109,8 @@ platform :ios do
       MATCH_PASSWORD
     ])
 
+    setup_ci if ci?
+
     repo_root = File.expand_path("..", __dir__)
     project_path = File.join(repo_root, "family-rosary.xcodeproj")
 
@@ -137,7 +139,7 @@ platform :ios do
       end
 
     version = get_version_number(
-      xcodeproj: "family-rosary.xcodeproj",
+      xcodeproj: project_path,
       target: "family-rosary"
     )
 
@@ -199,6 +201,8 @@ platform :ios do
     print_project_file_diagnostics.call("after increment_build_number")
 
     UI.message("Match app identifiers: com.neilmussett.familyrosary, com.neilmussett.familyrosary.FamilyRosaryShareExtension")
+    safe_sh("keychains list", "security list-keychains")
+    safe_sh("default keychain", "security default-keychain")
 
     match(
       type: "appstore",
