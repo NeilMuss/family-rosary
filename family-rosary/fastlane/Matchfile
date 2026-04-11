@@ -1,12 +1,13 @@
+storage_mode("git")
+
 if ENV["MATCH_GIT_URL"].to_s.strip != ""
   git_url(ENV["MATCH_GIT_URL"])
 end
 
-if ENV["MATCH_GIT_BASIC_AUTHORIZATION"].to_s.strip != ""
-  git_basic_authorization(ENV["MATCH_GIT_BASIC_AUTHORIZATION"])
-end
-
-storage_mode("git")
 type("appstore")
 app_identifier(["com.neilmussett.familyrosary"])
 team_id("438L645H48")
+
+if ENV["MATCH_GIT_BASIC_AUTHORIZATION"].to_s.strip != ""
+  git_basic_authorization(ENV["MATCH_GIT_BASIC_AUTHORIZATION"])
+end
