@@ -4,8 +4,7 @@ final class ShareViewController: UIViewController {
     private let sessionID = UUID().uuidString
     private let configuration = SharedImportConfiguration.fromMainBundle()
     private var didStartStaging = false
-    private var didLogBootstrap = false
-    private var statusText = "Importing recording…"
+    private var statusText = "Preparing share extension…"
     private lazy var bootstrapLabel: UILabel = {
         let label = UILabel()
         label.translatesAutoresizingMaskIntoConstraints = false
@@ -19,12 +18,10 @@ final class ShareViewController: UIViewController {
 
     override init(nibName nibNameOrNil: String?, bundle nibBundleOrNil: Bundle?) {
         super.init(nibName: nibNameOrNil, bundle: nibBundleOrNil)
-        logBootstrapIfNeeded(lifecycle: "init(nibName:bundle:)")
     }
 
     required init?(coder: NSCoder) {
         super.init(coder: coder)
-        logBootstrapIfNeeded(lifecycle: "init(coder:)")
     }
 
     override func loadView() {
@@ -38,24 +35,20 @@ final class ShareViewController: UIViewController {
             bootstrapLabel.centerYAnchor.constraint(equalTo: rootView.centerYAnchor)
         ])
         view = rootView
-        updateStatus("Family Rosary Share Extension Loaded")
-        logBootstrapIfNeeded(lifecycle: "loadView")
+        bootstrapLabel.text = statusText
+        updateStatus("EXTENSION LOADED", details: ["lifecycle": "loadView"])
     }
 
     override func viewDidLoad() {
         super.viewDidLoad()
-        updateStatus("Family Rosary Share Extension Loaded")
-        logBootstrapIfNeeded(lifecycle: "viewDidLoad")
     }
 
     override func viewWillAppear(_ animated: Bool) {
         super.viewWillAppear(animated)
-        logLifecycleEvent("VIEW_WILL_APPEAR")
     }
 
     override func viewDidAppear(_ animated: Bool) {
         super.viewDidAppear(animated)
-        logLifecycleEvent("VIEW_DID_APPEAR")
         startStagingIfNeeded()
     }
 
@@ -65,103 +58,109 @@ final class ShareViewController: UIViewController {
         }
         didStartStaging = true
 
-        updateStatus("Importing recording…")
-
         Task { @MainActor in
             await stageIntoSharedInbox()
         }
     }
 
-    private func updateStatus(_ text: String) {
+    @MainActor
+    private func updateStatus(_ text: String, details: [String: String?] = [:]) {
         statusText = text
         bootstrapLabel.text = text
-    }
-
-    private func logBootstrapIfNeeded(lifecycle: String) {
-        guard didLogBootstrap == false else { return }
-        didLogBootstrap = true
-
-        let logger = ShareImportLogger(
-            sessionID: sessionID,
-            appGroupIdentifier: configuration.appGroupIdentifier,
-            fileManager: FileManager.default
-        )
-
-        let containerPath = (try? SharedDiagnosticsLogStore(
-            appGroupIdentifier: configuration.appGroupIdentifier,
-            fileManager: FileManager.default
-        ).containerURL().path) ?? "nil"
-
-        let details: [String: String?] = [
-            "controller": String(describing: type(of: self)),
-            "lifecycle": lifecycle,
-            "appGroupIdentifier": configuration.appGroupIdentifier,
-            "containerPath": containerPath,
-            "extensionContextPresent": extensionContext == nil ? "NO" : "YES"
-        ]
-
-        logger.log("SESSION_BEGIN", details: details)
-        if configuration.appGroupIdentifier.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
-            logger.fail("Missing app group identifier.", stage: "SESSION_BEGIN")
-        }
-        logger.logSharedContainerDetails()
-        let consoleLine = "SHARE_EXT SESSION_BEGIN | session=\(sessionID) | controller=\(String(describing: type(of: self))) | lifecycle=\(lifecycle) | appGroupIdentifier=\(configuration.appGroupIdentifier) | containerPath=\(containerPath) | extensionContextPresent=\(extensionContext == nil ? "NO" : "YES")"
+        let logger = makeLogger()
+        var merged = details
+        merged["controller"] = String(describing: type(of: self))
+        logger.log(text, details: merged)
+        let timestamp = ISO8601DateFormatter().string(from: Date())
+        let renderedDetails = merged.keys.sorted().compactMap { key -> String? in
+            guard let value = merged[key] ?? nil, value.isEmpty == false else { return nil }
+            return "\(key)=\(value)"
+        }.joined(separator: " | ")
+        let consoleLine = renderedDetails.isEmpty
+            ? "SHARE_EXT \(timestamp) | \(text)"
+            : "SHARE_EXT \(timestamp) | \(text) | \(renderedDetails)"
         NSLog("%@", consoleLine)
         print(consoleLine)
     }
 
-    private func logLifecycleEvent(_ stage: String) {
-        let configuration = SharedImportConfiguration.fromMainBundle()
-        let logger = ShareImportLogger(
+    @MainActor
+    private func updateFailure(_ text: String, error: Error? = nil, details: [String: String?] = [:]) {
+        var merged = details
+        if let error {
+            merged["error"] = error.localizedDescription
+        }
+        updateStatus(text, details: merged)
+    }
+
+    private func makeLogger() -> ShareImportLogger {
+        ShareImportLogger(
             sessionID: sessionID,
             appGroupIdentifier: configuration.appGroupIdentifier,
             fileManager: FileManager.default
         )
-        logger.log(stage, details: [
-            "controller": String(describing: type(of: self)),
-            "extensionContextPresent": extensionContext == nil ? "NO" : "YES",
-            "inputItemCount": String((extensionContext?.inputItems.count) ?? 0)
-        ])
-        NSLog("SHARE_EXT | session=%@ | stage=%@ | controller=%@ | extensionContextPresent=%@ | inputItemCount=%@",
-              sessionID,
-              stage,
-              String(describing: type(of: self)),
-              extensionContext == nil ? "NO" : "YES",
-              String((extensionContext?.inputItems.count) ?? 0))
+    }
+
+    @MainActor
+    private func pauseForVisibility() async {
+        try? await Task.sleep(nanoseconds: 350_000_000)
     }
 
     @MainActor
     private func stageIntoSharedInbox() async {
-        // The previous flow treated "cannot open the main app right now" as a hard share failure.
-        // This extension now succeeds once the audio file is durably staged into the shared inbox.
-        let logger = ShareImportLogger(
-            sessionID: sessionID,
-            appGroupIdentifier: configuration.appGroupIdentifier,
-            fileManager: FileManager.default
-        )
-        logger.log("STAGING_BEGIN", details: ["controller": "ShareViewController"])
-        logger.logSharedContainerDetails()
-        do {
-            try logger.validateSharedContainerAvailability()
-        } catch {
-            let shareError = (error as? ShareImportError) ?? .appGroupContainerUnavailable(appGroupIdentifier: configuration.appGroupIdentifier)
-            logger.fail(shareError.localizedDescription, stage: "SESSION_BEGIN", error: shareError)
-            let message = shareError.localizedDescription
-            updateStatus(message)
-            extensionContext?.cancelRequest(withError: shareError.asNSError)
+        let logger = makeLogger()
+
+        updateStatus("LOGGING READY", details: [
+            "extensionContextPresent": extensionContext == nil ? "NO" : "YES"
+        ])
+        await pauseForVisibility()
+
+        guard let extensionContext else {
+            updateFailure("FAIL: NO INPUT ITEMS", details: ["reason": "extensionContext was nil"])
             didStartStaging = false
             return
         }
-        logger.writeExtensionCanary()
-        let extractor = ShareAttachmentExtractor(logger: logger)
+
+        let inputItems = extensionContext.inputItems as? [NSExtensionItem] ?? []
+        updateStatus("INPUT ITEMS INSPECTED", details: [
+            "inputItemCount": String(inputItems.count)
+        ])
+        await pauseForVisibility()
+
+        guard inputItems.isEmpty == false else {
+            let shareError = ShareImportError.noExtensionInputItems
+            updateFailure("FAIL: NO INPUT ITEMS", error: shareError, details: ["reason": "extensionContext.inputItems was empty"])
+            logger.fail(shareError.localizedDescription, stage: "INPUT ITEMS INSPECTED", error: shareError)
+            extensionContext.cancelRequest(withError: shareError.asNSError)
+            didStartStaging = false
+            return
+        }
+
+        updateStatus("ATTACHMENT SEARCH BEGIN")
+
+        let extractor = ShareAttachmentExtractor(
+            logger: logger,
+            statusHandler: { [weak self] status, details in
+                guard let self else { return }
+                Task { @MainActor in
+                    self.updateStatus(status, details: details)
+                }
+            }
+        )
         let stagingService = SharedAudioStagingService(
             appGroupIdentifier: configuration.appGroupIdentifier,
             fileManager: FileManager.default,
-            logger: ShareImportStagingLogger(base: logger)
+            logger: ShareImportStagingLogger(
+                base: logger,
+                statusHandler: { [weak self] status, details in
+                    guard let self else { return }
+                    Task { @MainActor in
+                        self.updateStatus(status, details: details)
+                    }
+                }
+            )
         )
 
         do {
-            let inputItems = extensionContext?.inputItems as? [NSExtensionItem] ?? []
             let attachment = try await extractor.extractFirstAudioAttachment(from: inputItems)
             let result = try stagingService.stage(
                 SharedAudioStagingRequest(
@@ -171,19 +170,44 @@ final class ShareViewController: UIViewController {
                     byteCount: attachment.byteCount
                 )
             )
-            logger.log("COMPLETE_REQUEST", details: [
+            updateStatus("COMPLETE REQUEST", details: [
                 "importID": result.importID,
                 "receiptFilename": result.receiptURL.lastPathComponent
             ])
-            updateStatus("Saved to Family Rosary inbox.")
-            extensionContext?.completeRequest(returningItems: [], completionHandler: nil)
+            extensionContext.completeRequest(returningItems: [], completionHandler: nil)
         } catch {
             let shareError = mapToShareImportError(error)
             logger.fail(shareError.localizedDescription, stage: "SESSION", error: shareError)
-            let message = shareError.localizedDescription
-            updateStatus(message)
-            extensionContext?.cancelRequest(withError: shareError.asNSError)
+            updateFailure("FAIL: \(failureText(for: shareError))", error: shareError)
+            extensionContext.cancelRequest(withError: shareError.asNSError)
             didStartStaging = false
+        }
+    }
+
+    private func failureText(for error: ShareImportError) -> String {
+        switch error {
+        case .noExtensionInputItems:
+            return "NO INPUT ITEMS"
+        case .noAttachmentsOnExtensionItem, .noAudioAttachmentProviderFound:
+            return "NO AUDIO ATTACHMENT"
+        case .providerCouldNotLoadItem:
+            return "LOAD ITEM ERROR"
+        case .loadedItemWasNotFileURL:
+            return "ITEM NOT URL"
+        case .appGroupContainerUnavailable:
+            return "APP GROUP UNAVAILABLE"
+        case .failedToCreateInboxDirectory:
+            return "COPY SETUP FAILED"
+        case .failedToCopySharedAudioIntoAppGroup:
+            return "COPY FAILED"
+        case .destinationFileAlreadyExists:
+            return "DESTINATION EXISTS"
+        case .copiedFileIsEmpty:
+            return "COPIED FILE EMPTY"
+        case .failedToPersistSharedAudioManifest:
+            return "MANIFEST WRITE FAILED"
+        case .missingFileExtension:
+            return "MISSING FILE EXTENSION"
         }
     }
 

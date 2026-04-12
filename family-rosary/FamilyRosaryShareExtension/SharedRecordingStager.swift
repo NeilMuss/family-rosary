@@ -214,33 +214,33 @@ struct ShareAttachmentExtractor {
     ]
 
     let logger: ShareImportLogger
+    let statusHandler: ((String, [String: String?]) -> Void)?
 
     func extractFirstAudioAttachment(from inputItems: [NSExtensionItem]) async throws -> LoadedShareAttachment {
-        logger.log("SESSION_BEGIN")
-        logger.log("INPUT_ITEMS_FOUND", details: ["count": String(inputItems.count)])
-
         guard inputItems.isEmpty == false else {
+            statusHandler?("FAIL: NO INPUT ITEMS", ["reason": "No extension input items were provided"])
             logger.fail("No extension input items were provided.", stage: "INPUT_ITEMS_FOUND")
             throw ShareImportError.noExtensionInputItems
         }
 
         let providers = inputItems.flatMap { $0.attachments ?? [] }
         guard providers.isEmpty == false else {
+            statusHandler?("FAIL: NO AUDIO ATTACHMENT", ["reason": "No attachments were found on the shared item"])
             logger.fail("No attachments were found on the shared item.", stage: "AUDIO_PROVIDER_FOUND")
             throw ShareImportError.noAttachmentsOnExtensionItem
         }
 
         let candidate = try firstAudioCandidate(from: providers)
-        logger.log(
-            "AUDIO_PROVIDER_FOUND",
-            details: ["registeredTypeIdentifiers": candidate.registeredTypeIdentifiers.joined(separator: ",")]
-        )
-        logger.log("LOAD_ITEM_BEGIN", details: ["typeIdentifier": candidate.preferredTypeIdentifier])
+        statusHandler?("ATTACHMENT FOUND", [
+            "registeredTypeIdentifiers": candidate.registeredTypeIdentifiers.joined(separator: ",")
+        ])
+        statusHandler?("LOAD ITEM BEGIN", ["typeIdentifier": candidate.preferredTypeIdentifier])
 
         let provider = candidate.provider
         let preferredTypeIdentifier = candidate.preferredTypeIdentifier
         let sessionID = logger.sessionID
         let appGroupIdentifier = logger.appGroupIdentifier
+        let statusHandler = statusHandler
 
         return try await withCheckedThrowingContinuation { continuation in
             provider.loadFileRepresentation(forTypeIdentifier: preferredTypeIdentifier) { sourceURL, error in
@@ -250,6 +250,7 @@ struct ShareAttachmentExtractor {
                     fileManager: FileManager.default
                 )
                 if let error {
+                    statusHandler?("FAIL: LOAD ITEM ERROR", ["typeIdentifier": preferredTypeIdentifier, "error": error.localizedDescription])
                     logger.fail(
                         "The provider could not load audio for \(preferredTypeIdentifier).",
                         stage: "LOAD_ITEM_BEGIN",
@@ -263,6 +264,7 @@ struct ShareAttachmentExtractor {
                 }
 
                 guard let sourceURL else {
+                    statusHandler?("FAIL: LOAD ITEM ERROR", ["typeIdentifier": preferredTypeIdentifier, "reason": "The provider returned nil URL"])
                     logger.fail(
                         "The provider did not return a file URL.",
                         stage: "LOAD_ITEM_BEGIN"
@@ -275,12 +277,17 @@ struct ShareAttachmentExtractor {
                 }
 
                 guard sourceURL.isFileURL else {
+                    statusHandler?("FAIL: ITEM NOT URL", ["typeIdentifier": preferredTypeIdentifier])
                     logger.fail("The shared item did not resolve to a file URL.", stage: "LOAD_ITEM_BEGIN")
                     continuation.resume(throwing: ShareImportError.loadedItemWasNotFileURL)
                     return
                 }
 
-                logger.log("SECURITY_SCOPE_BEGIN", details: ["path": sourceURL.path])
+                statusHandler?("LOAD ITEM SUCCESS", [
+                    "sourceFilename": sourceURL.lastPathComponent,
+                    "typeIdentifier": preferredTypeIdentifier
+                ])
+                statusHandler?("SECURITY SCOPE BEGIN", ["path": sourceURL.path])
                 let securityScoped = sourceURL.startAccessingSecurityScopedResource()
                 defer {
                     if securityScoped {
@@ -297,14 +304,6 @@ struct ShareAttachmentExtractor {
                     }
                     try FileManager.default.copyItem(at: sourceURL, to: tempURL)
                     let byteCount = try Self.byteCount(for: tempURL, fileManager: FileManager.default)
-                    logger.log(
-                        "LOAD_ITEM_SUCCESS",
-                        details: [
-                            "sourceFilename": sourceURL.lastPathComponent,
-                            "temporaryFilename": tempURL.lastPathComponent,
-                            "byteCount": String(byteCount)
-                        ]
-                    )
                     continuation.resume(returning: LoadedShareAttachment(
                         fileURL: tempURL,
                         sourceFilename: sourceURL.lastPathComponent,
@@ -312,6 +311,7 @@ struct ShareAttachmentExtractor {
                         byteCount: byteCount
                     ))
                 } catch {
+                    statusHandler?("FAIL: LOAD ITEM ERROR", ["typeIdentifier": preferredTypeIdentifier, "error": error.localizedDescription])
                     logger.fail(
                         "The provider copy into a temporary file failed.",
                         stage: "LOAD_ITEM_BEGIN",
@@ -352,6 +352,7 @@ struct ShareAttachmentExtractor {
             }
         }
 
+        statusHandler?("FAIL: NO AUDIO ATTACHMENT", ["registeredTypeIdentifiers": seenTypeIdentifiers.joined(separator: ",")])
         logger.fail(
             "No audio attachment provider was found.",
             stage: "AUDIO_PROVIDER_FOUND",
@@ -368,13 +369,57 @@ struct ShareAttachmentExtractor {
 
 struct ShareImportStagingLogger: SharedAudioStagingLogging {
     let base: ShareImportLogger
+    let statusHandler: ((String, [String: String?]) -> Void)?
 
     func log(_ stage: String, details: [String: String?]) {
+        if let status = Self.statusText(for: stage) {
+            statusHandler?(status, details)
+        }
         base.log(stage, details: details)
     }
 
     func fail(_ reason: String, stage: String, error: Error?, details: [String: String?]) {
+        var merged = details
+        merged["reason"] = reason
+        if let error {
+            merged["error"] = error.localizedDescription
+        }
+        if let failureStatus = Self.failureStatus(for: stage, reason: reason) {
+            statusHandler?(failureStatus, merged)
+        }
         base.fail(reason, stage: stage, error: error, details: details)
+    }
+
+    private static func statusText(for stage: String) -> String? {
+        switch stage {
+        case "COPY_BEGIN":
+            return "COPY BEGIN"
+        case "COPY_SUCCESS":
+            return "COPY SUCCESS"
+        case "MANIFEST_WRITE_BEGIN":
+            return "MANIFEST WRITE BEGIN"
+        case "MANIFEST_WRITE_SUCCESS":
+            return "MANIFEST WRITE SUCCESS"
+        default:
+            return nil
+        }
+    }
+
+    private static func failureStatus(for stage: String, reason: String) -> String? {
+        switch stage {
+        case "COPY_BEGIN":
+            if reason.localizedCaseInsensitiveContains("manifest") {
+                return "FAIL: MANIFEST WRITE FAILED"
+            }
+            if reason.localizedCaseInsensitiveContains("app group") {
+                return "FAIL: APP GROUP UNAVAILABLE"
+            }
+            return "FAIL: COPY FAILED"
+        case "MANIFEST_WRITE_SUCCESS":
+            return "FAIL: MANIFEST WRITE FAILED"
+        default:
+            return "FAIL: \(reason)"
+        }
     }
 }
 
