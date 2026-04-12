@@ -157,6 +157,8 @@ final class FinishImportViewModelTests: XCTestCase {
                 partnerStore: partnerStore,
                 finalisedStore: finalisedStore,
                 pendingStore: pendingStore,
+                queuePosition: 1,
+                totalPendingCount: 1,
                 nowProvider: { Date(timeIntervalSince1970: 100) },
                 onDone: doneSpy.call
             )

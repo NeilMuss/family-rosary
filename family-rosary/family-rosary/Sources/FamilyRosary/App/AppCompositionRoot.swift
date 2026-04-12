@@ -114,6 +114,10 @@ struct AppCompositionRoot {
         UserDefaultsPrayerPartnerStore()
     }
 
+    func makeShareImportProductLogger() -> SharedDiagnosticsLogger {
+        makeSharedDiagnosticsLogger(category: "APP_IMPORT")
+    }
+
     func makeAvailablePrayerPartners() -> [PrayerPartner] {
         [
             PrayerPartner(id: "dad", displayName: "Dad"),
@@ -210,6 +214,32 @@ struct AppCompositionRoot {
     }
 
     @MainActor
+    func makePendingImportPresentationCoordinator() -> PendingImportPresentationCoordinator {
+        let configuration = SharedImportConfiguration.fromMainBundle()
+        let paths = SharedImportPaths(appGroupIdentifier: configuration.appGroupIdentifier)
+        let logger = makeShareImportProductLogger()
+        let discovery = SharedRecordingDiscoveryService(
+            paths: paths,
+            logger: SharedImportDiagnosticsLogger(sharedLogger: logger)
+        )
+        let pipeline = SharedRecordingImportPipeline(
+            paths: paths,
+            discoveryService: discovery,
+            audioInspector: AVSharedAudioInspector(),
+            audioPreparationService: makeImportedAudioPreparationService(),
+            pendingImportStore: makePendingImportStore(),
+            logger: SharedImportDiagnosticsLogger(sharedLogger: logger),
+            baseDirURLProvider: makeBaseDirURLProvider()
+        )
+        return PendingImportPresentationCoordinator(
+            pendingStore: makePendingImportStore(),
+            pipeline: pipeline,
+            deepLinkHandler: ShareImportDeepLinkHandler(configuration: configuration),
+            logger: logger
+        )
+    }
+
+    @MainActor
     func makeSharedInboxScanCoordinator() -> SharedInboxScanCoordinator {
         let configuration = SharedImportConfiguration.fromMainBundle()
         let paths = SharedImportPaths(appGroupIdentifier: configuration.appGroupIdentifier)
@@ -294,6 +324,8 @@ struct AppCompositionRoot {
     @MainActor
     func makeFinishImportViewModel(
         pending: PendingImport,
+        queuePosition: Int,
+        totalPendingCount: Int,
         onDone: @escaping () -> Void
     ) -> FinishImportViewModel {
         FinishImportViewModel(
@@ -301,6 +333,9 @@ struct AppCompositionRoot {
             partnerStore: makePartnerStore(),
             finalisedStore: makeFinalisedImportedRecordingStore(),
             pendingStore: makePendingImportStore(),
+            queuePosition: queuePosition,
+            totalPendingCount: totalPendingCount,
+            logger: makeShareImportProductLogger(),
             onDone: onDone
         )
     }

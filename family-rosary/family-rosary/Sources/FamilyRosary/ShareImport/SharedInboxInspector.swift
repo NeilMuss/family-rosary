@@ -158,15 +158,6 @@ final class SharedInboxScanCoordinator: ObservableObject {
         appLogger.log(stage: "App initialized.", event: "INFO")
         appLogger.log(stage: "Launch title screen showing.", event: "INFO")
         refresh()
-
-        Task { @MainActor in
-            do {
-                _ = try await simulatedShareRunner.run()
-            } catch {
-                logger.log(stage: "SIMULATED_SHARE_TEST", event: "FAIL", detail: error.localizedDescription)
-            }
-            refresh()
-        }
     }
 
     func launchTitleScreenClosed() {

@@ -11,6 +11,11 @@ struct FinishImportView: View {
         NavigationStack {
             Form {
                 Section {
+                    if viewModel.totalPendingCount > 1 {
+                        Text("Pending import \(viewModel.queuePosition) of \(viewModel.totalPendingCount)")
+                            .font(.footnote)
+                            .foregroundStyle(.secondary)
+                    }
                     Text(viewModel.pendingImport.originalFilename)
                         .font(.headline)
                     if let durationText = Self.durationFormatter.string(from: viewModel.pendingImport.durationSeconds) {
@@ -79,6 +84,7 @@ struct FinishImportView: View {
                     Button("Save") {
                         viewModel.save()
                     }
+                    .disabled(viewModel.canSave == false)
                 }
             }
             .navigationTitle("Finish Import")

@@ -4,6 +4,8 @@ import Combine
 @MainActor
 final class FinishImportViewModel: ObservableObject {
     let pendingImport: PendingImport
+    let queuePosition: Int
+    let totalPendingCount: Int
 
     @Published var availablePartners: [PrayerPartner]
     @Published var selectedPartnerID: String?
@@ -30,12 +32,16 @@ final class FinishImportViewModel: ObservableObject {
     private let pendingStore: PendingImportStoring
     private let nowProvider: () -> Date
     private let onDone: () -> Void
+    private let logger: SharedDiagnosticsLogger?
 
     init(
         pendingImport: PendingImport,
         partnerStore: PrayerPartnerStoring,
         finalisedStore: FinalisedImportedRecordingStoring,
         pendingStore: PendingImportStoring,
+        queuePosition: Int = 1,
+        totalPendingCount: Int = 1,
+        logger: SharedDiagnosticsLogger? = nil,
         nowProvider: @escaping () -> Date = Date.init,
         onDone: @escaping () -> Void
     ) {
@@ -43,6 +49,9 @@ final class FinishImportViewModel: ObservableObject {
         self.partnerStore = partnerStore
         self.finalisedStore = finalisedStore
         self.pendingStore = pendingStore
+        self.queuePosition = queuePosition
+        self.totalPendingCount = totalPendingCount
+        self.logger = logger
         self.nowProvider = nowProvider
         self.onDone = onDone
         self.availablePartners = partnerStore.all()
@@ -95,6 +104,12 @@ final class FinishImportViewModel: ObservableObject {
             return
         }
 
+        logger?.log(
+            stage: "FINISH_IMPORT_SAVE_BEGIN",
+            event: "INFO",
+            detail: "importID=\(pendingImport.importID)"
+        )
+
         let finalisedAt = nowProvider()
         let recording = FinalisedImportedRecording(
             id: pendingImport.id,
@@ -113,6 +128,16 @@ final class FinishImportViewModel: ObservableObject {
         do {
             try finalisedStore.save(recording)
             try pendingStore.remove(id: pendingImport.id)
+            logger?.log(
+                stage: "FINISH_IMPORT_SAVE_SUCCESS",
+                event: "INFO",
+                detail: "importID=\(pendingImport.importID)"
+            )
+            logger?.log(
+                stage: "PENDING_IMPORT_REMOVED",
+                event: "INFO",
+                detail: "importID=\(pendingImport.importID)"
+            )
             validationMessages = []
             onDone()
         } catch {

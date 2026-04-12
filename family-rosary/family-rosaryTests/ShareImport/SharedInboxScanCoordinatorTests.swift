@@ -54,16 +54,15 @@ final class SharedInboxScanCoordinatorTests: XCTestCase {
         XCTAssertTrue(coordinator.sharedContainerEntries.contains("SharedInbox/app-canary.txt"))
     }
 
-    func testStartupSequenceLogsProofOfLifeAndRunsSimulatedShareOnce() async throws {
+    func testStartupSequenceLogsProofOfLifeWithoutRunningSimulatedShare() async throws {
         let fixture = try Fixture.make()
         let startupRunner = StubSimulatedShareRunner()
         let coordinator = fixture.makeCoordinator(discoveredItems: [], results: [], simulatedShareRunner: startupRunner)
 
         coordinator.runStartupSequenceIfNeeded()
         coordinator.runStartupSequenceIfNeeded()
-        try? await Task.sleep(nanoseconds: 50_000_000)
 
-        XCTAssertEqual(startupRunner.runCount, 1)
+        XCTAssertEqual(startupRunner.runCount, 0)
 
         let lines = try fixture.logStore.loadEntries().map(\.formattedLine).joined(separator: "\n")
         XCTAssertTrue(lines.contains("APP | App initialized. | INFO"))

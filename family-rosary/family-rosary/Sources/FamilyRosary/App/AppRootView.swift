@@ -6,13 +6,13 @@ import UIKit
 struct AppRootView: View {
     private let root: AppCompositionRoot
     @StateObject private var viewModel: FamilyRosaryFlowViewModel
-    @StateObject private var shareImportPreviewViewModel: ShareImportPreviewViewModel
+    @StateObject private var pendingImportCoordinator: PendingImportPresentationCoordinator
     @StateObject private var sharedInboxScanCoordinator: SharedInboxScanCoordinator
 
     init(root: AppCompositionRoot) {
         self.root = root
         _viewModel = StateObject(wrappedValue: root.makeFamilyRosaryFlowViewModel())
-        _shareImportPreviewViewModel = StateObject(wrappedValue: root.makeShareImportPreviewViewModel())
+        _pendingImportCoordinator = StateObject(wrappedValue: root.makePendingImportPresentationCoordinator())
         _sharedInboxScanCoordinator = StateObject(wrappedValue: root.makeSharedInboxScanCoordinator())
     }
 
@@ -39,9 +39,7 @@ struct AppRootView: View {
             }
         }
         .task {
-            sharedInboxScanCoordinator.runStartupSequenceIfNeeded()
-            shareImportPreviewViewModel.scanInboxAndPresent()
-            sharedInboxScanCoordinator.automaticScan()
+            pendingImportCoordinator.refreshPendingQueue()
         }
         .onChange(of: viewModel.screen) { newValue in
             switch newValue {
@@ -55,23 +53,26 @@ struct AppRootView: View {
             }
         }
         .onOpenURL { url in
-            shareImportPreviewViewModel.handleIncomingURL(url)
-            sharedInboxScanCoordinator.automaticScan()
+            pendingImportCoordinator.handleIncomingURL(url)
         }
         #if canImport(UIKit)
         .onReceive(NotificationCenter.default.publisher(for: UIApplication.willEnterForegroundNotification)) { _ in
-            sharedInboxScanCoordinator.automaticScan()
+            pendingImportCoordinator.refreshPendingQueue()
         }
         #endif
-        .sheet(isPresented: $shareImportPreviewViewModel.isPresented) {
-            ShareImportPreviewSheet(viewModel: shareImportPreviewViewModel)
-        }
-        .sheet(item: $shareImportPreviewViewModel.pendingImportForFinishing) { pendingImport in
+        .sheet(
+            item: Binding(
+                get: { pendingImportCoordinator.currentPendingImport },
+                set: { _ in }
+            )
+        ) { pendingImport in
             FinishImportView(
                 viewModel: root.makeFinishImportViewModel(
                     pending: pendingImport,
+                    queuePosition: pendingImportCoordinator.currentQueuePosition,
+                    totalPendingCount: pendingImportCoordinator.pendingQueueCount,
                     onDone: {
-                        shareImportPreviewViewModel.dismissPendingImportForFinishing()
+                        pendingImportCoordinator.finishImportCompleted()
                     }
                 )
             )
