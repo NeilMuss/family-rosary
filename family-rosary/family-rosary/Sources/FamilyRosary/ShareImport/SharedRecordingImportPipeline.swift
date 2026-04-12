@@ -85,6 +85,11 @@ struct SharedRecordingImportPipeline: SharedRecordingImportRunning {
                 throw SharedRecordingImportError.stagedReceiptUnreadable(importID: importID)
             }
             logger.log(sessionID: sessionID, importID: importID, stage: "VALIDATE_RECEIPT", event: .pass, path: receiptURL.path)
+            snapshotLatestReceiptIfPossible(
+                receiptData,
+                sessionID: sessionID,
+                importID: importID
+            )
 
             let stagedAudioURL = stagedFolderURL.appendingPathComponent(receipt.stagedAudioFilename)
             guard fileManager.fileExists(atPath: stagedAudioURL.path) else {
@@ -209,6 +214,34 @@ struct SharedRecordingImportPipeline: SharedRecordingImportRunning {
                 reason: error.localizedDescription
             )
             return SharedRecordingImportResult(importID: importID, status: .failed(message: error.localizedDescription))
+        }
+    }
+
+    private func snapshotLatestReceiptIfPossible(
+        _ receiptData: Data,
+        sessionID: String,
+        importID: String
+    ) {
+        do {
+            let diagnosticsDirectoryURL = try paths.diagnosticsDirectoryURL()
+            try fileManager.createDirectory(at: diagnosticsDirectoryURL, withIntermediateDirectories: true)
+            let snapshotURL = diagnosticsDirectoryURL.appendingPathComponent(SharedContainerLayout.latestReceiptFilename)
+            try receiptData.write(to: snapshotURL, options: .atomic)
+            logger.log(
+                sessionID: sessionID,
+                importID: importID,
+                stage: "LATEST_RECEIPT_SNAPSHOT",
+                event: .pass,
+                path: snapshotURL.path
+            )
+        } catch {
+            logger.log(
+                sessionID: sessionID,
+                importID: importID,
+                stage: "LATEST_RECEIPT_SNAPSHOT",
+                event: .fail,
+                reason: error.localizedDescription
+            )
         }
     }
 }

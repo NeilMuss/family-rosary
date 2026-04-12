@@ -58,6 +58,14 @@ struct SharedImportPaths {
         try sharedContainerURL().appendingPathComponent(SharedContainerLayout.inboxDirectoryName, isDirectory: true)
     }
 
+    func diagnosticsDirectoryURL() throws -> URL {
+        try sharedContainerURL().appendingPathComponent(SharedContainerLayout.diagnosticsDirectoryName, isDirectory: true)
+    }
+
+    func latestReceiptSnapshotURL() throws -> URL {
+        try diagnosticsDirectoryURL().appendingPathComponent(SharedContainerLayout.latestReceiptFilename)
+    }
+
     func stagedImportDirectoryURL(importID: String) throws -> URL {
         try sharedInboxDirectoryURL().appendingPathComponent(importID, isDirectory: true)
     }

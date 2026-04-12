@@ -27,6 +27,7 @@ struct SharedInboxDiagnosticsCopyAction {
 struct SharedInboxDiagnosticsView: View {
     @ObservedObject var viewModel: SharedInboxScanCoordinator
     @State private var copyStatusMessage: String?
+    @State private var selectedReceipt: ReceiptViewerContent?
     private let copyAction: SharedInboxDiagnosticsCopyAction
 
     init(
@@ -114,6 +115,8 @@ struct SharedInboxDiagnosticsView: View {
                         Text(snapshot.logFilePath ?? "log file path: nil")
                         Text("inbox exists: \(snapshot.inboxExists ? "YES" : "NO")")
                         Text(snapshot.inboxPath ?? "inbox path: nil")
+                        Text("latest receipt exists: \(snapshot.latestReceiptExists ? "YES" : "NO")")
+                        Text(snapshot.latestReceiptPath ?? "latest receipt path: nil")
                     }
                     .font(.system(size: 10, design: .monospaced))
                     .frame(maxWidth: .infinity, alignment: .leading)
@@ -140,7 +143,7 @@ struct SharedInboxDiagnosticsView: View {
                     .font(.subheadline.weight(.semibold))
 
                 if viewModel.items.isEmpty {
-                    Text("No pending shared inbox items.")
+                    Text("No pending shared inbox items. Successful imports remove the staged SharedInbox folder and its receipt.json after creating a Pending Import.")
                         .font(.caption)
                         .foregroundStyle(.secondary)
                 } else {
@@ -155,14 +158,53 @@ struct SharedInboxDiagnosticsView: View {
                                     .font(.system(size: 11, design: .monospaced))
                                 Text("exists: \(item.fileExistsAtManifestPath ? "YES" : "NO")")
                                     .font(.system(size: 11, design: .monospaced))
+                                Text("receipt: \(FileManager.default.fileExists(atPath: item.receiptPath) ? item.receiptPath : "<missing>")")
+                                    .font(.system(size: 10, design: .monospaced))
+                                    .foregroundStyle(.secondary)
                                 Text(item.stagedAudioPath ?? item.receiptPath)
                                     .font(.system(size: 10, design: .monospaced))
                                     .foregroundStyle(.secondary)
+                                if FileManager.default.fileExists(atPath: item.receiptPath) {
+                                    Button("View Receipt") {
+                                        selectedReceipt = ReceiptViewerContent(
+                                            title: item.stagedFilename ?? item.sourceFilename ?? item.importID,
+                                            receiptPath: item.receiptPath,
+                                            receiptText: loadReceiptText(from: item.receiptPath)
+                                        )
+                                    }
+                                    .font(.caption)
+                                }
                             }
                             .frame(maxWidth: .infinity, alignment: .leading)
                             .padding(.vertical, 4)
                         }
                     }
+                }
+
+                Text("Latest Receipt Snapshot")
+                    .font(.subheadline.weight(.semibold))
+
+                if let snapshot = viewModel.sharedContainerSnapshot {
+                    VStack(alignment: .leading, spacing: 4) {
+                        Text("receipt: \(snapshot.latestReceiptExists ? (snapshot.latestReceiptPath ?? "<missing>") : "<missing>")")
+                            .font(.system(size: 10, design: .monospaced))
+                            .foregroundStyle(.secondary)
+
+                        if snapshot.latestReceiptExists, let latestReceiptPath = snapshot.latestReceiptPath {
+                            Button("View Latest Receipt") {
+                                selectedReceipt = ReceiptViewerContent(
+                                    title: "Latest Receipt Snapshot",
+                                    receiptPath: latestReceiptPath,
+                                    receiptText: loadReceiptText(from: latestReceiptPath)
+                                )
+                            }
+                            .font(.caption)
+                        }
+                    }
+                } else {
+                    Text("receipt: <missing>")
+                        .font(.system(size: 10, design: .monospaced))
+                        .foregroundStyle(.secondary)
                 }
 
                 Text("Shared Diagnostics Log")
@@ -186,9 +228,76 @@ struct SharedInboxDiagnosticsView: View {
         .task {
             viewModel.diagnosticsViewAppeared()
         }
+        .sheet(item: $selectedReceipt) { receipt in
+            ReceiptViewerSheet(
+                content: receipt,
+                copyAction: copyAction
+            )
+        }
     }
 
     private func copyLogs() {
         copyStatusMessage = copyAction.copy(logText: viewModel.visibleLogText)
+    }
+
+    private func loadReceiptText(from path: String) -> String {
+        (try? String(contentsOfFile: path, encoding: .utf8)) ?? "Failed to read receipt.json"
+    }
+}
+
+private struct ReceiptViewerContent: Identifiable {
+    let id = UUID()
+    let title: String
+    let receiptPath: String
+    let receiptText: String
+}
+
+private struct ReceiptViewerSheet: View {
+    let content: ReceiptViewerContent
+    let copyAction: SharedInboxDiagnosticsCopyAction
+    @Environment(\.dismiss) private var dismiss
+    @State private var copyStatusMessage: String?
+
+    var body: some View {
+        NavigationStack {
+            VStack(alignment: .leading, spacing: 12) {
+                HStack {
+                    Button("Copy") {
+                        copyStatusMessage = copyAction.copy(logText: content.receiptText)
+                    }
+
+                    if let copyStatusMessage {
+                        Text(copyStatusMessage)
+                            .font(.caption)
+                            .foregroundStyle(.secondary)
+                    }
+                }
+                .font(.caption)
+
+                Text(content.receiptPath)
+                    .font(.system(size: 10, design: .monospaced))
+                    .foregroundStyle(.secondary)
+                    .frame(maxWidth: .infinity, alignment: .leading)
+
+                ScrollView {
+                    Text(content.receiptText)
+                        .font(.system(size: 10, design: .monospaced))
+                        .frame(maxWidth: .infinity, alignment: .leading)
+                        .padding(8)
+                }
+                .background(Color(.systemGray6))
+                .clipShape(RoundedRectangle(cornerRadius: 8))
+            }
+            .padding()
+            .navigationTitle("Receipt JSON")
+            .navigationBarTitleDisplayMode(.inline)
+            .toolbar {
+                ToolbarItem(placement: .topBarTrailing) {
+                    Button("Done") {
+                        dismiss()
+                    }
+                }
+            }
+        }
     }
 }

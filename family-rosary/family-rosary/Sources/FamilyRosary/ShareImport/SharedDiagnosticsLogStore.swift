@@ -3,6 +3,7 @@ import Foundation
 enum SharedContainerLayout {
     static let diagnosticsDirectoryName = "SharedDiagnostics"
     static let logFilename = "entries.jsonl"
+    static let latestReceiptFilename = "latest-receipt.json"
     static let inboxDirectoryName = "SharedInbox"
 }
 

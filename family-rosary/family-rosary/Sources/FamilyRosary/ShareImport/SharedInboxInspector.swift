@@ -18,9 +18,11 @@ struct SharedContainerDiagnosticsSnapshot: Equatable {
     let containerPath: String?
     let logFilePath: String?
     let inboxPath: String?
+    let latestReceiptPath: String?
     let containerExists: Bool
     let logFileExists: Bool
     let inboxExists: Bool
+    let latestReceiptExists: Bool
 }
 
 struct SharedInboxInspector {
@@ -303,9 +305,11 @@ final class SharedInboxScanCoordinator: ObservableObject {
             containerPath: containerURL?.path,
             logFilePath: logFileURL?.path,
             inboxPath: inboxURL?.path,
+            latestReceiptPath: (try? paths.latestReceiptSnapshotURL())?.path,
             containerExists: containerURL.map { fileManager.fileExists(atPath: $0.path) } ?? false,
             logFileExists: logFileURL.map { fileManager.fileExists(atPath: $0.path) } ?? false,
-            inboxExists: inboxURL.map { fileManager.fileExists(atPath: $0.path) } ?? false
+            inboxExists: inboxURL.map { fileManager.fileExists(atPath: $0.path) } ?? false,
+            latestReceiptExists: ((try? paths.latestReceiptSnapshotURL())?.path).map { fileManager.fileExists(atPath: $0) } ?? false
         )
     }
 
