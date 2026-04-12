@@ -1,7 +1,6 @@
 import UIKit
-import Social
 
-final class ShareViewController: SLComposeServiceViewController {
+final class ShareViewController: UIViewController {
     private let sessionID = UUID().uuidString
     private var didStartStaging = false
     private var didLogBootstrap = false
@@ -17,15 +16,11 @@ final class ShareViewController: SLComposeServiceViewController {
         return label
     }()
 
-    override func isContentValid() -> Bool {
-        true
-    }
-
     override func viewDidLoad() {
         super.viewDidLoad()
+        view.backgroundColor = .systemBackground
         installBootstrapLabelIfNeeded()
-        statusText = "Family Rosary Share Extension Loaded"
-        placeholder = statusText
+        updateStatus("Family Rosary Share Extension Loaded")
         logBootstrapIfNeeded(lifecycle: "viewDidLoad")
     }
 
@@ -36,17 +31,8 @@ final class ShareViewController: SLComposeServiceViewController {
 
     override func viewDidAppear(_ animated: Bool) {
         super.viewDidAppear(animated)
-        placeholder = statusText
         logLifecycleEvent("VIEW_DID_APPEAR")
         startStagingIfNeeded()
-    }
-
-    override func didSelectPost() {
-        startStagingIfNeeded()
-    }
-
-    override func configurationItems() -> [Any]! {
-        []
     }
 
     private func startStagingIfNeeded() {
@@ -55,8 +41,7 @@ final class ShareViewController: SLComposeServiceViewController {
         }
         didStartStaging = true
 
-        statusText = "Importing recording…"
-        placeholder = statusText
+        updateStatus("Importing recording…")
 
         Task { @MainActor in
             await stageIntoSharedInbox()
@@ -69,8 +54,14 @@ final class ShareViewController: SLComposeServiceViewController {
         NSLayoutConstraint.activate([
             bootstrapLabel.leadingAnchor.constraint(equalTo: view.layoutMarginsGuide.leadingAnchor),
             bootstrapLabel.trailingAnchor.constraint(equalTo: view.layoutMarginsGuide.trailingAnchor),
-            bootstrapLabel.topAnchor.constraint(equalTo: view.safeAreaLayoutGuide.topAnchor, constant: 12)
+            bootstrapLabel.topAnchor.constraint(equalTo: view.safeAreaLayoutGuide.topAnchor, constant: 12),
+            bootstrapLabel.centerXAnchor.constraint(equalTo: view.centerXAnchor)
         ])
+    }
+
+    private func updateStatus(_ text: String) {
+        statusText = text
+        bootstrapLabel.text = text
     }
 
     private func logBootstrapIfNeeded(lifecycle: String) {
@@ -150,8 +141,7 @@ final class ShareViewController: SLComposeServiceViewController {
             let shareError = (error as? ShareImportError) ?? .appGroupContainerUnavailable(appGroupIdentifier: configuration.appGroupIdentifier)
             logger.fail(shareError.localizedDescription, stage: "SESSION_BEGIN", error: shareError)
             let message = shareError.localizedDescription
-            statusText = message
-            placeholder = message
+            updateStatus(message)
             extensionContext?.cancelRequest(withError: shareError.asNSError)
             didStartStaging = false
             return
@@ -168,15 +158,13 @@ final class ShareViewController: SLComposeServiceViewController {
                 "importID": result.importID,
                 "receiptFilename": result.receiptURL.lastPathComponent
             ])
-            statusText = "Saved to Family Rosary inbox."
-            placeholder = statusText
+            updateStatus("Saved to Family Rosary inbox.")
             extensionContext?.completeRequest(returningItems: [], completionHandler: nil)
         } catch {
             let shareError = (error as? ShareImportError) ?? .providerCouldNotLoadItem(typeIdentifier: "public.audio", underlying: error)
             logger.fail(shareError.localizedDescription, stage: "SESSION", error: shareError)
             let message = shareError.localizedDescription
-            statusText = message
-            placeholder = message
+            updateStatus(message)
             extensionContext?.cancelRequest(withError: shareError.asNSError)
             didStartStaging = false
         }
