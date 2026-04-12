@@ -76,6 +76,7 @@ final class FinishImportViewModelTests: XCTestCase {
         viewModel.selectedPart = .ourFatherResponse
 
         viewModel.save()
+        RunLoop.main.run(until: Date().addingTimeInterval(0.01))
 
         XCTAssertTrue(fixture.didCallOnDone)
         XCTAssertEqual(try fixture.pendingStore.all(), [])
@@ -86,6 +87,13 @@ final class FinishImportViewModelTests: XCTestCase {
         XCTAssertEqual(saved.prayer, .ourFather)
         XCTAssertEqual(saved.prayerPart, .ourFatherResponse)
         XCTAssertEqual(saved.libraryFileURL, pendingImport.libraryFileURL)
+
+        let lines = try fixture.logStore.loadEntries().map(\.formattedLine).joined(separator: "\n")
+        XCTAssertTrue(lines.contains("APP_IMPORT | FINAL_RECORD_CREATE_BEGIN | INFO | importID=import-d"))
+        XCTAssertTrue(lines.contains("APP_IMPORT | FINAL_RECORD_SAVE_SUCCESS | INFO | importID=import-d partner=dad prayer=ourFather"))
+        XCTAssertTrue(lines.contains("APP_IMPORT | PENDING_IMPORT_REMOVED | INFO | importID=import-d"))
+        XCTAssertTrue(lines.contains("APP_IMPORT | COORDINATOR_REFRESH_BEGIN | INFO"))
+        XCTAssertTrue(lines.contains("APP_IMPORT | COORDINATOR_REFRESH_COMPLETE | INFO"))
     }
 
     func testAgeIsStoredPerRecording() throws {
@@ -113,6 +121,44 @@ final class FinishImportViewModelTests: XCTestCase {
         XCTAssertEqual(saved.map(\.ageAtRecording), [4, 9])
     }
 
+    func testDuplicateImportIDDoesNotCreateSecondRecordingOrRemovePendingImport() throws {
+        let fixture = try Fixture.make()
+        let pendingImport = fixture.makePendingImport(id: "pending-f", importID: "import-f")
+        try fixture.pendingStore.save(pendingImport)
+        try fixture.finalisedStore.save(
+            FinalisedImportedRecording(
+                id: "existing",
+                importID: "import-f",
+                partnerID: "dad",
+                ageAtRecording: 6,
+                prayer: .hailMary,
+                prayerPart: .hailMaryLead,
+                libraryFileURL: fixture.baseDirURL.appendingPathComponent("existing.m4a"),
+                originalFilename: "existing.m4a",
+                durationSeconds: 4,
+                importedAtISO8601: "2026-04-12T12:00:00.000Z",
+                finalisedAtISO8601: "2026-04-12T12:05:00.000Z"
+            )
+        )
+
+        let viewModel = fixture.makeViewModel(pendingImport: pendingImport)
+        viewModel.selectedPartnerID = "dad"
+        viewModel.ageAtRecordingText = "7"
+        viewModel.selectedPrayer = .ourFather
+        viewModel.selectedPart = .ourFatherResponse
+
+        viewModel.save()
+        RunLoop.main.run(until: Date().addingTimeInterval(0.01))
+
+        XCTAssertFalse(fixture.didCallOnDone)
+        XCTAssertEqual(try fixture.pendingStore.all().map(\.importID), ["import-f"])
+        XCTAssertEqual(try fixture.finalisedStore.all().filter { $0.importID == "import-f" }.count, 1)
+        XCTAssertEqual(viewModel.validationMessages, ["This imported recording was already saved."])
+
+        let lines = try fixture.logStore.loadEntries().map(\.formattedLine).joined(separator: "\n")
+        XCTAssertTrue(lines.contains("APP_IMPORT | FINAL_RECORD_SAVE_FAILED | FAIL | error=duplicate importID=import-f"))
+    }
+
     private final class DoneSpy {
         var didCall = false
         func call() {
@@ -126,6 +172,7 @@ final class FinishImportViewModelTests: XCTestCase {
         let finalisedStore: FileBackedFinalisedImportedRecordingStore
         let partnerStore: UserDefaultsPrayerPartnerStore
         let doneSpy: DoneSpy
+        let logStore: SharedDiagnosticsLogStore
 
         var didCallOnDone: Bool {
             doneSpy.didCall
@@ -139,6 +186,12 @@ final class FinishImportViewModelTests: XCTestCase {
             let suiteName = "FinishImportViewModelTests.\(UUID().uuidString)"
             let userDefaults = UserDefaults(suiteName: suiteName)!
             userDefaults.removePersistentDomain(forName: suiteName)
+            let containerURL = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString, isDirectory: true)
+            try FileManager.default.createDirectory(at: containerURL, withIntermediateDirectories: true)
+            let logStore = SharedDiagnosticsLogStore(
+                appGroupIdentifier: "group.com.neilmussett.familyrosary",
+                sharedContainerURLProvider: { containerURL }
+            )
 
             return Fixture(
                 baseDirURL: baseDirURL,
@@ -149,7 +202,8 @@ final class FinishImportViewModelTests: XCTestCase {
                     indexFileURL: FamilyRosaryPaths.finalisedImportIndexFileURL(baseDirURL: baseDirURL)
                 ),
                 partnerStore: UserDefaultsPrayerPartnerStore(userDefaults: userDefaults),
-                doneSpy: DoneSpy()
+                doneSpy: DoneSpy(),
+                logStore: logStore
             )
         }
 
@@ -173,6 +227,7 @@ final class FinishImportViewModelTests: XCTestCase {
                 pendingStore: pendingStore,
                 queuePosition: 1,
                 totalPendingCount: 1,
+                logger: SharedDiagnosticsLogger(category: "APP_IMPORT", store: logStore, mirrorToDebugLog: false),
                 nowProvider: { Date(timeIntervalSince1970: 100) },
                 onDone: doneSpy.call
             )

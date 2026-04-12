@@ -116,7 +116,7 @@ final class FinishImportViewModel: ObservableObject {
         }
 
         logger?.log(
-            stage: "FINISH_IMPORT_SAVE_BEGIN",
+            stage: "FINAL_RECORD_CREATE_BEGIN",
             event: "INFO",
             detail: "importID=\(pendingImport.importID)"
         )
@@ -137,21 +137,42 @@ final class FinishImportViewModel: ObservableObject {
         )
 
         do {
+            let existingRecordings = try finalisedStore.all()
+            if existingRecordings.contains(where: { $0.importID == pendingImport.importID }) {
+                logger?.log(
+                    stage: "FINAL_RECORD_SAVE_FAILED",
+                    event: "FAIL",
+                    detail: "error=duplicate importID=\(pendingImport.importID)"
+                )
+                validationMessages = ["This imported recording was already saved."]
+                return
+            }
+
             try finalisedStore.save(recording)
-            try pendingStore.remove(id: pendingImport.id)
             logger?.log(
-                stage: "FINISH_IMPORT_SAVE_SUCCESS",
+                stage: "FINAL_RECORD_SAVE_SUCCESS",
                 event: "INFO",
-                detail: "importID=\(pendingImport.importID)"
+                detail: "importID=\(pendingImport.importID) partner=\(selectedPartnerID) prayer=\(selectedPrayer.rawValue)"
             )
+            try pendingStore.remove(id: pendingImport.id)
             logger?.log(
                 stage: "PENDING_IMPORT_REMOVED",
                 event: "INFO",
                 detail: "importID=\(pendingImport.importID)"
             )
             validationMessages = []
-            onDone()
+            DispatchQueue.main.async {
+                self.logger?.log(stage: "COORDINATOR_REFRESH_BEGIN", event: "INFO")
+                NotificationCenter.default.post(name: .sharedPendingImportsDidChange, object: nil)
+                self.logger?.log(stage: "COORDINATOR_REFRESH_COMPLETE", event: "INFO")
+                self.onDone()
+            }
         } catch {
+            logger?.log(
+                stage: "FINAL_RECORD_SAVE_FAILED",
+                event: "FAIL",
+                detail: "error=\(error.localizedDescription)"
+            )
             validationMessages = ["The app could not save this imported recording. Please try again."]
         }
     }
