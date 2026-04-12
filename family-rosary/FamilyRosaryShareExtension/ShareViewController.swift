@@ -2,6 +2,7 @@ import UIKit
 
 final class ShareViewController: UIViewController {
     private let sessionID = UUID().uuidString
+    private let configuration = SharedImportConfiguration.fromMainBundle()
     private var didStartStaging = false
     private var didLogBootstrap = false
     private var statusText = "Importing recording…"
@@ -9,17 +10,40 @@ final class ShareViewController: UIViewController {
         let label = UILabel()
         label.translatesAutoresizingMaskIntoConstraints = false
         label.numberOfLines = 0
-        label.font = .systemFont(ofSize: 13, weight: .medium)
-        label.textColor = .secondaryLabel
+        label.font = .systemFont(ofSize: 28, weight: .bold)
+        label.textColor = .label
         label.textAlignment = .center
         label.text = "Family Rosary Share Extension Loaded"
         return label
     }()
 
+    override init(nibName nibNameOrNil: String?, bundle nibBundleOrNil: Bundle?) {
+        super.init(nibName: nibNameOrNil, bundle: nibBundleOrNil)
+        logBootstrapIfNeeded(lifecycle: "init(nibName:bundle:)")
+    }
+
+    required init?(coder: NSCoder) {
+        super.init(coder: coder)
+        logBootstrapIfNeeded(lifecycle: "init(coder:)")
+    }
+
+    override func loadView() {
+        let rootView = UIView()
+        rootView.backgroundColor = .systemBackground
+        rootView.addSubview(bootstrapLabel)
+        NSLayoutConstraint.activate([
+            bootstrapLabel.leadingAnchor.constraint(equalTo: rootView.layoutMarginsGuide.leadingAnchor),
+            bootstrapLabel.trailingAnchor.constraint(equalTo: rootView.layoutMarginsGuide.trailingAnchor),
+            bootstrapLabel.centerXAnchor.constraint(equalTo: rootView.centerXAnchor),
+            bootstrapLabel.centerYAnchor.constraint(equalTo: rootView.centerYAnchor)
+        ])
+        view = rootView
+        updateStatus("Family Rosary Share Extension Loaded")
+        logBootstrapIfNeeded(lifecycle: "loadView")
+    }
+
     override func viewDidLoad() {
         super.viewDidLoad()
-        view.backgroundColor = .systemBackground
-        installBootstrapLabelIfNeeded()
         updateStatus("Family Rosary Share Extension Loaded")
         logBootstrapIfNeeded(lifecycle: "viewDidLoad")
     }
@@ -48,17 +72,6 @@ final class ShareViewController: UIViewController {
         }
     }
 
-    private func installBootstrapLabelIfNeeded() {
-        guard bootstrapLabel.superview == nil else { return }
-        view.addSubview(bootstrapLabel)
-        NSLayoutConstraint.activate([
-            bootstrapLabel.leadingAnchor.constraint(equalTo: view.layoutMarginsGuide.leadingAnchor),
-            bootstrapLabel.trailingAnchor.constraint(equalTo: view.layoutMarginsGuide.trailingAnchor),
-            bootstrapLabel.topAnchor.constraint(equalTo: view.safeAreaLayoutGuide.topAnchor, constant: 12),
-            bootstrapLabel.centerXAnchor.constraint(equalTo: view.centerXAnchor)
-        ])
-    }
-
     private func updateStatus(_ text: String) {
         statusText = text
         bootstrapLabel.text = text
@@ -68,7 +81,6 @@ final class ShareViewController: UIViewController {
         guard didLogBootstrap == false else { return }
         didLogBootstrap = true
 
-        let configuration = SharedImportConfiguration.fromMainBundle()
         let logger = ShareImportLogger(
             sessionID: sessionID,
             appGroupIdentifier: configuration.appGroupIdentifier,
@@ -93,14 +105,9 @@ final class ShareViewController: UIViewController {
             logger.fail("Missing app group identifier.", stage: "SESSION_BEGIN")
         }
         logger.logSharedContainerDetails()
-        NSLog("SHARE_EXT | session=%@ | stage=SESSION_BEGIN | controller=%@ | lifecycle=%@ | appGroupIdentifier=%@ | containerPath=%@ | extensionContextPresent=%@",
-              sessionID,
-              String(describing: type(of: self)),
-              lifecycle,
-              configuration.appGroupIdentifier,
-              containerPath,
-              extensionContext == nil ? "NO" : "YES")
-        print("SHARE_EXT | session=\(sessionID) | stage=SESSION_BEGIN | controller=\(String(describing: type(of: self))) | lifecycle=\(lifecycle) | appGroupIdentifier=\(configuration.appGroupIdentifier) | containerPath=\(containerPath) | extensionContextPresent=\(extensionContext == nil ? "NO" : "YES")")
+        let consoleLine = "SHARE_EXT SESSION_BEGIN | session=\(sessionID) | controller=\(String(describing: type(of: self))) | lifecycle=\(lifecycle) | appGroupIdentifier=\(configuration.appGroupIdentifier) | containerPath=\(containerPath) | extensionContextPresent=\(extensionContext == nil ? "NO" : "YES")"
+        NSLog("%@", consoleLine)
+        print(consoleLine)
     }
 
     private func logLifecycleEvent(_ stage: String) {
@@ -127,7 +134,6 @@ final class ShareViewController: UIViewController {
     private func stageIntoSharedInbox() async {
         // The previous flow treated "cannot open the main app right now" as a hard share failure.
         // This extension now succeeds once the audio file is durably staged into the shared inbox.
-        let configuration = SharedImportConfiguration.fromMainBundle()
         let logger = ShareImportLogger(
             sessionID: sessionID,
             appGroupIdentifier: configuration.appGroupIdentifier,
@@ -148,12 +154,23 @@ final class ShareViewController: UIViewController {
         }
         logger.writeExtensionCanary()
         let extractor = ShareAttachmentExtractor(logger: logger)
-        let writer = SharedAudioInboxWriter(configuration: configuration, logger: logger)
+        let stagingService = SharedAudioStagingService(
+            appGroupIdentifier: configuration.appGroupIdentifier,
+            fileManager: FileManager.default,
+            logger: ShareImportStagingLogger(base: logger)
+        )
 
         do {
             let inputItems = extensionContext?.inputItems as? [NSExtensionItem] ?? []
             let attachment = try await extractor.extractFirstAudioAttachment(from: inputItems)
-            let result = try writer.write(attachment: attachment)
+            let result = try stagingService.stage(
+                SharedAudioStagingRequest(
+                    sourceFileURL: attachment.fileURL,
+                    sourceFilename: attachment.sourceFilename,
+                    sourceTypeIdentifier: attachment.sourceTypeIdentifier,
+                    byteCount: attachment.byteCount
+                )
+            )
             logger.log("COMPLETE_REQUEST", details: [
                 "importID": result.importID,
                 "receiptFilename": result.receiptURL.lastPathComponent
@@ -161,12 +178,37 @@ final class ShareViewController: UIViewController {
             updateStatus("Saved to Family Rosary inbox.")
             extensionContext?.completeRequest(returningItems: [], completionHandler: nil)
         } catch {
-            let shareError = (error as? ShareImportError) ?? .providerCouldNotLoadItem(typeIdentifier: "public.audio", underlying: error)
+            let shareError = mapToShareImportError(error)
             logger.fail(shareError.localizedDescription, stage: "SESSION", error: shareError)
             let message = shareError.localizedDescription
             updateStatus(message)
             extensionContext?.cancelRequest(withError: shareError.asNSError)
             didStartStaging = false
         }
+    }
+
+    private func mapToShareImportError(_ error: Error) -> ShareImportError {
+        if let shareImportError = error as? ShareImportError {
+            return shareImportError
+        }
+        if let stagingError = error as? SharedAudioStagingError {
+            switch stagingError {
+            case .appGroupIdentifierMissing, .appGroupContainerUnavailable:
+                return .appGroupContainerUnavailable(appGroupIdentifier: configuration.appGroupIdentifier)
+            case .failedToCreateInboxDirectory:
+                return .failedToCreateInboxDirectory(underlying: stagingError as NSError)
+            case .destinationFileAlreadyExists(let path):
+                return .destinationFileAlreadyExists(path: path)
+            case .failedToCopySharedAudioIntoAppGroup:
+                return .failedToCopySharedAudioIntoAppGroup(underlying: stagingError as NSError)
+            case .copiedFileIsEmpty:
+                return .copiedFileIsEmpty
+            case .failedToPersistSharedAudioManifest:
+                return .failedToPersistSharedAudioManifest(underlying: stagingError as NSError)
+            case .missingFileExtension:
+                return .missingFileExtension
+            }
+        }
+        return .providerCouldNotLoadItem(typeIdentifier: "public.audio", underlying: error)
     }
 }

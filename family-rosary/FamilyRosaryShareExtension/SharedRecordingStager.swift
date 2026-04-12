@@ -1,4 +1,3 @@
-import CryptoKit
 import Foundation
 import UniformTypeIdentifiers
 
@@ -205,24 +204,6 @@ struct LoadedShareAttachment {
     let byteCount: Int64
 }
 
-struct SharedAudioInboxRecord: Codable, Equatable {
-    let importID: String
-    let sourceFilename: String
-    let normalizedFilename: String
-    let stagedAudioFilename: String
-    let sourceTypeIdentifier: String?
-    let byteCount: Int64
-    let stagedAtISO8601: String
-}
-
-struct SharedAudioInboxWriteResult {
-    let importID: String
-    let stagedFolderURL: URL
-    let receiptURL: URL
-    let stagedAudioURL: URL
-    let record: SharedAudioInboxRecord
-}
-
 struct ShareAttachmentExtractor {
     private static let supportedTypeIdentifiers = [
         UTType.audio.identifier,
@@ -385,173 +366,16 @@ struct ShareAttachmentExtractor {
     }
 }
 
-struct SharedAudioInboxWriter {
-    let configuration: SharedImportConfiguration
-    let fileManager: FileManager
-    let nowProvider: () -> Date
-    let logger: ShareImportLogger
-    let sharedContainerURLProvider: (() -> URL?)?
+struct ShareImportStagingLogger: SharedAudioStagingLogging {
+    let base: ShareImportLogger
 
-    init(
-        configuration: SharedImportConfiguration,
-        fileManager: FileManager = .default,
-        nowProvider: @escaping () -> Date = Date.init,
-        logger: ShareImportLogger,
-        sharedContainerURLProvider: (() -> URL?)? = nil
-    ) {
-        self.configuration = configuration
-        self.fileManager = fileManager
-        self.nowProvider = nowProvider
-        self.logger = logger
-        self.sharedContainerURLProvider = sharedContainerURLProvider
+    func log(_ stage: String, details: [String: String?]) {
+        base.log(stage, details: details)
     }
 
-    func write(attachment: LoadedShareAttachment) throws -> SharedAudioInboxWriteResult {
-        logger.log("COPY_BEGIN", details: [
-            "sourceFilename": attachment.sourceFilename,
-            "sourceTypeIdentifier": attachment.sourceTypeIdentifier,
-            "byteCount": String(attachment.byteCount)
-        ])
-
-        let containerURL = sharedContainerURLProvider?() ?? fileManager.containerURL(forSecurityApplicationGroupIdentifier: configuration.appGroupIdentifier)
-        guard let containerURL else {
-            logger.fail(
-                "The app group container was unavailable.",
-                stage: "COPY_BEGIN",
-                details: ["appGroupIdentifier": configuration.appGroupIdentifier]
-            )
-            throw ShareImportError.appGroupContainerUnavailable(appGroupIdentifier: configuration.appGroupIdentifier)
-        }
-
-        let inboxURL = containerURL.appendingPathComponent(SharedContainerLayout.inboxDirectoryName, isDirectory: true)
-        do {
-            try fileManager.createDirectory(at: inboxURL, withIntermediateDirectories: true)
-        } catch {
-            logger.fail("The shared inbox directory could not be created.", stage: "COPY_BEGIN", error: error)
-            throw ShareImportError.failedToCreateInboxDirectory(underlying: error)
-        }
-
-        let normalizedFilename = try normalizeAudioFilename(
-            originalFilename: attachment.sourceFilename,
-            fallbackTypeIdentifier: attachment.sourceTypeIdentifier
-        )
-        let data = try Data(contentsOf: attachment.fileURL)
-        let importID = makeImportID(fileData: data, normalizedFilename: normalizedFilename)
-        let stagedFolderURL = inboxURL.appendingPathComponent(importID, isDirectory: true)
-        let stagedAudioURL = stagedFolderURL.appendingPathComponent(normalizedFilename)
-        let receiptURL = stagedFolderURL.appendingPathComponent("receipt.json")
-
-        do {
-            try fileManager.createDirectory(at: stagedFolderURL, withIntermediateDirectories: true)
-        } catch {
-            throw ShareImportError.failedToCreateInboxDirectory(underlying: error)
-        }
-
-        if fileManager.fileExists(atPath: stagedAudioURL.path) || fileManager.fileExists(atPath: receiptURL.path) {
-            logger.fail("The destination file already exists.", stage: "COPY_BEGIN", details: ["path": stagedFolderURL.path])
-            throw ShareImportError.destinationFileAlreadyExists(path: stagedFolderURL.path)
-        }
-
-        do {
-            try fileManager.copyItem(at: attachment.fileURL, to: stagedAudioURL)
-        } catch {
-            logger.fail("The shared audio file could not be copied into the app group container.", stage: "COPY_BEGIN", error: error)
-            throw ShareImportError.failedToCopySharedAudioIntoAppGroup(underlying: error)
-        }
-
-        let copiedByteCount = try Self.byteCount(for: stagedAudioURL, fileManager: fileManager)
-        guard copiedByteCount > 0 else {
-            logger.fail("The copied shared audio file was empty.", stage: "COPY_BEGIN")
-            throw ShareImportError.copiedFileIsEmpty
-        }
-
-        logger.log("COPY_SUCCESS", details: [
-            "destinationFilename": stagedAudioURL.lastPathComponent,
-            "destinationPath": stagedAudioURL.path,
-            "byteCount": String(copiedByteCount)
-        ])
-
-        let record = SharedAudioInboxRecord(
-            importID: importID,
-            sourceFilename: attachment.sourceFilename,
-            normalizedFilename: normalizedFilename,
-            stagedAudioFilename: normalizedFilename,
-            sourceTypeIdentifier: attachment.sourceTypeIdentifier,
-            byteCount: copiedByteCount,
-            stagedAtISO8601: SharedRecordingReceiptISO8601Formatter.value.string(from: nowProvider())
-        )
-
-        logger.log("MANIFEST_WRITE_BEGIN", details: [
-            "importID": importID,
-            "receiptPath": receiptURL.path
-        ])
-
-        do {
-            let receiptData = try JSONEncoder().encode(record)
-            try receiptData.write(to: receiptURL, options: .atomic)
-        } catch {
-            logger.fail("The shared audio manifest could not be persisted.", stage: "MANIFEST_WRITE_SUCCESS", error: error)
-            throw ShareImportError.failedToPersistSharedAudioManifest(underlying: error)
-        }
-
-        logger.log("MANIFEST_WRITE_SUCCESS", details: [
-            "importID": importID,
-            "receiptFilename": receiptURL.lastPathComponent
-        ])
-
-        return SharedAudioInboxWriteResult(
-            importID: importID,
-            stagedFolderURL: stagedFolderURL,
-            receiptURL: receiptURL,
-            stagedAudioURL: stagedAudioURL,
-            record: record
-        )
+    func fail(_ reason: String, stage: String, error: Error?, details: [String: String?]) {
+        base.fail(reason, stage: stage, error: error, details: details)
     }
-
-    private static func byteCount(for url: URL, fileManager: FileManager) throws -> Int64 {
-        let attributes = try fileManager.attributesOfItem(atPath: url.path)
-        return (attributes[.size] as? NSNumber)?.int64Value ?? 0
-    }
-
-    private func makeImportID(fileData: Data, normalizedFilename: String) -> String {
-        var hashInput = Data(normalizedFilename.utf8)
-        hashInput.append(fileData)
-        let hash = SHA256.hash(data: hashInput)
-        return hash.prefix(16).map { String(format: "%02x", $0) }.joined()
-    }
-
-    private func normalizeAudioFilename(originalFilename: String, fallbackTypeIdentifier: String?) throws -> String {
-        let parsed = NSString(string: originalFilename)
-        let sourceName = parsed.deletingPathExtension
-        let sourceExtension = parsed.pathExtension
-
-        let stem = sourceName
-            .folding(options: [.diacriticInsensitive, .caseInsensitive], locale: Locale(identifier: "en_US_POSIX"))
-            .replacingOccurrences(of: "[^a-zA-Z0-9]+", with: "_", options: .regularExpression)
-            .trimmingCharacters(in: CharacterSet(charactersIn: "_"))
-            .lowercased()
-
-        let finalStem = stem.isEmpty ? "shared_audio" : stem
-        let finalExtension: String
-        if sourceExtension.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty == false {
-            finalExtension = sourceExtension.lowercased()
-        } else if let type = UTType(fallbackTypeIdentifier ?? ""), let inferred = type.preferredFilenameExtension, inferred.isEmpty == false {
-            finalExtension = inferred.lowercased()
-        } else {
-            logger.fail("The shared file extension was missing and no audio type could be inferred.", stage: "COPY_BEGIN")
-            throw ShareImportError.missingFileExtension
-        }
-
-        return "\(finalStem).\(finalExtension)"
-    }
-}
-
-private enum SharedRecordingReceiptISO8601Formatter {
-    static let value: ISO8601DateFormatter = {
-        let formatter = ISO8601DateFormatter()
-        formatter.formatOptions = [.withInternetDateTime, .withFractionalSeconds]
-        return formatter
-    }()
 }
 
 struct SharedDiagnosticsEntry: Codable {

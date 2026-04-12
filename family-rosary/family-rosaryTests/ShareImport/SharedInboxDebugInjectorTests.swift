@@ -4,6 +4,20 @@ import XCTest
 
 @MainActor
 final class SharedInboxDebugInjectorTests: XCTestCase {
+    func testInjectorUsesSharedAudioStagingServiceForBundledAsset() throws {
+        let fixture = try Fixture.make()
+        let sourceURL = try fixture.makeBundledAssetURL(filename: "debug_share_seed.m4a", data: Data("audio".utf8))
+        let stagingSpy = SharedAudioStagingSpy()
+        let injector = fixture.makeInjector(sourceURL: sourceURL, stagingService: stagingSpy)
+
+        let result = try injector.injectBundledTestAudio()
+
+        XCTAssertEqual(stagingSpy.requests.count, 1)
+        XCTAssertEqual(stagingSpy.requests[0].sourceFileURL, sourceURL)
+        XCTAssertEqual(stagingSpy.requests[0].sourceFilename, "debug_share_seed.m4a")
+        XCTAssertEqual(result.importID, "spy-import")
+    }
+
     func testInjectorWritesBundledAssetToSharedInbox() throws {
         let fixture = try Fixture.make()
         let sourceURL = try fixture.makeBundledAssetURL(filename: "debug_share_seed.m4a", data: Data("audio".utf8))
@@ -13,7 +27,7 @@ final class SharedInboxDebugInjectorTests: XCTestCase {
 
         XCTAssertTrue(FileManager.default.fileExists(atPath: result.stagedAudioURL.path))
         XCTAssertTrue(FileManager.default.fileExists(atPath: result.receiptURL.path))
-        XCTAssertEqual(result.byteCount, 5)
+        XCTAssertEqual(result.receipt.byteCount, 5)
     }
 
     func testInjectorWritesMatchingReceipt() throws {
@@ -81,7 +95,7 @@ final class SharedInboxDebugInjectorTests: XCTestCase {
         let paths: SharedImportPaths
 
         @MainActor
-        static func make(appGroupIdentifier: String = SharedContainerConfig.appGroupIdentifier) throws -> Fixture {
+        static func make(appGroupIdentifier: String = "group.com.neilmussett.familyrosary") throws -> Fixture {
             let containerURL = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString, isDirectory: true)
             let assetDirectoryURL = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString, isDirectory: true)
             try FileManager.default.createDirectory(at: containerURL, withIntermediateDirectories: true)
@@ -116,12 +130,45 @@ final class SharedInboxDebugInjectorTests: XCTestCase {
         }
 
         @MainActor
-        func makeInjector(sourceURL: URL?) -> SharedInboxDebugInjector {
+        func makeInjector(
+            sourceURL: URL?,
+            stagingService: (any SharedAudioStaging)? = nil
+        ) -> SharedInboxDebugInjector {
             SharedInboxDebugInjector(
                 paths: paths,
                 logger: logger,
-                bundledAssetURLProvider: { sourceURL }
+                bundledAssetURLProvider: { sourceURL },
+                stagingService: stagingService
             )
         }
+    }
+}
+
+private final class SharedAudioStagingSpy: SharedAudioStaging {
+    private(set) var requests: [SharedAudioStagingRequest] = []
+
+    func stage(_ request: SharedAudioStagingRequest) throws -> SharedAudioStagingResult {
+        requests.append(request)
+        let root = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString, isDirectory: true)
+        try FileManager.default.createDirectory(at: root, withIntermediateDirectories: true)
+        let stagedAudioURL = root.appendingPathComponent("debug_share_seed.m4a")
+        let receiptURL = root.appendingPathComponent("receipt.json")
+        try Data("audio".utf8).write(to: stagedAudioURL)
+        try Data("{}".utf8).write(to: receiptURL)
+        return SharedAudioStagingResult(
+            importID: "spy-import",
+            stagedFolderURL: root,
+            receiptURL: receiptURL,
+            stagedAudioURL: stagedAudioURL,
+            receipt: SharedAudioStagingReceipt(
+                importID: "spy-import",
+                sourceFilename: request.sourceFilename,
+                normalizedFilename: "debug_share_seed.m4a",
+                stagedAudioFilename: "debug_share_seed.m4a",
+                sourceTypeIdentifier: request.sourceTypeIdentifier,
+                byteCount: 5,
+                stagedAtISO8601: "2026-04-12T12:00:00.000Z"
+            )
+        )
     }
 }

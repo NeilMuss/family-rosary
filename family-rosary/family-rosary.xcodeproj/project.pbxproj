@@ -119,6 +119,11 @@
 			path = "family-rosaryUITests";
 			sourceTree = "<group>";
 		};
+		FEF0A0012FF0000100C919CD /* SharedShareImport */ = {
+			isa = PBXFileSystemSynchronizedRootGroup;
+			path = SharedShareImport;
+			sourceTree = "<group>";
+		};
 /* End PBXFileSystemSynchronizedRootGroup section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -160,6 +165,7 @@
 				FE9103502F49DABE00C9BC5B /* family-rosaryTests */,
 				FE91035A2F49DABE00C9BC5B /* family-rosaryUITests */,
 				FE80E0C12F7AE8F200C919CD /* FamilyRosaryShareExtension */,
+				FEF0A0012FF0000100C919CD /* SharedShareImport */,
 				FE9103412F49DABC00C9BC5B /* Products */,
 			);
 			sourceTree = "<group>";
@@ -192,6 +198,7 @@
 			);
 			fileSystemSynchronizedGroups = (
 				FE80E0C12F7AE8F200C919CD /* FamilyRosaryShareExtension */,
+				FEF0A0012FF0000100C919CD /* SharedShareImport */,
 			);
 			name = FamilyRosaryShareExtension;
 			packageProductDependencies = (
@@ -216,6 +223,7 @@
 			);
 			fileSystemSynchronizedGroups = (
 				FE9103422F49DABC00C9BC5B /* family-rosary */,
+				FEF0A0012FF0000100C919CD /* SharedShareImport */,
 			);
 			name = "family-rosary";
 			packageProductDependencies = (

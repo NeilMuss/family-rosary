@@ -37,10 +37,13 @@ struct SharedInboxSimulatedShareRunner: SharedInboxSimulatedShareRunning {
     }
 
     func run() async throws -> SharedInboxSimulatedShareRunResult {
+        // Simulator coverage begins after file acquisition.
+        // This path exercises the same shared staging service as the extension,
+        // but it does not cover the literal iOS share event or NSItemProvider quirks.
         simLogger.log(stage: "Startup simulated share test beginning.", event: "INFO")
         do {
             simLogger.log(stage: "Temporary import file copy beginning.", event: "INFO")
-            simLogger.log(stage: "Shared-style manifest/reference write beginning.", event: "INFO")
+            simLogger.log(stage: "Shared staging service write beginning.", event: "INFO")
             let injection = try injector.injectBundledTestAudio()
             simLogger.log(
                 stage: "Bundled source file located: \(SharedInboxDebugInjector.bundledAssetName).\(SharedInboxDebugInjector.bundledAssetExtension)",
@@ -51,7 +54,7 @@ struct SharedInboxSimulatedShareRunner: SharedInboxSimulatedShareRunning {
                 event: "INFO"
             )
             simLogger.log(
-                stage: "Shared-style manifest/reference write succeeded.",
+                stage: "Shared staging service write succeeded.",
                 event: "INFO",
                 detail: injection.receiptURL.path
             )

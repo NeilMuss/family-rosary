@@ -1,13 +1,8 @@
-import CryptoKit
 import Foundation
 
 enum SharedInboxDebugInjectorError: LocalizedError, Equatable {
     case bundledAssetMissing(name: String)
     case failedToReadBundledAsset(path: String)
-    case failedToCreateStagedFolder(path: String)
-    case stagedFileAlreadyExists(path: String)
-    case failedToWriteStagedAudio(path: String)
-    case failedToWriteReceipt(path: String)
 
     var errorDescription: String? {
         switch self {
@@ -15,24 +10,11 @@ enum SharedInboxDebugInjectorError: LocalizedError, Equatable {
             return "Debug injection failed: bundled asset \(name) was not found."
         case let .failedToReadBundledAsset(path):
             return "Debug injection failed: bundled asset could not be read at \(path)."
-        case let .failedToCreateStagedFolder(path):
-            return "Debug injection failed: could not create staged folder at \(path)."
-        case let .stagedFileAlreadyExists(path):
-            return "Debug injection failed: staged file already exists at \(path)."
-        case let .failedToWriteStagedAudio(path):
-            return "Debug injection failed: could not write staged audio at \(path)."
-        case let .failedToWriteReceipt(path):
-            return "Debug injection failed: could not write receipt at \(path)."
         }
     }
 }
 
-struct SharedInboxDebugInjectionResult: Equatable {
-    let importID: String
-    let stagedAudioURL: URL
-    let receiptURL: URL
-    let byteCount: Int64
-}
+typealias SharedInboxDebugInjectionResult = SharedAudioStagingResult
 
 struct SharedInboxDebugInjector {
     static let bundledAssetName = "debug_share_seed"
@@ -44,6 +26,7 @@ struct SharedInboxDebugInjector {
     let bundle: Bundle
     let bundledAssetURLProvider: (() -> URL?)?
     let nowProvider: () -> Date
+    let stagingService: (any SharedAudioStaging)?
 
     init(
         paths: SharedImportPaths,
@@ -51,7 +34,8 @@ struct SharedInboxDebugInjector {
         logger: SharedDiagnosticsLogger,
         bundle: Bundle = .main,
         bundledAssetURLProvider: (() -> URL?)? = nil,
-        nowProvider: @escaping () -> Date = Date.init
+        nowProvider: @escaping () -> Date = Date.init,
+        stagingService: (any SharedAudioStaging)? = nil
     ) {
         self.paths = paths
         self.fileManager = fileManager
@@ -59,6 +43,7 @@ struct SharedInboxDebugInjector {
         self.bundle = bundle
         self.bundledAssetURLProvider = bundledAssetURLProvider
         self.nowProvider = nowProvider
+        self.stagingService = stagingService
     }
 
     func injectBundledTestAudio() throws -> SharedInboxDebugInjectionResult {
@@ -80,81 +65,32 @@ struct SharedInboxDebugInjector {
             event: "INFO",
             detail: "sourceFilename=\(sourceURL.lastPathComponent) path=\(sourceURL.path) bytes=\(sourceData.count)"
         )
-
-        let normalizedFilename = try SharedImportPaths.normalizeAudioFilename(
-            originalFilename: "\(Self.bundledAssetName).\(Self.bundledAssetExtension)",
-            fallbackTypeIdentifier: "public.mpeg-4-audio"
+        let resolvedContainerURL = try paths.sharedContainerURL()
+        let stagingService = stagingService ?? SharedAudioStagingService(
+            appGroupIdentifier: paths.appGroupIdentifier,
+            fileManager: fileManager,
+            nowProvider: nowProvider,
+            logger: SharedDiagnosticsStagingLogger(base: logger),
+            sharedContainerURLProvider: { resolvedContainerURL }
         )
-        let importID = makeImportID(fileData: sourceData, normalizedFilename: normalizedFilename)
-        let stagedFolderURL = try paths.stagedImportDirectoryURL(importID: importID)
-        let stagedAudioURL = stagedFolderURL.appendingPathComponent(normalizedFilename)
-        let receiptURL = stagedFolderURL.appendingPathComponent("receipt.json")
-
-        do {
-            try fileManager.createDirectory(at: stagedFolderURL, withIntermediateDirectories: true)
-        } catch {
-            throw SharedInboxDebugInjectorError.failedToCreateStagedFolder(path: stagedFolderURL.path)
-        }
-
-        if fileManager.fileExists(atPath: stagedAudioURL.path) || fileManager.fileExists(atPath: receiptURL.path) {
-            throw SharedInboxDebugInjectorError.stagedFileAlreadyExists(path: stagedFolderURL.path)
-        }
-
-        logger.log(
-            stage: "COPY_BEGIN",
-            event: "INFO",
-            detail: "destinationFilename=\(stagedAudioURL.lastPathComponent) destinationPath=\(stagedAudioURL.path)"
-        )
-        do {
-            try sourceData.write(to: stagedAudioURL, options: .atomic)
-        } catch {
-            throw SharedInboxDebugInjectorError.failedToWriteStagedAudio(path: stagedAudioURL.path)
-        }
-        logger.log(
-            stage: "COPY_SUCCESS",
-            event: "INFO",
-            detail: "destinationFilename=\(stagedAudioURL.lastPathComponent) destinationPath=\(stagedAudioURL.path) bytes=\(sourceData.count)"
+        let result = try stagingService.stage(
+            SharedAudioStagingRequest(
+                sourceFileURL: sourceURL,
+                sourceFilename: sourceURL.lastPathComponent,
+                sourceTypeIdentifier: "public.mpeg-4-audio",
+                byteCount: Int64(sourceData.count)
+            )
         )
 
-        let byteCount = Int64(sourceData.count)
-        let receipt = SharedRecordingReceipt(
-            importID: importID,
-            sourceFilename: sourceURL.lastPathComponent,
-            normalizedFilename: normalizedFilename,
-            stagedAudioFilename: normalizedFilename,
-            sourceTypeIdentifier: "public.mpeg-4-audio",
-            byteCount: byteCount,
-            stagedAtISO8601: SharedRecordingReceipt.iso8601Formatter.string(from: nowProvider())
-        )
-
-        do {
-            let data = try JSONEncoder().encode(receipt)
-            try data.write(to: receiptURL, options: .atomic)
-        } catch {
-            throw SharedInboxDebugInjectorError.failedToWriteReceipt(path: receiptURL.path)
-        }
-
-        logger.log(
-            stage: "MANIFEST_WRITE_SUCCESS",
-            event: "INFO",
-            detail: "importID=\(importID) receiptPath=\(receiptURL.path)"
-        )
-
-        guard fileManager.fileExists(atPath: stagedAudioURL.path) else {
-            throw SharedInboxDebugInjectorError.failedToWriteStagedAudio(path: stagedAudioURL.path)
+        guard fileManager.fileExists(atPath: result.stagedAudioURL.path) else {
+            throw SharedAudioStagingError.failedToCopySharedAudioIntoAppGroup(path: result.stagedAudioURL.path)
         }
         logger.log(
             stage: "DESTINATION_EXISTS_CONFIRMED",
             event: "INFO",
-            detail: "importID=\(importID) destinationPath=\(stagedAudioURL.path)"
+            detail: "importID=\(result.importID) destinationPath=\(result.stagedAudioURL.path)"
         )
-
-        return SharedInboxDebugInjectionResult(
-            importID: importID,
-            stagedAudioURL: stagedAudioURL,
-            receiptURL: receiptURL,
-            byteCount: byteCount
-        )
+        return result
     }
 
     func writeExtensionCanaryEmulation() throws -> URL {
@@ -165,11 +101,29 @@ struct SharedInboxDebugInjector {
         logger.log(stage: "DEBUG_EXTENSION_CANARY", event: "SUCCESS", detail: canaryURL.path)
         return canaryURL
     }
+}
 
-    private func makeImportID(fileData: Data, normalizedFilename: String) -> String {
-        var hashInput = Data(normalizedFilename.utf8)
-        hashInput.append(fileData)
-        let hash = SHA256.hash(data: hashInput)
-        return hash.prefix(16).map { String(format: "%02x", $0) }.joined()
+private struct SharedDiagnosticsStagingLogger: SharedAudioStagingLogging {
+    let base: SharedDiagnosticsLogger
+
+    func log(_ stage: String, details: [String: String?]) {
+        base.log(stage: stage, event: "INFO", detail: format(details))
+    }
+
+    func fail(_ reason: String, stage: String, error: Error?, details: [String: String?]) {
+        var merged = details
+        merged["reason"] = reason
+        if let error {
+            merged["error"] = error.localizedDescription
+        }
+        base.log(stage: stage, event: "FAIL", detail: format(merged))
+    }
+
+    private func format(_ details: [String: String?]) -> String? {
+        let rendered = details.keys.sorted().compactMap { key -> String? in
+            guard let value = details[key] ?? nil, !value.isEmpty else { return nil }
+            return "\(key)=\(value)"
+        }
+        return rendered.isEmpty ? nil : rendered.joined(separator: " ")
     }
 }

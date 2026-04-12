@@ -43,7 +43,7 @@ final class SharedInboxSimulatedShareRunnerTests: XCTestCase {
         XCTAssertTrue(lines.contains("SIM_SHARE | Startup simulated share test beginning. | INFO"))
         XCTAssertTrue(lines.contains("SIM_SHARE | Bundled source file located: debug_share_seed.m4a | INFO"))
         XCTAssertTrue(lines.contains("SIM_SHARE | Temporary import file copy succeeded:"))
-        XCTAssertTrue(lines.contains("SIM_SHARE | Shared-style manifest/reference write succeeded. | INFO"))
+        XCTAssertTrue(lines.contains("SIM_SHARE | Shared staging service write succeeded. | INFO"))
         XCTAssertTrue(lines.contains("APP_IMPORT | Import process beginning for partner TEST. | INFO"))
         XCTAssertTrue(lines.contains("APP_IMPORT | Import file confirmed at path:"))
         XCTAssertTrue(lines.contains("partner=TEST"))
