@@ -258,10 +258,16 @@ struct ShareAttachmentExtractor {
 
         let provider = candidate.provider
         let preferredTypeIdentifier = candidate.preferredTypeIdentifier
-        let logger = self.logger
+        let sessionID = logger.sessionID
+        let appGroupIdentifier = logger.appGroupIdentifier
 
         return try await withCheckedThrowingContinuation { continuation in
             provider.loadFileRepresentation(forTypeIdentifier: preferredTypeIdentifier) { sourceURL, error in
+                let logger = ShareImportLogger(
+                    sessionID: sessionID,
+                    appGroupIdentifier: appGroupIdentifier,
+                    fileManager: FileManager.default
+                )
                 if let error {
                     logger.fail(
                         "The provider could not load audio for \(preferredTypeIdentifier).",
@@ -309,7 +315,7 @@ struct ShareAttachmentExtractor {
                         try FileManager.default.removeItem(at: tempURL)
                     }
                     try FileManager.default.copyItem(at: sourceURL, to: tempURL)
-                    let byteCount = try Self.byteCount(for: tempURL, fileManager: .default)
+                    let byteCount = try Self.byteCount(for: tempURL, fileManager: FileManager.default)
                     logger.log(
                         "LOAD_ITEM_SUCCESS",
                         details: [
@@ -321,7 +327,7 @@ struct ShareAttachmentExtractor {
                     continuation.resume(returning: LoadedShareAttachment(
                         fileURL: tempURL,
                         sourceFilename: sourceURL.lastPathComponent,
-                        sourceTypeIdentifier: candidate.preferredTypeIdentifier,
+                        sourceTypeIdentifier: preferredTypeIdentifier,
                         byteCount: byteCount
                     ))
                 } catch {
@@ -548,7 +554,7 @@ private enum SharedRecordingReceiptISO8601Formatter {
     }()
 }
 
-private struct SharedDiagnosticsEntry: Codable {
+struct SharedDiagnosticsEntry: Codable {
     let timestampISO8601: String
     let category: String
     let stage: String
@@ -556,7 +562,7 @@ private struct SharedDiagnosticsEntry: Codable {
     let detail: String?
 }
 
-private struct SharedDiagnosticsLogStore {
+struct SharedDiagnosticsLogStore {
     let appGroupIdentifier: String
     let fileManager: FileManager
 

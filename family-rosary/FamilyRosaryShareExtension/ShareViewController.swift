@@ -81,12 +81,12 @@ final class ShareViewController: SLComposeServiceViewController {
         let logger = ShareImportLogger(
             sessionID: sessionID,
             appGroupIdentifier: configuration.appGroupIdentifier,
-            fileManager: .default
+            fileManager: FileManager.default
         )
 
         let containerPath = (try? SharedDiagnosticsLogStore(
             appGroupIdentifier: configuration.appGroupIdentifier,
-            fileManager: .default
+            fileManager: FileManager.default
         ).containerURL().path) ?? "nil"
 
         let details: [String: String?] = [
@@ -117,7 +117,7 @@ final class ShareViewController: SLComposeServiceViewController {
         let logger = ShareImportLogger(
             sessionID: sessionID,
             appGroupIdentifier: configuration.appGroupIdentifier,
-            fileManager: .default
+            fileManager: FileManager.default
         )
         logger.log(stage, details: [
             "controller": String(describing: type(of: self)),
@@ -140,7 +140,7 @@ final class ShareViewController: SLComposeServiceViewController {
         let logger = ShareImportLogger(
             sessionID: sessionID,
             appGroupIdentifier: configuration.appGroupIdentifier,
-            fileManager: .default
+            fileManager: FileManager.default
         )
         logger.log("STAGING_BEGIN", details: ["controller": "ShareViewController"])
         logger.logSharedContainerDetails()
