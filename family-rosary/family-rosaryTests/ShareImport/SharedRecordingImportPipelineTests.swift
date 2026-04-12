@@ -5,7 +5,7 @@ import XCTest
 
 @MainActor
 final class SharedRecordingImportPipelineTests: XCTestCase {
-    func testPipelineSuccessCopiesRegistersAndCleansUp() async throws {
+    func testPipelineSuccessCopiesSavesPendingImportAndCleansUp() async throws {
         let fixture = try PipelineFixture.make()
         let importID = "success-1"
         try fixture.writeStagedImport(importID: importID, receipt: true, audioData: Data("audio".utf8))
@@ -14,13 +14,15 @@ final class SharedRecordingImportPipelineTests: XCTestCase {
         let result = await pipeline.process(importID: importID)
 
         switch result.status {
-        case .imported(let imported):
-            XCTAssertTrue(imported.filename.contains(importID))
-            XCTAssertEqual(imported.filename, "shared_success-1_memo.m4a")
+        case .pendingMetadata(let pendingImport):
+            XCTAssertEqual(pendingImport.id, importID)
+            XCTAssertEqual(pendingImport.importID, importID)
+            XCTAssertEqual(pendingImport.originalFilename, "Memo.m4a")
             let destinationURL = fixture.baseDirURL
                 .appendingPathComponent("imported_shared_audio", isDirectory: true)
-                .appendingPathComponent(imported.filename)
+                .appendingPathComponent("shared_success-1_memo.m4a")
             XCTAssertTrue(FileManager.default.fileExists(atPath: destinationURL.path))
+            XCTAssertEqual(try fixture.pendingImportStore.all(), [pendingImport])
             XCTAssertFalse(FileManager.default.fileExists(atPath: fixture.stagedFolderURL(importID: importID).path))
         case .failed(let message):
             XCTFail("Expected success, got failure: \(message)")
@@ -89,7 +91,7 @@ final class SharedRecordingImportPipelineTests: XCTestCase {
 
     private func assertFailure(_ result: SharedRecordingImportResult, contains text: String) {
         switch result.status {
-        case .imported:
+        case .pendingMetadata:
             XCTFail("Expected failure.")
         case .failed(let message):
             XCTAssertTrue(message.localizedCaseInsensitiveContains(text))
@@ -104,7 +106,7 @@ private struct PipelineFixture {
     let discovery: SharedRecordingDiscoveryService
     let audioInspector: SharedAudioInspecting
     let audioPreparationService: ImportedAudioPreparing
-    let recordingStore: FileBackedImportedRecordingStore
+    let pendingImportStore: FileBackedPendingImportStore
     let fileManager: FileManager
 
     static func make(
@@ -124,9 +126,9 @@ private struct PipelineFixture {
         )
         _ = try paths.ensureSharedInboxDirectory()
         let discovery = SharedRecordingDiscoveryService(paths: paths, fileManager: fileManager)
-        let store = FileBackedImportedRecordingStore(
+        let store = FileBackedPendingImportStore(
             fileManager: fileManager,
-            indexFileURL: FamilyRosaryPaths.importedRecordingIndexFileURL(baseDirURL: baseDirURL)
+            indexFileURL: FamilyRosaryPaths.pendingImportIndexFileURL(baseDirURL: baseDirURL)
         )
         return PipelineFixture(
             containerURL: containerURL,
@@ -135,7 +137,7 @@ private struct PipelineFixture {
             discovery: discovery,
             audioInspector: audioInspector,
             audioPreparationService: audioPreparationService,
-            recordingStore: store,
+            pendingImportStore: store,
             fileManager: fileManager
         )
     }
@@ -146,7 +148,7 @@ private struct PipelineFixture {
             discoveryService: discovery,
             audioInspector: audioInspector,
             audioPreparationService: audioPreparationService,
-            recordingStore: recordingStore,
+            pendingImportStore: pendingImportStore,
             fileManager: fileManager,
             sessionIDProvider: { "session" },
             nowProvider: { Date(timeIntervalSince1970: 10) },

@@ -175,15 +175,15 @@ struct AppCompositionRoot {
             paths: paths,
             logger: SharedImportDiagnosticsLogger(sharedLogger: diagnosticsLogger)
         )
-        let store = FileBackedImportedRecordingStore(
-            indexFileURL: FamilyRosaryPaths.importedRecordingIndexFileURL(baseDirURL: makeBaseDirURLProvider()())
+        let pendingImportStore = FileBackedPendingImportStore(
+            indexFileURL: FamilyRosaryPaths.pendingImportIndexFileURL(baseDirURL: makeBaseDirURLProvider()())
         )
         let pipeline = SharedRecordingImportPipeline(
             paths: paths,
             discoveryService: discovery,
             audioInspector: AVSharedAudioInspector(),
             audioPreparationService: makeImportedAudioPreparationService(),
-            recordingStore: store,
+            pendingImportStore: pendingImportStore,
             logger: SharedImportDiagnosticsLogger(sharedLogger: diagnosticsLogger),
             baseDirURLProvider: makeBaseDirURLProvider()
         )
@@ -209,15 +209,15 @@ struct AppCompositionRoot {
             paths: paths,
             logger: SharedImportDiagnosticsLogger(sharedLogger: importDiagnosticsLogger)
         )
-        let recordingStore = FileBackedImportedRecordingStore(
-            indexFileURL: FamilyRosaryPaths.importedRecordingIndexFileURL(baseDirURL: makeBaseDirURLProvider()())
+        let pendingImportStore = FileBackedPendingImportStore(
+            indexFileURL: FamilyRosaryPaths.pendingImportIndexFileURL(baseDirURL: makeBaseDirURLProvider()())
         )
         let pipeline = SharedRecordingImportPipeline(
             paths: paths,
             discoveryService: discovery,
             audioInspector: AVSharedAudioInspector(),
             audioPreparationService: makeImportedAudioPreparationService(),
-            recordingStore: recordingStore,
+            pendingImportStore: pendingImportStore,
             logger: SharedImportDiagnosticsLogger(sharedLogger: importDiagnosticsLogger),
             baseDirURLProvider: makeBaseDirURLProvider()
         )

@@ -84,11 +84,11 @@ struct SharedInboxSimulatedShareRunner: SharedInboxSimulatedShareRunning {
             let result = await pipeline.process(importID: injection.importID)
 
             switch result.status {
-            case .imported(let imported):
+            case .pendingMetadata(let pendingImport):
                 importLogger.log(
                     stage: "Import process succeeded for partner \(partnerName).",
                     event: "SUCCESS",
-                    detail: "importID=\(result.importID) file=\(imported.filename)"
+                    detail: "importID=\(result.importID) file=\(pendingImport.libraryFileURL.lastPathComponent)"
                 )
                 simLogger.log(
                     stage: "Startup simulated share test succeeded.",

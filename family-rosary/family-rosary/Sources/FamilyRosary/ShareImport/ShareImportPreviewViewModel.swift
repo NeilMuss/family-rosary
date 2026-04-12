@@ -38,6 +38,7 @@ final class ShareImportPreviewViewModel: ObservableObject {
     @Published private(set) var items: [ShareImportPreviewItem] = []
     @Published private(set) var headline: String = ""
     @Published var errorMessage: String?
+    @Published var pendingImportForFinishing: PendingImport?
 
     private let discoveryService: SharedRecordingDiscovering
     private let audioInspector: SharedAudioInspecting
@@ -157,14 +158,22 @@ final class ShareImportPreviewViewModel: ObservableObject {
         Task { @MainActor in
             let result = await pipeline.process(importID: importID)
             switch result.status {
-            case .imported:
+            case .pendingMetadata(let pendingImport):
+                previewPlayer.stop()
                 errorMessage = nil
-                scanInboxAndPresent()
+                isPresented = false
+                items = []
+                headline = ""
+                pendingImportForFinishing = pendingImport
             case let .failed(message):
                 errorMessage = message
                 scanInboxAndPresent()
             }
         }
+    }
+
+    func dismissPendingImportForFinishing() {
+        pendingImportForFinishing = nil
     }
 
     func cancel() {

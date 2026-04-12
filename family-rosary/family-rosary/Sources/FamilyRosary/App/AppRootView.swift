@@ -64,5 +64,13 @@ struct AppRootView: View {
         .sheet(isPresented: $shareImportPreviewViewModel.isPresented) {
             ShareImportPreviewSheet(viewModel: shareImportPreviewViewModel)
         }
+        .sheet(item: $shareImportPreviewViewModel.pendingImportForFinishing) { pendingImport in
+            PendingImportPlaceholderSheet(
+                pendingImport: pendingImport,
+                onClose: {
+                    shareImportPreviewViewModel.dismissPendingImportForFinishing()
+                }
+            )
+        }
     }
 }

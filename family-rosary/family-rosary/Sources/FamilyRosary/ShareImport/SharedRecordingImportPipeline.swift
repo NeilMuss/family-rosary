@@ -2,7 +2,7 @@ import Foundation
 
 struct SharedRecordingImportResult: Equatable {
     enum Status: Equatable {
-        case imported(ImportedRecording)
+        case pendingMetadata(PendingImport)
         case failed(message: String)
     }
 
@@ -20,7 +20,7 @@ struct SharedRecordingImportPipeline: SharedRecordingImportRunning {
     let discoveryService: SharedRecordingDiscovering
     let audioInspector: SharedAudioInspecting
     let audioPreparationService: ImportedAudioPreparing
-    let recordingStore: ImportedRecordingStoring
+    let pendingImportStore: PendingImportStoring
     let fileManager: FileManager
     let logger: SharedImportDiagnosticsLogger
     let sessionIDProvider: () -> String
@@ -32,7 +32,7 @@ struct SharedRecordingImportPipeline: SharedRecordingImportRunning {
         discoveryService: SharedRecordingDiscovering,
         audioInspector: SharedAudioInspecting,
         audioPreparationService: ImportedAudioPreparing,
-        recordingStore: ImportedRecordingStoring,
+        pendingImportStore: PendingImportStoring,
         fileManager: FileManager = .default,
         logger: SharedImportDiagnosticsLogger = SharedImportDiagnosticsLogger(),
         sessionIDProvider: @escaping () -> String = { UUID().uuidString },
@@ -43,7 +43,7 @@ struct SharedRecordingImportPipeline: SharedRecordingImportRunning {
         self.discoveryService = discoveryService
         self.audioInspector = audioInspector
         self.audioPreparationService = audioPreparationService
-        self.recordingStore = recordingStore
+        self.pendingImportStore = pendingImportStore
         self.fileManager = fileManager
         self.logger = logger
         self.sessionIDProvider = sessionIDProvider
@@ -146,21 +146,27 @@ struct SharedRecordingImportPipeline: SharedRecordingImportRunning {
             logger.log(sessionID: sessionID, importID: importID, stage: "COPY_TO_LIBRARY", event: .pass, path: destinationURL.path)
 
             let importedAt = nowProvider()
-            let importedRecording = ImportedRecording(
-                id: "\(importID)-\(Int(importedAt.timeIntervalSince1970))",
+            let pendingImport = PendingImport(
+                id: importID,
                 importID: importID,
-                filename: destinationFilename,
-                libraryRelativePath: "imported_shared_audio/\(destinationFilename)",
+                libraryFileURL: destinationURL,
+                originalFilename: receipt.sourceFilename,
                 durationSeconds: inspection.durationSeconds,
                 importedAtISO8601: SharedRecordingReceipt.iso8601Formatter.string(from: importedAt)
             )
 
             do {
-                try recordingStore.register(importedRecording)
+                try pendingImportStore.save(pendingImport)
             } catch {
                 throw SharedRecordingImportError.appLibraryRegisterFailed(importID: importID, underlying: error)
             }
-            logger.log(sessionID: sessionID, importID: importID, stage: "REGISTER_RECORDING", event: .pass)
+            logger.log(
+                sessionID: sessionID,
+                importID: importID,
+                stage: "SAVE_PENDING_IMPORT",
+                event: .pass,
+                path: destinationURL.path
+            )
 
             do {
                 try fileManager.removeItem(at: stagedFolderURL)
@@ -177,7 +183,7 @@ struct SharedRecordingImportPipeline: SharedRecordingImportRunning {
             }
 
             logger.log(sessionID: sessionID, importID: importID, stage: "SESSION", event: .pass, reason: "completed")
-            return SharedRecordingImportResult(importID: importID, status: .imported(importedRecording))
+            return SharedRecordingImportResult(importID: importID, status: .pendingMetadata(pendingImport))
         } catch {
             logger.log(
                 sessionID: sessionID,

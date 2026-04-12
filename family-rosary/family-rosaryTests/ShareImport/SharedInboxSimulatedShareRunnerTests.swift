@@ -16,12 +16,12 @@ final class SharedInboxSimulatedShareRunnerTests: XCTestCase {
                 resultProvider: { importID in
                     SharedRecordingImportResult(
                         importID: importID,
-                        status: .imported(
-                            ImportedRecording(
-                                id: "imported-\(importID)",
+                        status: .pendingMetadata(
+                            PendingImport(
+                                id: importID,
                                 importID: importID,
-                                filename: "shared_\(importID)_debug_share_seed.m4a",
-                                libraryRelativePath: "imported_shared_audio/shared_\(importID)_debug_share_seed.m4a",
+                                libraryFileURL: URL(fileURLWithPath: "/tmp/shared_\(importID)_debug_share_seed.m4a"),
+                                originalFilename: "debug_share_seed.m4a",
                                 durationSeconds: 1,
                                 importedAtISO8601: "2026-04-11T12:00:00.000Z"
                             )

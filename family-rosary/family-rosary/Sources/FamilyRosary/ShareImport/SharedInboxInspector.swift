@@ -290,8 +290,8 @@ final class SharedInboxScanCoordinator: ObservableObject {
         let results = await pipeline.processAllPending()
         for result in results.sorted(by: { $0.importID < $1.importID }) {
             switch result.status {
-            case .imported(let imported):
-                importLogger.log(stage: "SCAN_COMPLETE", event: "SUCCESS", detail: "importID=\(result.importID) file=\(imported.filename)")
+            case .pendingMetadata(let pendingImport):
+                importLogger.log(stage: "SCAN_COMPLETE", event: "SUCCESS", detail: "importID=\(result.importID) file=\(pendingImport.libraryFileURL.lastPathComponent)")
             case .failed(let message):
                 importLogger.log(stage: "SCAN_COMPLETE", event: "FAIL", detail: "importID=\(result.importID) reason=\(message)")
             }

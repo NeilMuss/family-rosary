@@ -48,9 +48,9 @@ final class SharedAudioStagingServiceTests: XCTestCase {
 
         let pipelineResult = await fixture.makePipeline().process(importID: result.importID)
         switch pipelineResult.status {
-        case .imported(let imported):
-            XCTAssertEqual(imported.importID, result.importID)
-            XCTAssertTrue(imported.filename.contains(result.importID))
+        case .pendingMetadata(let pendingImport):
+            XCTAssertEqual(pendingImport.importID, result.importID)
+            XCTAssertTrue(pendingImport.libraryFileURL.lastPathComponent.contains(result.importID))
         case .failed(let message):
             XCTFail("Expected staged result to import successfully, got: \(message)")
         }
@@ -107,8 +107,8 @@ final class SharedAudioStagingServiceTests: XCTestCase {
                 discoveryService: discovery,
                 audioInspector: PassingAudioInspector(),
                 audioPreparationService: PassingImportedAudioPreparationService(),
-                recordingStore: FileBackedImportedRecordingStore(
-                    indexFileURL: FamilyRosaryPaths.importedRecordingIndexFileURL(baseDirURL: baseDirURL)
+                pendingImportStore: FileBackedPendingImportStore(
+                    indexFileURL: FamilyRosaryPaths.pendingImportIndexFileURL(baseDirURL: baseDirURL)
                 ),
                 sessionIDProvider: { "session" },
                 nowProvider: { Date(timeIntervalSince1970: 10) },

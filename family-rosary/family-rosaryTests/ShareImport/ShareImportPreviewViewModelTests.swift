@@ -45,11 +45,36 @@ final class ShareImportPreviewViewModelTests: XCTestCase {
         XCTAssertTrue(viewModel.isPresented)
     }
 
+    func testUseRecordingSetsPendingImportForFinishing() async {
+        let pendingImport = PendingImport(
+            id: "pending-a",
+            importID: "a",
+            libraryFileURL: URL(fileURLWithPath: "/tmp/a.m4a"),
+            originalFilename: "Memo.m4a",
+            durationSeconds: 5,
+            importedAtISO8601: "2026-04-12T12:00:00.000Z"
+        )
+        let viewModel = ShareImportPreviewViewModel(
+            discoveryService: FakeDiscoveryService(items: [makeReadyItem(importID: "a")]),
+            audioInspector: PassingAudioInspector(),
+            pipeline: FakePipeline(result: SharedRecordingImportResult(importID: "a", status: .pendingMetadata(pendingImport))),
+            deepLinkHandler: ShareImportDeepLinkHandler(expectedScheme: "familyrosary"),
+            previewPlayer: FakePreviewPlayer()
+        )
+
+        viewModel.scanInboxAndPresent()
+        viewModel.useRecording(importID: "a")
+        await Task.yield()
+
+        XCTAssertFalse(viewModel.isPresented)
+        XCTAssertEqual(viewModel.pendingImportForFinishing, pendingImport)
+    }
+
     private func makeViewModel(discovery: SharedRecordingDiscovering) -> ShareImportPreviewViewModel {
         ShareImportPreviewViewModel(
             discoveryService: discovery,
             audioInspector: PassingAudioInspector(),
-            pipeline: FakePipeline(),
+            pipeline: FakePipeline(result: SharedRecordingImportResult(importID: "missing", status: .failed(message: "not implemented in fake"))),
             deepLinkHandler: ShareImportDeepLinkHandler(expectedScheme: "familyrosary"),
             previewPlayer: FakePreviewPlayer()
         )
@@ -97,12 +122,15 @@ private struct FakeDiscoveryService: SharedRecordingDiscovering {
 }
 
 private struct FakePipeline: SharedRecordingImportRunning {
+    let result: SharedRecordingImportResult
+
     func processAllPending() async -> [SharedRecordingImportResult] { [] }
+
     func process(importID: String) async -> SharedRecordingImportResult {
-        SharedRecordingImportResult(
-            importID: importID,
-            status: .failed(message: "not implemented in fake")
-        )
+        if result.importID == importID {
+            return result
+        }
+        return SharedRecordingImportResult(importID: importID, status: .failed(message: "unexpected import id"))
     }
 }
 
