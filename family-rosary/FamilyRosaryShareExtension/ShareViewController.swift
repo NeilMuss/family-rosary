@@ -144,8 +144,7 @@ final class ShareViewController: UIViewController {
                 "sourceFilename": loaded.sourceFilename,
                 "byteCount": String(loaded.byteCount)
             ])
-            await holdForInspection()
-            extensionContext.cancelRequest(withError: diagnosticNSError("Diagnostic hold completed after LOAD ITEM SUCCESS."))
+            await stageLoadedAttachment(loaded, extensionContext: extensionContext)
         } catch let error as ShareImportError {
             switch error {
             case .loadedItemWasNotFileURL:
@@ -167,6 +166,153 @@ final class ShareViewController: UIViewController {
             ])
         }
     }
+
+    // MARK: - Staging pipeline
+
+    /// Copies the already-loaded temp file into SharedInbox, writes receipt.json,
+    /// then calls completeRequest. This is the only place completeRequest is called.
+    /// All failures call failAndHold (which calls cancelRequest) and return early.
+    @MainActor
+    private func stageLoadedAttachment(
+        _ loaded: LoadedShareAttachment,
+        extensionContext: NSExtensionContext
+    ) async {
+        // The file has already been security-scoped and copied to a temp location
+        // inside loadAttachment. We record the stage for traceability.
+        updateStatus("SECURITY SCOPE BEGIN", details: [
+            "note": "file already copied to tmp by loadAttachment",
+            "tmpPath": loaded.fileURL.path
+        ])
+
+        // Resolve the SharedInbox URL.
+        let store = SharedDiagnosticsLogStore(
+            appGroupIdentifier: configuration.appGroupIdentifier,
+            fileManager: FileManager.default,
+            allowFallbackToLocalDocuments: false
+        )
+        let inboxURL: URL
+        do {
+            inboxURL = try store.inboxURL()
+        } catch {
+            await failAndHold("FAIL: INBOX UNAVAILABLE", details: [
+                "reason": error.localizedDescription
+            ])
+            return
+        }
+
+        // Build destination paths.
+        let importID = UUID().uuidString
+        let stagedFolderURL = inboxURL.appendingPathComponent(importID, isDirectory: true)
+        let audioFilename = resolveAudioFilename(
+            sourceFilename: loaded.sourceFilename,
+            sourceExtension: loaded.fileURL.pathExtension,
+            sourceTypeIdentifier: loaded.sourceTypeIdentifier
+        )
+        let stagedAudioURL = stagedFolderURL.appendingPathComponent(audioFilename)
+        let receiptURL = stagedFolderURL.appendingPathComponent("receipt.json")
+
+        // ── COPY ─────────────────────────────────────────────────────────────
+        updateStatus("COPY BEGIN", details: [
+            "importID": importID,
+            "sourceFilename": loaded.sourceFilename,
+            "destinationFilename": audioFilename
+        ])
+
+        do {
+            try FileManager.default.createDirectory(
+                at: stagedFolderURL,
+                withIntermediateDirectories: true
+            )
+            try FileManager.default.copyItem(at: loaded.fileURL, to: stagedAudioURL)
+        } catch {
+            await failAndHold("FAIL: COPY FAILED", details: [
+                "importID": importID,
+                "reason": error.localizedDescription
+            ])
+            return
+        }
+
+        updateStatus("COPY SUCCESS", details: [
+            "importID": importID,
+            "byteCount": String(loaded.byteCount)
+        ])
+
+        // ── MANIFEST ──────────────────────────────────────────────────────────
+        updateStatus("MANIFEST WRITE BEGIN", details: ["importID": importID])
+
+        do {
+            let receipt = StagedReceiptPayload(
+                importID: importID,
+                sourceFilename: loaded.sourceFilename,
+                normalizedFilename: audioFilename,
+                stagedAudioFilename: audioFilename,
+                sourceTypeIdentifier: loaded.sourceTypeIdentifier,
+                byteCount: loaded.byteCount,
+                stagedAtISO8601: Self.iso8601Formatter.string(from: Date())
+            )
+            let receiptData = try JSONEncoder().encode(receipt)
+            try receiptData.write(to: receiptURL, options: .atomic)
+        } catch {
+            await failAndHold("FAIL: MANIFEST WRITE FAILED", details: [
+                "importID": importID,
+                "reason": error.localizedDescription
+            ])
+            return
+        }
+
+        updateStatus("MANIFEST WRITE SUCCESS", details: ["importID": importID])
+
+        // ── COMPLETE ──────────────────────────────────────────────────────────
+        // This is the only call to completeRequest in the entire extension.
+        updateStatus("COMPLETE REQUEST", details: ["importID": importID])
+        extensionContext.completeRequest(returningItems: nil)
+    }
+
+    /// Derives a safe filename for the staged audio file.
+    private func resolveAudioFilename(
+        sourceFilename: String,
+        sourceExtension: String,
+        sourceTypeIdentifier: String
+    ) -> String {
+        let ext = sourceExtension.lowercased().trimmingCharacters(in: .whitespacesAndNewlines)
+        let resolvedExt: String
+        if ext.isEmpty == false {
+            resolvedExt = ext
+        } else if let inferred = UTType(sourceTypeIdentifier)?.preferredFilenameExtension,
+                  inferred.isEmpty == false {
+            resolvedExt = inferred.lowercased()
+        } else {
+            resolvedExt = "m4a"
+        }
+
+        let baseName = (sourceFilename as NSString).deletingPathExtension
+        let sanitized = baseName
+            .folding(options: [.diacriticInsensitive, .caseInsensitive],
+                     locale: Locale(identifier: "en_US_POSIX"))
+            .replacingOccurrences(of: "[^a-zA-Z0-9]+", with: "_", options: .regularExpression)
+            .trimmingCharacters(in: CharacterSet(charactersIn: "_"))
+            .lowercased()
+        let finalStem = sanitized.isEmpty ? "shared_audio" : sanitized
+        return "\(finalStem).\(resolvedExt)"
+    }
+
+    // Matches field names in the main app's SharedRecordingReceipt exactly
+    // so JSONDecoder on the other side can read it without a custom key mapping.
+    private struct StagedReceiptPayload: Codable {
+        let importID: String
+        let sourceFilename: String
+        let normalizedFilename: String
+        let stagedAudioFilename: String
+        let sourceTypeIdentifier: String?
+        let byteCount: Int64
+        let stagedAtISO8601: String
+    }
+
+    private static let iso8601Formatter: ISO8601DateFormatter = {
+        let f = ISO8601DateFormatter()
+        f.formatOptions = [.withInternetDateTime, .withFractionalSeconds]
+        return f
+    }()
 
     @MainActor
     private func updateStatus(_ step: String, details: [String: String?] = [:]) {
