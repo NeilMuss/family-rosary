@@ -85,17 +85,20 @@ struct SharedDiagnosticsLogStore {
     let fileManager: FileManager
     let sharedContainerURLProvider: (() -> URL?)?
     let documentsDirectoryURLProvider: (() -> URL?)?
+    let allowFallbackToLocalDocuments: Bool
 
     init(
         appGroupIdentifier: String,
         fileManager: FileManager = .default,
         sharedContainerURLProvider: (() -> URL?)? = nil,
-        documentsDirectoryURLProvider: (() -> URL?)? = nil
+        documentsDirectoryURLProvider: (() -> URL?)? = nil,
+        allowFallbackToLocalDocuments: Bool = true
     ) {
         self.appGroupIdentifier = appGroupIdentifier
         self.fileManager = fileManager
         self.sharedContainerURLProvider = sharedContainerURLProvider
         self.documentsDirectoryURLProvider = documentsDirectoryURLProvider
+        self.allowFallbackToLocalDocuments = allowFallbackToLocalDocuments
     }
 
     func append(_ entry: SharedDiagnosticsEntry) throws {
@@ -203,8 +206,21 @@ struct SharedDiagnosticsLogStore {
     }
 
     private func logDestination() throws -> (containerURL: URL, usingFallback: Bool) {
-        if let appGroupURL = try? containerURL() {
-            return (appGroupURL, false)
+        let appGroupURL = try containerURL()
+        return (appGroupURL, false)
+    }
+
+    /* private func logDestination() throws -> (containerURL: URL, usingFallback: Bool) {
+        do {
+            return (try containerURL(), false)
+        } catch let error as SharedDiagnosticsLogStoreError {
+            guard allowFallbackToLocalDocuments else {
+                throw error
+            }
+        } catch {
+            if allowFallbackToLocalDocuments == false {
+                throw error
+            }
         }
 
         if let documentsURL = documentsDirectoryURLProvider?()
@@ -213,7 +229,7 @@ struct SharedDiagnosticsLogStore {
         }
 
         throw SharedDiagnosticsLogStoreError.localDocumentsDirectoryUnavailable
-    }
+    } */
 
     private func ensureDiagnosticsDirectory(using baseURL: URL) throws -> URL {
         let diagnosticsURL = baseURL.appendingPathComponent(SharedContainerLayout.diagnosticsDirectoryName, isDirectory: true)

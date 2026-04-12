@@ -130,6 +130,31 @@ final class SharedDiagnosticsLogStoreTests: XCTestCase {
         XCTAssertEqual(entries.last?.stage, "App initialized.")
     }
 
+    func testDisablingFallbackThrowsAppGroupUnavailableInsteadOfUsingDocuments() {
+        let documentsURL = makeTempDirectory()
+        let store = SharedDiagnosticsLogStore(
+            appGroupIdentifier: "group.com.neilmussett.familyrosary",
+            sharedContainerURLProvider: { nil },
+            documentsDirectoryURLProvider: { documentsURL },
+            allowFallbackToLocalDocuments: false
+        )
+
+        XCTAssertThrowsError(try store.append(
+            SharedDiagnosticsEntry(
+                timestampISO8601: "2026-04-12T12:00:01.000Z",
+                category: "SHARE_EXT",
+                stage: "EXTENSION LOADED",
+                event: "INFO",
+                detail: nil
+            )
+        )) { error in
+            XCTAssertEqual(
+                error as? SharedDiagnosticsLogStoreError,
+                .appGroupContainerUnavailable(appGroupIdentifier: "group.com.neilmussett.familyrosary")
+            )
+        }
+    }
+
     private func makeTempDirectory() -> URL {
         let url = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString, isDirectory: true)
         try? FileManager.default.createDirectory(at: url, withIntermediateDirectories: true)

@@ -55,7 +55,8 @@ struct ShareImportLogger {
         do {
             let store = SharedDiagnosticsLogStore(
                 appGroupIdentifier: appGroupIdentifier,
-                fileManager: fileManager
+                fileManager: fileManager,
+                allowFallbackToLocalDocuments: false
             )
             log("APP_GROUP_CONTAINER_URL", details: ["path": try store.containerURL().path])
             log("LOG_FILE_URL", details: ["path": try store.logFileURL().path])
@@ -73,7 +74,8 @@ struct ShareImportLogger {
     func validateSharedContainerAvailability() throws {
         _ = try SharedDiagnosticsLogStore(
             appGroupIdentifier: appGroupIdentifier,
-            fileManager: fileManager
+            fileManager: fileManager,
+            allowFallbackToLocalDocuments: false
         ).containerURL()
     }
 
@@ -81,7 +83,8 @@ struct ShareImportLogger {
         do {
             let store = SharedDiagnosticsLogStore(
                 appGroupIdentifier: appGroupIdentifier,
-                fileManager: fileManager
+                fileManager: fileManager,
+                allowFallbackToLocalDocuments: false
             )
             let inboxURL = try store.inboxURL()
             let filename = "extension-canary-\(Self.canaryTimestampFormatter.string(from: Date())).txt"
@@ -105,7 +108,8 @@ struct ShareImportLogger {
         do {
             try SharedDiagnosticsLogStore(
                 appGroupIdentifier: appGroupIdentifier,
-                fileManager: fileManager
+                fileManager: fileManager,
+                allowFallbackToLocalDocuments: false
             ).append(entry)
         } catch {
             NSLog("SHARE_EXT | session=%@ | stage=LOG_WRITE_FAIL | reason=%@", sessionID, error.localizedDescription)
@@ -367,7 +371,7 @@ struct ShareAttachmentExtractor {
     }
 }
 
-struct ShareImportStagingLogger: SharedAudioStagingLogging {
+struct ShareImportStagingLogger {
     let base: ShareImportLogger
     let statusHandler: ((String, [String: String?]) -> Void)?
 
@@ -434,6 +438,17 @@ struct SharedDiagnosticsEntry: Codable {
 struct SharedDiagnosticsLogStore {
     let appGroupIdentifier: String
     let fileManager: FileManager
+    let allowFallbackToLocalDocuments: Bool
+
+    init(
+        appGroupIdentifier: String,
+        fileManager: FileManager = .default,
+        allowFallbackToLocalDocuments: Bool = false
+    ) {
+        self.appGroupIdentifier = appGroupIdentifier
+        self.fileManager = fileManager
+        self.allowFallbackToLocalDocuments = allowFallbackToLocalDocuments
+    }
 
     func append(_ entry: SharedDiagnosticsEntry) throws {
         let fileURL = try logFileURL()
@@ -451,6 +466,7 @@ struct SharedDiagnosticsLogStore {
     }
 
     func containerURL() throws -> URL {
+        _ = allowFallbackToLocalDocuments
         guard let containerURL = fileManager.containerURL(forSecurityApplicationGroupIdentifier: appGroupIdentifier) else {
             throw ShareImportError.appGroupContainerUnavailable(appGroupIdentifier: appGroupIdentifier)
         }
