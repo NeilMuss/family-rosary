@@ -48,6 +48,11 @@ final class FinishImportViewModelTests: XCTestCase {
         XCTAssertEqual(viewModel.selectedPartnerID, "grandma")
         XCTAssertTrue(fixture.partnerStore.all().contains(PrayerPartner(id: "grandma", displayName: "Grandma")))
         XCTAssertFalse(viewModel.isAddingNewPartner)
+
+        let lines = try fixture.logStore.loadEntries().map(\.formattedLine).joined(separator: "\n")
+        XCTAssertTrue(lines.contains("APP_IMPORT | ADD_PARTNER_SAVE_BEGIN | INFO | partner=Grandma"))
+        XCTAssertTrue(lines.contains("APP_IMPORT | ADD_PARTNER_SAVE_SUCCESS | INFO | partner=Grandma"))
+        XCTAssertTrue(lines.contains("APP_IMPORT | PARTNER_STORE_RELOAD_SUCCESS | INFO"))
     }
 
     func testAddNewPartnerRefreshesPartnerListImmediately() throws {
@@ -83,14 +88,16 @@ final class FinishImportViewModelTests: XCTestCase {
         let saved = try XCTUnwrap(try fixture.finalisedStore.all().first)
         XCTAssertEqual(saved.importID, pendingImport.importID)
         XCTAssertEqual(saved.partnerID, "dad")
+        XCTAssertEqual(saved.partnerDisplayName, "Dad")
         XCTAssertEqual(saved.ageAtRecording, 7)
         XCTAssertEqual(saved.prayer, .ourFather)
         XCTAssertEqual(saved.prayerPart, .ourFatherResponse)
         XCTAssertEqual(saved.libraryFileURL, pendingImport.libraryFileURL)
 
         let lines = try fixture.logStore.loadEntries().map(\.formattedLine).joined(separator: "\n")
-        XCTAssertTrue(lines.contains("APP_IMPORT | FINAL_RECORD_CREATE_BEGIN | INFO | importID=import-d"))
+        XCTAssertTrue(lines.contains("APP_IMPORT | FINAL_RECORD_SAVE_BEGIN | INFO | importID=import-d"))
         XCTAssertTrue(lines.contains("APP_IMPORT | FINAL_RECORD_SAVE_SUCCESS | INFO | importID=import-d partner=dad prayer=ourFather"))
+        XCTAssertTrue(lines.contains("APP_IMPORT | RECORDING_STORE_RELOAD_SUCCESS | INFO"))
         XCTAssertTrue(lines.contains("APP_IMPORT | PENDING_IMPORT_REMOVED | INFO | importID=import-d"))
         XCTAssertTrue(lines.contains("APP_IMPORT | COORDINATOR_REFRESH_BEGIN | INFO"))
         XCTAssertTrue(lines.contains("APP_IMPORT | COORDINATOR_REFRESH_COMPLETE | INFO"))
@@ -130,6 +137,7 @@ final class FinishImportViewModelTests: XCTestCase {
                 id: "existing",
                 importID: "import-f",
                 partnerID: "dad",
+                partnerDisplayName: "Dad",
                 ageAtRecording: 6,
                 prayer: .hailMary,
                 prayerPart: .hailMaryLead,
@@ -156,7 +164,7 @@ final class FinishImportViewModelTests: XCTestCase {
         XCTAssertEqual(viewModel.validationMessages, ["This imported recording was already saved."])
 
         let lines = try fixture.logStore.loadEntries().map(\.formattedLine).joined(separator: "\n")
-        XCTAssertTrue(lines.contains("APP_IMPORT | FINAL_RECORD_SAVE_FAILED | FAIL | error=duplicate importID=import-f"))
+        XCTAssertTrue(lines.contains("APP_IMPORT | FINISH_IMPORT_SAVE_FAIL | FAIL | error=duplicate importID=import-f"))
     }
 
     private final class DoneSpy {

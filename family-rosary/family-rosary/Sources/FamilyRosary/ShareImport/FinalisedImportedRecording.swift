@@ -4,6 +4,7 @@ struct FinalisedImportedRecording: Codable, Equatable, Identifiable {
     let id: String
     let importID: String
     let partnerID: String
+    let partnerDisplayName: String?
     let ageAtRecording: Int
     let prayer: PrayerName
     let prayerPart: AudioRecordingPart

@@ -49,6 +49,7 @@ final class FinalisedImportedRecordingStoreTests: XCTestCase {
                 id: id,
                 importID: importID,
                 partnerID: "dad",
+                partnerDisplayName: "Dad",
                 ageAtRecording: 42,
                 prayer: .hailMary,
                 prayerPart: .hailMaryLead,

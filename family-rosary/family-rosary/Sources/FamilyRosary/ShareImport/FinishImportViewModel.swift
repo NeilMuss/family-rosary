@@ -83,10 +83,19 @@ final class FinishImportViewModel: ObservableObject {
             id: makeUniquePartnerID(from: trimmed, existingPartners: partnerStore.all()),
             displayName: trimmed
         )
+        logger?.log(stage: "ADD_PARTNER_SAVE_BEGIN", event: "INFO", detail: "partner=\(trimmed)")
         partnerStore.add(partner)
-        availablePartners = partnerStore.all().sorted {
+        let reloadedPartners = partnerStore.all().sorted {
             $0.displayName.localizedCaseInsensitiveCompare($1.displayName) == .orderedAscending
         }
+        guard let savedPartner = reloadedPartners.first(where: { $0.id == partner.id }) else {
+            logger?.log(stage: "FINISH_IMPORT_SAVE_FAIL", event: "FAIL", detail: "error=partner_save_reload_missing id=\(partner.id)")
+            validationMessages = ["The app could not save the new partner. Please try again."]
+            return
+        }
+        logger?.log(stage: "ADD_PARTNER_SAVE_SUCCESS", event: "INFO", detail: "partner=\(savedPartner.displayName)")
+        logger?.log(stage: "PARTNER_STORE_RELOAD_SUCCESS", event: "INFO", detail: "count=\(reloadedPartners.count)")
+        availablePartners = reloadedPartners
         selectedPartnerID = partner.id
         partnerPickerRefreshID = UUID()
         isAddingNewPartner = false
@@ -110,13 +119,18 @@ final class FinishImportViewModel: ObservableObject {
         guard let selectedPartnerID, let selectedPrayer, let selectedPart else {
             return
         }
+        guard let selectedPartner = availablePartners.first(where: { $0.id == selectedPartnerID }) else {
+            validationMessages = ["Please choose a partner."]
+            logger?.log(stage: "FINISH_IMPORT_SAVE_FAIL", event: "FAIL", detail: "error=selected_partner_missing id=\(selectedPartnerID)")
+            return
+        }
 
         guard let ageAtRecording = Int(ageAtRecordingText.trimmingCharacters(in: .whitespacesAndNewlines)), ageAtRecording > 0 else {
             return
         }
 
         logger?.log(
-            stage: "FINAL_RECORD_CREATE_BEGIN",
+            stage: "FINAL_RECORD_SAVE_BEGIN",
             event: "INFO",
             detail: "importID=\(pendingImport.importID)"
         )
@@ -126,6 +140,7 @@ final class FinishImportViewModel: ObservableObject {
             id: pendingImport.id,
             importID: pendingImport.importID,
             partnerID: selectedPartnerID,
+            partnerDisplayName: selectedPartner.displayName,
             ageAtRecording: ageAtRecording,
             prayer: selectedPrayer,
             prayerPart: selectedPart,
@@ -140,7 +155,7 @@ final class FinishImportViewModel: ObservableObject {
             let existingRecordings = try finalisedStore.all()
             if existingRecordings.contains(where: { $0.importID == pendingImport.importID }) {
                 logger?.log(
-                    stage: "FINAL_RECORD_SAVE_FAILED",
+                    stage: "FINISH_IMPORT_SAVE_FAIL",
                     event: "FAIL",
                     detail: "error=duplicate importID=\(pendingImport.importID)"
                 )
@@ -149,11 +164,18 @@ final class FinishImportViewModel: ObservableObject {
             }
 
             try finalisedStore.save(recording)
+            let reloadedRecordings = try finalisedStore.all()
+            guard reloadedRecordings.contains(where: { $0.importID == pendingImport.importID }) else {
+                logger?.log(stage: "FINISH_IMPORT_SAVE_FAIL", event: "FAIL", detail: "error=recording_save_reload_missing importID=\(pendingImport.importID)")
+                validationMessages = ["The app could not save this imported recording. Please try again."]
+                return
+            }
             logger?.log(
                 stage: "FINAL_RECORD_SAVE_SUCCESS",
                 event: "INFO",
                 detail: "importID=\(pendingImport.importID) partner=\(selectedPartnerID) prayer=\(selectedPrayer.rawValue)"
             )
+            logger?.log(stage: "RECORDING_STORE_RELOAD_SUCCESS", event: "INFO", detail: "count=\(reloadedRecordings.count)")
             try pendingStore.remove(id: pendingImport.id)
             logger?.log(
                 stage: "PENDING_IMPORT_REMOVED",
@@ -169,7 +191,7 @@ final class FinishImportViewModel: ObservableObject {
             }
         } catch {
             logger?.log(
-                stage: "FINAL_RECORD_SAVE_FAILED",
+                stage: "FINISH_IMPORT_SAVE_FAIL",
                 event: "FAIL",
                 detail: "error=\(error.localizedDescription)"
             )

@@ -78,4 +78,13 @@ final class AppCompositionRootTests: XCTestCase {
         XCTAssertEqual(viewModel.selectedSlot, .apostlesCreed)
         XCTAssertNil(viewModel.lastImportedFilename)
     }
+
+    func testMakeAvailablePrayerPartnersReadsCanonicalPartnerStore() {
+        let store = UserDefaultsPrayerPartnerStore()
+        store.add(PrayerPartner(id: "test", displayName: "Test"))
+
+        let root = AppCompositionRoot()
+
+        XCTAssertTrue(root.makeAvailablePrayerPartners().contains(PrayerPartner(id: "test", displayName: "Test")))
+    }
 }

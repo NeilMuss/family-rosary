@@ -119,10 +119,7 @@ struct AppCompositionRoot {
     }
 
     func makeAvailablePrayerPartners() -> [PrayerPartner] {
-        [
-            PrayerPartner(id: "dad", displayName: "Dad"),
-            PrayerPartner(id: "mom", displayName: "Mom")
-        ]
+        makePartnerStore().all()
     }
 
     @MainActor
