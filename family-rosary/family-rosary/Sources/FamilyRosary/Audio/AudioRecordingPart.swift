@@ -6,6 +6,11 @@ enum AudioRecordingPart: String, Codable {
     case ourFatherResponse
     case hailMaryLead
     case hailMaryResponse
+    case gloryBeLead
+    case gloryBeResponse
+    case fatima
+    case hailHolyQueenLead
+    case hailHolyQueenResponse
 
     nonisolated var filenameToken: String {
         switch self {
@@ -19,6 +24,16 @@ enum AudioRecordingPart: String, Codable {
             return "hail_lead"
         case .hailMaryResponse:
             return "hail_response"
+        case .gloryBeLead:
+            return "glory_be_lead"
+        case .gloryBeResponse:
+            return "glory_be_response"
+        case .fatima:
+            return "fatima"
+        case .hailHolyQueenLead:
+            return "hail_holy_queen_lead"
+        case .hailHolyQueenResponse:
+            return "hail_holy_queen_response"
         }
     }
 
@@ -34,6 +49,16 @@ enum AudioRecordingPart: String, Codable {
             return "Hail Mary (Lead)"
         case .hailMaryResponse:
             return "Hail Mary (Response)"
+        case .gloryBeLead:
+            return "Glory Be (Lead)"
+        case .gloryBeResponse:
+            return "Glory Be (Response)"
+        case .fatima:
+            return "Fatima Prayer"
+        case .hailHolyQueenLead:
+            return "Hail Holy Queen (Lead)"
+        case .hailHolyQueenResponse:
+            return "Hail Holy Queen (Response)"
         }
     }
 }

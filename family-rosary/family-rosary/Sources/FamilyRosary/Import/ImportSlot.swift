@@ -6,6 +6,11 @@ enum ImportSlot: CaseIterable, Identifiable, Hashable {
     case ourFatherResponse
     case hailMaryLead
     case hailMaryResponse
+    case gloryBeLead
+    case gloryBeResponse
+    case fatima
+    case hailHolyQueenLead
+    case hailHolyQueenResponse
 
     nonisolated var id: String {
         audioPart.filenameToken
@@ -23,6 +28,16 @@ enum ImportSlot: CaseIterable, Identifiable, Hashable {
             return "Hail Mary (Lead)"
         case .hailMaryResponse:
             return "Hail Mary (Response)"
+        case .gloryBeLead:
+            return "Glory Be (Lead)"
+        case .gloryBeResponse:
+            return "Glory Be (Response)"
+        case .fatima:
+            return "Fatima Prayer"
+        case .hailHolyQueenLead:
+            return "Hail Holy Queen (Lead)"
+        case .hailHolyQueenResponse:
+            return "Hail Holy Queen (Response)"
         }
     }
 
@@ -38,6 +53,33 @@ enum ImportSlot: CaseIterable, Identifiable, Hashable {
             return .hailMaryLead
         case .hailMaryResponse:
             return .hailMaryResponse
+        case .gloryBeLead:
+            return .gloryBeLead
+        case .gloryBeResponse:
+            return .gloryBeResponse
+        case .fatima:
+            return .fatima
+        case .hailHolyQueenLead:
+            return .hailHolyQueenLead
+        case .hailHolyQueenResponse:
+            return .hailHolyQueenResponse
+        }
+    }
+
+    nonisolated var prayer: PrayerName {
+        switch self {
+        case .apostlesCreed:
+            return .apostlesCreed
+        case .ourFatherLead, .ourFatherResponse:
+            return .ourFather
+        case .hailMaryLead, .hailMaryResponse:
+            return .hailMary
+        case .gloryBeLead, .gloryBeResponse:
+            return .gloryBe
+        case .fatima:
+            return .fatima
+        case .hailHolyQueenLead, .hailHolyQueenResponse:
+            return .hailHolyQueen
         }
     }
 }

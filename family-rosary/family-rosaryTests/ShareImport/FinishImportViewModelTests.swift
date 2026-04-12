@@ -50,6 +50,20 @@ final class FinishImportViewModelTests: XCTestCase {
         XCTAssertFalse(viewModel.isAddingNewPartner)
     }
 
+    func testAddNewPartnerRefreshesPartnerListImmediately() throws {
+        let fixture = try Fixture.make()
+        let viewModel = fixture.makeViewModel(pendingImport: fixture.makePendingImport(id: "pending-c2", importID: "import-c2"))
+        let oldRefreshID = viewModel.partnerPickerRefreshID
+
+        viewModel.isAddingNewPartner = true
+        viewModel.newPartnerName = "Grandpa"
+        viewModel.confirmAddNewPartner()
+
+        XCTAssertTrue(viewModel.availablePartners.contains(PrayerPartner(id: "grandpa", displayName: "Grandpa")))
+        XCTAssertEqual(viewModel.selectedPartnerID, "grandpa")
+        XCTAssertNotEqual(viewModel.partnerPickerRefreshID, oldRefreshID)
+    }
+
     func testSaveMovesPendingToFinalised() throws {
         let fixture = try Fixture.make()
         let pendingImport = fixture.makePendingImport(id: "pending-d", importID: "import-d")

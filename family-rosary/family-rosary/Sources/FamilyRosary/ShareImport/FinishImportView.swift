@@ -32,6 +32,7 @@ struct FinishImportView: View {
                             Text(partner.displayName).tag(Optional(partner.id))
                         }
                     }
+                    .id(viewModel.partnerPickerRefreshID)
 
                     Button(viewModel.isAddingNewPartner ? "Adding New Partner" : "Add New Partner") {
                         viewModel.isAddingNewPartner = true
@@ -57,7 +58,7 @@ struct FinishImportView: View {
 
                     Picker("Prayer", selection: $viewModel.selectedPrayer) {
                         Text("Select a prayer").tag(Optional<PrayerName>.none)
-                        ForEach(PrayerName.allCases) { prayer in
+                        ForEach(viewModel.availablePrayers) { prayer in
                             Text(prayer.displayName).tag(Optional(prayer))
                         }
                     }

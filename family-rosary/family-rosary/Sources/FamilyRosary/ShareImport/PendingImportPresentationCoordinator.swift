@@ -8,17 +8,20 @@ final class PendingImportPresentationCoordinator: ObservableObject {
     @Published private(set) var currentQueuePosition = 0
 
     private let pendingStore: PendingImportStoring
+    private let discoveryService: SharedRecordingDiscovering
     private let pipeline: SharedRecordingImportRunning
     private let deepLinkHandler: ShareImportDeepLinkHandler
     private let logger: SharedDiagnosticsLogger
 
     init(
         pendingStore: PendingImportStoring,
+        discoveryService: SharedRecordingDiscovering,
         pipeline: SharedRecordingImportRunning,
         deepLinkHandler: ShareImportDeepLinkHandler,
         logger: SharedDiagnosticsLogger
     ) {
         self.pendingStore = pendingStore
+        self.discoveryService = discoveryService
         self.pipeline = pipeline
         self.deepLinkHandler = deepLinkHandler
         self.logger = logger
@@ -78,6 +81,17 @@ final class PendingImportPresentationCoordinator: ObservableObject {
     }
 
     private func importPendingSharedItems() async {
+        logger.log(stage: "SCAN_BEGIN", event: "INFO")
+        let discoveredItems = discoveryService.discover().sorted { $0.importID < $1.importID }
+        guard discoveredItems.isEmpty == false else {
+            logger.log(stage: "SCAN_COMPLETE", event: "ZERO_ITEMS")
+            return
+        }
+
+        for item in discoveredItems {
+            logger.log(stage: "ITEM_FOUND", event: "INFO", detail: "importID=\(item.importID)")
+        }
+
         let results = await pipeline.processAllPending()
         for result in results.sorted(by: { $0.importID < $1.importID }) {
             switch result.status {
@@ -87,8 +101,12 @@ final class PendingImportPresentationCoordinator: ObservableObject {
                     event: "INFO",
                     detail: "importID=\(pendingImport.importID) file=\(pendingImport.originalFilename)"
                 )
-            case .failed:
-                break
+            case .failed(let message):
+                logger.log(
+                    stage: "SCAN_FAIL",
+                    event: "FAIL",
+                    detail: "importID=\(result.importID) reason=\(message)"
+                )
             }
         }
     }

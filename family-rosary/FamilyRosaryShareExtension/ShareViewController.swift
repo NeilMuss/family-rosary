@@ -38,7 +38,7 @@ final class ShareViewController: UIViewController {
         ])
         view = rootView
 
-        updateStatus("EXTENSION LOADED", details: ["lifecycle": lastLifecycleEvent])
+        updateStatus("SESSION_BEGIN", details: ["lifecycle": lastLifecycleEvent])
     }
 
     override func viewDidLoad() {
@@ -264,8 +264,31 @@ final class ShareViewController: UIViewController {
 
         // ── COMPLETE ──────────────────────────────────────────────────────────
         // This is the only call to completeRequest in the entire extension.
+        if let shareImportURL = configuration.makeShareImportURL(importID: importID) {
+            openContainingApp(url: shareImportURL)
+        } else {
+            updateStatus("FAIL: OPEN APP URL INVALID", details: ["importID": importID])
+        }
+
         updateStatus("COMPLETE REQUEST", details: ["importID": importID])
         extensionContext.completeRequest(returningItems: nil)
+    }
+
+    private func openContainingApp(url: URL) {
+        updateStatus("OPEN APP BEGIN", details: ["url": url.absoluteString])
+
+        let selector = sel_registerName("openURL:")
+        var responder: UIResponder? = self
+        while let currentResponder = responder {
+            if currentResponder.responds(to: selector) {
+                _ = currentResponder.perform(selector, with: url)
+                updateStatus("OPEN APP SUCCESS", details: ["url": url.absoluteString])
+                return
+            }
+            responder = currentResponder.next
+        }
+
+        updateStatus("FAIL: OPEN APP FAILED", details: ["url": url.absoluteString])
     }
 
     /// Derives a safe filename for the staged audio file.
@@ -338,10 +361,6 @@ final class ShareViewController: UIViewController {
             allowFallbackToLocalDocuments: false
         )
 
-                print("SHARE EXTENSION containerURL =", try? store.containerURL())
-        print("SHARE EXTENSION logFileURL =", try? store.logFileURL())
-        print("SHARE EXTENSION inboxURL =", try? store.inboxURL())
-
         do {
             appGroupContainerPath = try store.containerURL().path
         } catch {
@@ -387,8 +406,7 @@ final class ShareViewController: UIViewController {
             ).append(entry)
             sharedLogWriteStatus = "SUCCEEDED"
         } catch {
-            if let shareError = error as? ShareImportError,
-               case .appGroupContainerUnavailable = shareError {
+            if error.localizedDescription.localizedCaseInsensitiveContains("app group container unavailable") {
                 sharedLogWriteStatus = "FAILED app group unavailable"
             } else {
                 sharedLogWriteStatus = "FAILED \(error.localizedDescription)"

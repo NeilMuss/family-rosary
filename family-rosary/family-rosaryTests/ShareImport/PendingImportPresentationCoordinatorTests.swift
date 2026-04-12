@@ -21,8 +21,20 @@ final class PendingImportPresentationCoordinatorTests: XCTestCase {
         let fixture = try Fixture.make()
         let pendingImport = fixture.makePendingImport(id: "a", importID: "a", importedAt: "2026-04-12T12:01:00.000Z")
         try fixture.pendingStore.save(pendingImport)
+        let discovered = [
+            SharedRecordingDiscoveredItem(
+                id: "a",
+                importID: "a",
+                folderURL: fixture.containerURL.appendingPathComponent("SharedInbox/a", isDirectory: true),
+                receiptURL: fixture.containerURL.appendingPathComponent("SharedInbox/a/receipt.json"),
+                receipt: nil,
+                audioFileURL: nil,
+                status: .ready
+            )
+        ]
 
         let coordinator = fixture.makeCoordinator(
+            discoveryItems: discovered,
             pipeline: StubPipeline(results: [
                 SharedRecordingImportResult(importID: "a", status: .pendingMetadata(pendingImport))
             ])
@@ -33,6 +45,8 @@ final class PendingImportPresentationCoordinatorTests: XCTestCase {
         XCTAssertEqual(coordinator.currentPendingImport?.importID, "a")
 
         let lines = try fixture.logStore.loadEntries().map(\.formattedLine).joined(separator: "\n")
+        XCTAssertTrue(lines.contains("APP_IMPORT | SCAN_BEGIN | INFO"))
+        XCTAssertTrue(lines.contains("APP_IMPORT | ITEM_FOUND | INFO | importID=a"))
         XCTAssertTrue(lines.contains("APP_IMPORT | PENDING_IMPORT_CREATED | INFO"))
         XCTAssertTrue(lines.contains("APP_IMPORT | FINISH_IMPORT_PRESENTED | INFO"))
     }
@@ -118,9 +132,13 @@ final class PendingImportPresentationCoordinatorTests: XCTestCase {
         }
 
         @MainActor
-        func makeCoordinator(pipeline: SharedRecordingImportRunning = StubPipeline(results: [])) -> PendingImportPresentationCoordinator {
+        func makeCoordinator(
+            discoveryItems: [SharedRecordingDiscoveredItem] = [],
+            pipeline: SharedRecordingImportRunning = StubPipeline(results: [])
+        ) -> PendingImportPresentationCoordinator {
             PendingImportPresentationCoordinator(
                 pendingStore: pendingStore,
+                discoveryService: StubDiscovery(items: discoveryItems),
                 pipeline: pipeline,
                 deepLinkHandler: ShareImportDeepLinkHandler(expectedScheme: "familyrosary"),
                 logger: logger
@@ -148,4 +166,9 @@ private struct StubPipeline: SharedRecordingImportRunning {
     func process(importID: String) async -> SharedRecordingImportResult {
         results.first { $0.importID == importID } ?? SharedRecordingImportResult(importID: importID, status: .failed(message: "missing"))
     }
+}
+
+private struct StubDiscovery: SharedRecordingDiscovering {
+    let items: [SharedRecordingDiscoveredItem]
+    func discover() -> [SharedRecordingDiscoveredItem] { items }
 }

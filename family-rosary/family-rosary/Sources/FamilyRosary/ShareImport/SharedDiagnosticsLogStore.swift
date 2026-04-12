@@ -206,11 +206,6 @@ struct SharedDiagnosticsLogStore {
     }
 
     private func logDestination() throws -> (containerURL: URL, usingFallback: Bool) {
-        let appGroupURL = try containerURL()
-        return (appGroupURL, false)
-    }
-
-    /* private func logDestination() throws -> (containerURL: URL, usingFallback: Bool) {
         do {
             return (try containerURL(), false)
         } catch let error as SharedDiagnosticsLogStoreError {
@@ -229,7 +224,7 @@ struct SharedDiagnosticsLogStore {
         }
 
         throw SharedDiagnosticsLogStoreError.localDocumentsDirectoryUnavailable
-    } */
+    }
 
     private func ensureDiagnosticsDirectory(using baseURL: URL) throws -> URL {
         let diagnosticsURL = baseURL.appendingPathComponent(SharedContainerLayout.diagnosticsDirectoryName, isDirectory: true)

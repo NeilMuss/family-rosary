@@ -233,6 +233,7 @@ struct AppCompositionRoot {
         )
         return PendingImportPresentationCoordinator(
             pendingStore: makePendingImportStore(),
+            discoveryService: discovery,
             pipeline: pipeline,
             deepLinkHandler: ShareImportDeepLinkHandler(configuration: configuration),
             logger: logger

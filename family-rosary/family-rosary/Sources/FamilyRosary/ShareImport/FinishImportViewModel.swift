@@ -8,6 +8,7 @@ final class FinishImportViewModel: ObservableObject {
     let totalPendingCount: Int
 
     @Published var availablePartners: [PrayerPartner]
+    @Published var partnerPickerRefreshID = UUID()
     @Published var selectedPartnerID: String?
     @Published var isAddingNewPartner = false
     @Published var newPartnerName = ""
@@ -54,11 +55,17 @@ final class FinishImportViewModel: ObservableObject {
         self.logger = logger
         self.nowProvider = nowProvider
         self.onDone = onDone
-        self.availablePartners = partnerStore.all()
+        self.availablePartners = partnerStore.all().sorted {
+            $0.displayName.localizedCaseInsensitiveCompare($1.displayName) == .orderedAscending
+        }
     }
 
     var availableParts: [AudioRecordingPart] {
         selectedPrayer?.availableParts ?? []
+    }
+
+    var availablePrayers: [PrayerName] {
+        PrayerName.supportedImportPrayers
     }
 
     var canSave: Bool {
@@ -77,10 +84,14 @@ final class FinishImportViewModel: ObservableObject {
             displayName: trimmed
         )
         partnerStore.add(partner)
-        availablePartners = partnerStore.all()
+        availablePartners = partnerStore.all().sorted {
+            $0.displayName.localizedCaseInsensitiveCompare($1.displayName) == .orderedAscending
+        }
         selectedPartnerID = partner.id
+        partnerPickerRefreshID = UUID()
         isAddingNewPartner = false
         newPartnerName = ""
+        validationMessages.removeAll(where: { $0 == "Please choose a partner." || $0 == "Please enter a name for the new partner." })
     }
 
     func cancelAddNewPartner() {
