@@ -6,7 +6,7 @@ struct SharedImportConfiguration: Equatable {
     let deepLinkRoute: String
 
     static func fromMainBundle(bundle: Bundle = .main) -> SharedImportConfiguration {
-        let appGroupIdentifier = (bundle.object(forInfoDictionaryKey: "FRAppGroupIdentifier") as? String ?? "").trimmingCharacters(in: .whitespacesAndNewlines)
+        let appGroupIdentifier = SharedContainerConfig.resolvedAppGroupIdentifier(bundle: bundle)
         let urlScheme = (bundle.object(forInfoDictionaryKey: "FRShareImportURLScheme") as? String ?? "familyrosary").trimmingCharacters(in: .whitespacesAndNewlines)
         return SharedImportConfiguration(
             appGroupIdentifier: appGroupIdentifier,

@@ -6,6 +6,31 @@ enum SharedContainerLayout {
     static let inboxDirectoryName = "SharedInbox"
 }
 
+private final class SharedDiagnosticsLogMemoryCache {
+    static let shared = SharedDiagnosticsLogMemoryCache()
+
+    private var entriesByPath: [String: [SharedDiagnosticsEntry]] = [:]
+    private let lock = NSLock()
+
+    func entries(forPath path: String) -> [SharedDiagnosticsEntry]? {
+        lock.lock()
+        defer { lock.unlock() }
+        return entriesByPath[path]
+    }
+
+    func setEntries(_ entries: [SharedDiagnosticsEntry], forPath path: String) {
+        lock.lock()
+        defer { lock.unlock() }
+        entriesByPath[path] = entries
+    }
+
+    func removeAll() {
+        lock.lock()
+        defer { lock.unlock() }
+        entriesByPath.removeAll()
+    }
+}
+
 struct SharedDiagnosticsEntry: Codable, Equatable, Identifiable {
     let timestampISO8601: String
     let category: String
@@ -29,6 +54,7 @@ struct SharedDiagnosticsEntry: Codable, Equatable, Identifiable {
 enum SharedDiagnosticsLogStoreError: LocalizedError, Equatable {
     case appGroupIdentifierMissing
     case appGroupContainerUnavailable(appGroupIdentifier: String)
+    case localDocumentsDirectoryUnavailable
     case failedToCreateLogDirectory
     case failedToAppendLogEntry
     case failedToLoadLogEntries
@@ -40,6 +66,8 @@ enum SharedDiagnosticsLogStoreError: LocalizedError, Equatable {
             return "Shared diagnostics failed: app group identifier is missing."
         case let .appGroupContainerUnavailable(appGroupIdentifier):
             return "Shared diagnostics failed: app group container unavailable for \(appGroupIdentifier)."
+        case .localDocumentsDirectoryUnavailable:
+            return "Shared diagnostics failed: local Documents directory unavailable."
         case .failedToCreateLogDirectory:
             return "Shared diagnostics failed: could not create diagnostics directory."
         case .failedToAppendLogEntry:
@@ -56,61 +84,70 @@ struct SharedDiagnosticsLogStore {
     let appGroupIdentifier: String
     let fileManager: FileManager
     let sharedContainerURLProvider: (() -> URL?)?
+    let documentsDirectoryURLProvider: (() -> URL?)?
 
     init(
         appGroupIdentifier: String,
         fileManager: FileManager = .default,
-        sharedContainerURLProvider: (() -> URL?)? = nil
+        sharedContainerURLProvider: (() -> URL?)? = nil,
+        documentsDirectoryURLProvider: (() -> URL?)? = nil
     ) {
         self.appGroupIdentifier = appGroupIdentifier
         self.fileManager = fileManager
         self.sharedContainerURLProvider = sharedContainerURLProvider
+        self.documentsDirectoryURLProvider = documentsDirectoryURLProvider
     }
 
     func append(_ entry: SharedDiagnosticsEntry) throws {
-        let fileURL = try logFileURL()
-        let data = try JSONEncoder().encode(entry)
+        let destination = try logDestination()
+        let fileURL = try ensureDiagnosticsDirectory(using: destination.containerURL)
+            .appendingPathComponent(SharedContainerLayout.logFilename)
 
-        if fileManager.fileExists(atPath: fileURL.path) == false {
-            fileManager.createFile(atPath: fileURL.path, contents: nil)
+        var entries = SharedDiagnosticsLogMemoryCache.shared.entries(forPath: fileURL.path) ?? []
+        if destination.usingFallback, entries.isEmpty {
+            entries.append(
+                SharedDiagnosticsEntry(
+                    timestampISO8601: Self.iso8601Formatter.string(from: Date()),
+                    category: "LOGGING",
+                    stage: "Fallback to local Documents directory (App Group unavailable)",
+                    event: "INFO",
+                    detail: nil
+                )
+            )
         }
-
-        guard let handle = try? FileHandle(forWritingTo: fileURL) else {
-            throw SharedDiagnosticsLogStoreError.failedToAppendLogEntry
-        }
+        entries.append(entry)
+        SharedDiagnosticsLogMemoryCache.shared.setEntries(entries, forPath: fileURL.path)
 
         do {
-            try handle.seekToEnd()
-            try handle.write(contentsOf: data)
-            try handle.write(contentsOf: Data([0x0A]))
-            try handle.close()
+            try persist(entries: entries, to: fileURL)
         } catch {
-            try? handle.close()
             throw SharedDiagnosticsLogStoreError.failedToAppendLogEntry
         }
     }
 
     func loadEntries() throws -> [SharedDiagnosticsEntry] {
-        let fileURL = try logFileURL()
+        let destination = try logDestination()
+        let fileURL = try ensureDiagnosticsDirectory(using: destination.containerURL)
+            .appendingPathComponent(SharedContainerLayout.logFilename)
+
+        if let cachedEntries = SharedDiagnosticsLogMemoryCache.shared.entries(forPath: fileURL.path) {
+            return cachedEntries
+        }
+
         guard fileManager.fileExists(atPath: fileURL.path) else {
             return []
         }
 
-        do {
-            let content = try String(contentsOf: fileURL, encoding: .utf8)
-            let lines = content.split(separator: "\n").map(String.init)
-            let decoder = JSONDecoder()
-            return try lines.compactMap { line in
-                guard let data = line.data(using: .utf8) else { return nil }
-                return try decoder.decode(SharedDiagnosticsEntry.self, from: data)
-            }
-        } catch {
-            throw SharedDiagnosticsLogStoreError.failedToLoadLogEntries
-        }
+        let loadedEntries = try readEntries(from: fileURL)
+        SharedDiagnosticsLogMemoryCache.shared.setEntries(loadedEntries, forPath: fileURL.path)
+        return loadedEntries
     }
 
     func clear() throws {
-        let fileURL = try logFileURL()
+        let destination = try logDestination()
+        let fileURL = try ensureDiagnosticsDirectory(using: destination.containerURL)
+            .appendingPathComponent(SharedContainerLayout.logFilename)
+        SharedDiagnosticsLogMemoryCache.shared.setEntries([], forPath: fileURL.path)
         do {
             if fileManager.fileExists(atPath: fileURL.path) {
                 try fileManager.removeItem(at: fileURL)
@@ -143,7 +180,43 @@ struct SharedDiagnosticsLogStore {
     }
 
     func diagnosticsDirectoryURL() throws -> URL {
-        let diagnosticsURL = try containerURL().appendingPathComponent(SharedContainerLayout.diagnosticsDirectoryName, isDirectory: true)
+        let diagnosticsURL = try ensureDiagnosticsDirectory(using: containerURL())
+        return diagnosticsURL
+    }
+
+    func logFileURL() throws -> URL {
+        try diagnosticsDirectoryURL().appendingPathComponent(SharedContainerLayout.logFilename)
+    }
+
+    func activeLogFileURL() throws -> URL {
+        let destination = try logDestination()
+        return try ensureDiagnosticsDirectory(using: destination.containerURL)
+            .appendingPathComponent(SharedContainerLayout.logFilename)
+    }
+
+    func activeContainerURL() throws -> URL {
+        try logDestination().containerURL
+    }
+
+    func isUsingFallbackLocation() throws -> Bool {
+        try logDestination().usingFallback
+    }
+
+    private func logDestination() throws -> (containerURL: URL, usingFallback: Bool) {
+        if let appGroupURL = try? containerURL() {
+            return (appGroupURL, false)
+        }
+
+        if let documentsURL = documentsDirectoryURLProvider?()
+            ?? fileManager.urls(for: .documentDirectory, in: .userDomainMask).first {
+            return (documentsURL, true)
+        }
+
+        throw SharedDiagnosticsLogStoreError.localDocumentsDirectoryUnavailable
+    }
+
+    private func ensureDiagnosticsDirectory(using baseURL: URL) throws -> URL {
+        let diagnosticsURL = baseURL.appendingPathComponent(SharedContainerLayout.diagnosticsDirectoryName, isDirectory: true)
         do {
             try fileManager.createDirectory(at: diagnosticsURL, withIntermediateDirectories: true)
         } catch {
@@ -152,8 +225,51 @@ struct SharedDiagnosticsLogStore {
         return diagnosticsURL
     }
 
-    func logFileURL() throws -> URL {
-        try diagnosticsDirectoryURL().appendingPathComponent(SharedContainerLayout.logFilename)
+    private func readEntries(from fileURL: URL) throws -> [SharedDiagnosticsEntry] {
+        do {
+            let content = try String(contentsOf: fileURL, encoding: .utf8)
+            let lines = content.split(separator: "\n").map(String.init)
+            let decoder = JSONDecoder()
+            return try lines.compactMap { line in
+                guard let data = line.data(using: .utf8) else { return nil }
+                return try decoder.decode(SharedDiagnosticsEntry.self, from: data)
+            }
+        } catch {
+            throw SharedDiagnosticsLogStoreError.failedToLoadLogEntries
+        }
+    }
+
+    private func persist(entries: [SharedDiagnosticsEntry], to fileURL: URL) throws {
+        let encoder = JSONEncoder()
+        let serialized = try entries
+            .map { entry -> String in
+                let data = try encoder.encode(entry)
+                guard let line = String(data: data, encoding: .utf8) else {
+                    throw SharedDiagnosticsLogStoreError.failedToAppendLogEntry
+                }
+                return line
+            }
+            .joined(separator: "\n")
+
+        let finalText = serialized.isEmpty ? "" : serialized + "\n"
+        guard let data = finalText.data(using: .utf8) else {
+            throw SharedDiagnosticsLogStoreError.failedToAppendLogEntry
+        }
+
+        do {
+            try data.write(to: fileURL, options: .atomic)
+        } catch {
+            throw SharedDiagnosticsLogStoreError.failedToAppendLogEntry
+        }
+    }
+
+    private static let iso8601Formatter: ISO8601DateFormatter = {
+        let formatter = ISO8601DateFormatter()
+        formatter.formatOptions = [.withInternetDateTime, .withFractionalSeconds]
+        return formatter
+    }()
+    static func resetInMemoryCacheForTesting() {
+        SharedDiagnosticsLogMemoryCache.shared.removeAll()
     }
 }
 

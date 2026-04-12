@@ -1,5 +1,9 @@
 import Foundation
 
+protocol SharedInboxSimulatedShareRunning {
+    func run() async throws -> SharedInboxSimulatedShareRunResult
+}
+
 struct SharedInboxSimulatedShareRunResult: Equatable {
     let importID: String
     let stagedAudioPath: String
@@ -8,20 +12,55 @@ struct SharedInboxSimulatedShareRunResult: Equatable {
     let pipelineResult: SharedRecordingImportResult
 }
 
-struct SharedInboxSimulatedShareRunner {
+struct SharedInboxSimulatedShareRunner: SharedInboxSimulatedShareRunning {
     let injector: SharedInboxDebugInjector
     let discoveryService: SharedRecordingDiscovering
     let pipeline: SharedRecordingImportRunning
     let simLogger: SharedDiagnosticsLogger
     let importLogger: SharedDiagnosticsLogger
+    let partnerName: String
+
+    init(
+        injector: SharedInboxDebugInjector,
+        discoveryService: SharedRecordingDiscovering,
+        pipeline: SharedRecordingImportRunning,
+        simLogger: SharedDiagnosticsLogger,
+        importLogger: SharedDiagnosticsLogger,
+        partnerName: String = "TEST"
+    ) {
+        self.injector = injector
+        self.discoveryService = discoveryService
+        self.pipeline = pipeline
+        self.simLogger = simLogger
+        self.importLogger = importLogger
+        self.partnerName = partnerName
+    }
 
     func run() async throws -> SharedInboxSimulatedShareRunResult {
-        simLogger.log(stage: "TEST_BEGIN", event: "INFO")
-
+        simLogger.log(stage: "Startup simulated share test beginning.", event: "INFO")
         do {
+            simLogger.log(stage: "Temporary import file copy beginning.", event: "INFO")
+            simLogger.log(stage: "Shared-style manifest/reference write beginning.", event: "INFO")
             let injection = try injector.injectBundledTestAudio()
+            simLogger.log(
+                stage: "Bundled source file located: \(SharedInboxDebugInjector.bundledAssetName).\(SharedInboxDebugInjector.bundledAssetExtension)",
+                event: "INFO"
+            )
+            simLogger.log(
+                stage: "Temporary import file copy succeeded: \(injection.stagedAudioURL.path)",
+                event: "INFO"
+            )
+            simLogger.log(
+                stage: "Shared-style manifest/reference write succeeded.",
+                event: "INFO",
+                detail: injection.receiptURL.path
+            )
             let discovered = discoveryService.discover()
-            importLogger.log(stage: "SCAN_BEGIN", event: "INFO", detail: "count=\(discovered.count)")
+            importLogger.log(
+                stage: "Import process beginning for partner \(partnerName).",
+                event: "INFO",
+                detail: "count=\(discovered.count)"
+            )
 
             guard discovered.contains(where: { $0.importID == injection.importID }) else {
                 importLogger.log(stage: "SCAN_COMPLETE", event: "FAIL", detail: "missingImportID=\(injection.importID)")
@@ -34,24 +73,28 @@ struct SharedInboxSimulatedShareRunner {
                 throw error
             }
 
-            importLogger.log(stage: "ITEM_FOUND", event: "INFO", detail: "importID=\(injection.importID)")
+            importLogger.log(
+                stage: "Import file confirmed at path: \(injection.stagedAudioURL.path)",
+                event: "INFO",
+                detail: "partner=\(partnerName)"
+            )
             let result = await pipeline.process(importID: injection.importID)
 
             switch result.status {
             case .imported(let imported):
                 importLogger.log(
-                    stage: "SCAN_COMPLETE",
+                    stage: "Import process succeeded for partner \(partnerName).",
                     event: "SUCCESS",
                     detail: "importID=\(result.importID) file=\(imported.filename)"
                 )
                 simLogger.log(
-                    stage: "TEST_SUCCESS",
+                    stage: "Startup simulated share test succeeded.",
                     event: "SUCCESS",
                     detail: "importID=\(injection.importID) staged=\(injection.stagedAudioURL.path)"
                 )
             case .failed(let message):
                 importLogger.log(
-                    stage: "SCAN_COMPLETE",
+                    stage: "Import process failed for partner \(partnerName).",
                     event: "FAIL",
                     detail: "importID=\(result.importID) reason=\(message)"
                 )

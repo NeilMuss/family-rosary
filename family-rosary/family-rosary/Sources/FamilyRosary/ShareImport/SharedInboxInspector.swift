@@ -98,7 +98,10 @@ final class SharedInboxScanCoordinator: ObservableObject {
     private let logger: SharedDiagnosticsLogger
     private let appLogger: SharedDiagnosticsLogger
     private let importLogger: SharedDiagnosticsLogger
-    private let simulatedShareRunner: SharedInboxSimulatedShareRunner
+    private let simulatedShareRunner: any SharedInboxSimulatedShareRunning
+    private static var hasRunStartupSequenceThisLaunch = false
+    private static var hasLoggedLaunchTitleScreenClosedThisLaunch = false
+    private static var hasLoggedMainPrayerScreenShowingThisLaunch = false
 
     init(
         inspector: SharedInboxInspector,
@@ -110,7 +113,7 @@ final class SharedInboxScanCoordinator: ObservableObject {
         logger: SharedDiagnosticsLogger,
         appLogger: SharedDiagnosticsLogger,
         importLogger: SharedDiagnosticsLogger,
-        simulatedShareRunner: SharedInboxSimulatedShareRunner
+        simulatedShareRunner: any SharedInboxSimulatedShareRunning
     ) {
         self.inspector = inspector
         self.discoveryService = discoveryService
@@ -125,16 +128,57 @@ final class SharedInboxScanCoordinator: ObservableObject {
     }
 
     func appSessionBegin() {
-        appLogger.log(stage: "SESSION_BEGIN", event: "INFO")
-    }
-
-    func appBecameActive() {
-        appLogger.log(stage: "BECAME_ACTIVE", event: "INFO")
+        appLogger.log(stage: "App initialized.", event: "INFO")
     }
 
     func diagnosticsViewAppeared() {
-        appLogger.log(stage: "DIAGNOSTICS_VIEW_APPEARED", event: "INFO")
+        appLogger.log(stage: "Diagnostics view appeared.", event: "INFO")
         refresh()
+    }
+
+    func fullLogText() -> String {
+        logEntries.map(\.formattedLine).joined(separator: "\n")
+    }
+
+    var visibleLogText: String {
+        let text = fullLogText()
+        return text.isEmpty ? "No logs yet." : text
+    }
+
+    func runStartupSequenceIfNeeded() {
+        guard Self.hasRunStartupSequenceThisLaunch == false else { return }
+        Self.hasRunStartupSequenceThisLaunch = true
+
+        do {
+            try logStore.clear()
+        } catch {
+            DebugLog.shared.log("SHARE_INBOX startup_clear_logs_failed \(error.localizedDescription)")
+        }
+
+        appLogger.log(stage: "App initialized.", event: "INFO")
+        appLogger.log(stage: "Launch title screen showing.", event: "INFO")
+        refresh()
+
+        Task { @MainActor in
+            do {
+                _ = try await simulatedShareRunner.run()
+            } catch {
+                logger.log(stage: "SIMULATED_SHARE_TEST", event: "FAIL", detail: error.localizedDescription)
+            }
+            refresh()
+        }
+    }
+
+    func launchTitleScreenClosed() {
+        guard Self.hasLoggedLaunchTitleScreenClosedThisLaunch == false else { return }
+        Self.hasLoggedLaunchTitleScreenClosedThisLaunch = true
+        appLogger.log(stage: "Launch title screen closed.", event: "INFO")
+    }
+
+    func mainPrayerScreenShowing() {
+        guard Self.hasLoggedMainPrayerScreenShowingThisLaunch == false else { return }
+        Self.hasLoggedMainPrayerScreenShowingThisLaunch = true
+        appLogger.log(stage: "Main prayer screen showing.", event: "INFO")
     }
 
     func refresh() {
@@ -199,6 +243,11 @@ final class SharedInboxScanCoordinator: ObservableObject {
 
     func writeExtensionCanaryEmulation() {
         do {
+            guard let simulatedShareRunner = simulatedShareRunner as? SharedInboxSimulatedShareRunner else {
+                logger.log(stage: "DEBUG_EXTENSION_CANARY", event: "FAIL", detail: "The simulated share runner did not expose an injector.")
+                refresh()
+                return
+            }
             let canaryURL = try simulatedShareRunner.injector.writeExtensionCanaryEmulation()
             logger.log(stage: "DEBUG_EXTENSION_CANARY", event: "SUCCESS", detail: canaryURL.path)
         } catch {
@@ -252,8 +301,8 @@ final class SharedInboxScanCoordinator: ObservableObject {
 
     private func makeSharedContainerSnapshot() -> SharedContainerDiagnosticsSnapshot {
         let appGroupIdentifier = (try? logStore.resolvedAppGroupIdentifier()) ?? paths.appGroupIdentifier
-        let containerURL = try? logStore.containerURL()
-        let logFileURL = try? logStore.logFileURL()
+        let containerURL = try? logStore.activeContainerURL()
+        let logFileURL = try? logStore.activeLogFileURL()
         let inboxURL = try? paths.sharedInboxDirectoryURL()
 
         return SharedContainerDiagnosticsSnapshot(
@@ -289,9 +338,19 @@ final class SharedInboxScanCoordinator: ObservableObject {
 
     private func logSharedContainerDetails() {
         let snapshot = makeSharedContainerSnapshot()
+        let trimmedIdentifier = snapshot.appGroupIdentifier.trimmingCharacters(in: .whitespacesAndNewlines)
+        if trimmedIdentifier.isEmpty {
+            logger.log(stage: "Missing app group identifier.", event: "FAIL")
+        }
         appLogger.log(stage: "APP_GROUP_ID", event: "VALUE", detail: snapshot.appGroupIdentifier)
         appLogger.log(stage: "APP_GROUP_CONTAINER_URL", event: "VALUE", detail: snapshot.containerPath ?? "nil")
         appLogger.log(stage: "LOG_FILE_URL", event: "VALUE", detail: snapshot.logFilePath ?? "nil")
         appLogger.log(stage: "INBOX_URL", event: "VALUE", detail: snapshot.inboxPath ?? "nil")
+    }
+
+    static func resetLaunchGuardsForTesting() {
+        hasRunStartupSequenceThisLaunch = false
+        hasLoggedLaunchTitleScreenClosedThisLaunch = false
+        hasLoggedMainPrayerScreenShowingThisLaunch = false
     }
 }

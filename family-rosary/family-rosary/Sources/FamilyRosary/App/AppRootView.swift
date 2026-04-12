@@ -37,9 +37,20 @@ struct AppRootView: View {
             }
         }
         .task {
-            sharedInboxScanCoordinator.appSessionBegin()
+            sharedInboxScanCoordinator.runStartupSequenceIfNeeded()
             shareImportPreviewViewModel.scanInboxAndPresent()
             sharedInboxScanCoordinator.automaticScan()
+        }
+        .onChange(of: viewModel.screen) { newValue in
+            switch newValue {
+            case .setup:
+                break
+            case .microphoneCheck:
+                sharedInboxScanCoordinator.launchTitleScreenClosed()
+            case .praying:
+                sharedInboxScanCoordinator.launchTitleScreenClosed()
+                sharedInboxScanCoordinator.mainPrayerScreenShowing()
+            }
         }
         .onOpenURL { url in
             shareImportPreviewViewModel.handleIncomingURL(url)
@@ -47,7 +58,6 @@ struct AppRootView: View {
         }
         #if canImport(UIKit)
         .onReceive(NotificationCenter.default.publisher(for: UIApplication.willEnterForegroundNotification)) { _ in
-            sharedInboxScanCoordinator.appBecameActive()
             sharedInboxScanCoordinator.automaticScan()
         }
         #endif

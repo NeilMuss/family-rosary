@@ -4,6 +4,11 @@ import XCTest
 
 @MainActor
 final class SharedDiagnosticsLogStoreTests: XCTestCase {
+    override func setUp() {
+        super.setUp()
+        SharedDiagnosticsLogStore.resetInMemoryCacheForTesting()
+    }
+
     func testAppendAndLoadEntries() throws {
         let containerURL = makeTempDirectory()
         let store = SharedDiagnosticsLogStore(
@@ -96,6 +101,33 @@ final class SharedDiagnosticsLogStoreTests: XCTestCase {
                 .appGroupContainerUnavailable(appGroupIdentifier: "group.com.neilmussett.familyrosary")
             )
         }
+    }
+
+    func testFallbackToDocumentsDirectoryStoresAndLoadsLogs() throws {
+        let documentsURL = makeTempDirectory()
+        let store = SharedDiagnosticsLogStore(
+            appGroupIdentifier: "group.com.neilmussett.familyrosary",
+            sharedContainerURLProvider: { nil },
+            documentsDirectoryURLProvider: { documentsURL }
+        )
+
+        try store.append(
+            SharedDiagnosticsEntry(
+                timestampISO8601: "2026-04-12T12:00:01.000Z",
+                category: "APP",
+                stage: "App initialized.",
+                event: "INFO",
+                detail: nil
+            )
+        )
+
+        let entries = try store.loadEntries()
+        XCTAssertEqual(try store.activeContainerURL().path, documentsURL.path)
+        XCTAssertTrue(try store.isUsingFallbackLocation())
+        XCTAssertEqual(entries.first?.category, "LOGGING")
+        XCTAssertEqual(entries.first?.stage, "Fallback to local Documents directory (App Group unavailable)")
+        XCTAssertEqual(entries.last?.category, "APP")
+        XCTAssertEqual(entries.last?.stage, "App initialized.")
     }
 
     private func makeTempDirectory() -> URL {

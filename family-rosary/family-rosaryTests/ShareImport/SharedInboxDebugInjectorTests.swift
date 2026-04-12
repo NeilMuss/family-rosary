@@ -29,6 +29,12 @@ final class SharedInboxDebugInjectorTests: XCTestCase {
         XCTAssertEqual(receipt.sourceFilename, "debug_share_seed.m4a")
         XCTAssertEqual(receipt.stagedAudioFilename, "debug_share_seed.m4a")
         XCTAssertEqual(receipt.byteCount, 5)
+
+        let lines = try fixture.logStore.loadEntries().map(\.formattedLine).joined(separator: "\n")
+        XCTAssertTrue(lines.contains("SIM_SHARE | SOURCE_FOUND | INFO"))
+        XCTAssertTrue(lines.contains("SIM_SHARE | COPY_SUCCESS | INFO"))
+        XCTAssertTrue(lines.contains("SIM_SHARE | MANIFEST_WRITE_SUCCESS | INFO"))
+        XCTAssertTrue(lines.contains("SIM_SHARE | DESTINATION_EXISTS_CONFIRMED | INFO"))
     }
 
     func testInjectorFailsWhenBundledAssetMissing() throws {
@@ -57,6 +63,16 @@ final class SharedInboxDebugInjectorTests: XCTestCase {
         XCTAssertEqual(items[0].receipt?.sourceFilename, "debug_share_seed.m4a")
     }
 
+    func testInjectorFailsWithPreciseErrorWhenAppGroupIdentifierIsMissing() throws {
+        let fixture = try Fixture.make(appGroupIdentifier: "   ")
+        let sourceURL = try fixture.makeBundledAssetURL(filename: "debug_share_seed.m4a", data: Data("audio".utf8))
+        let injector = fixture.makeInjector(sourceURL: sourceURL)
+
+        XCTAssertThrowsError(try injector.injectBundledTestAudio()) { error in
+            XCTAssertEqual(error as? SharedImportPathsError, .appGroupIdentifierMissing)
+        }
+    }
+
     private struct Fixture {
         let containerURL: URL
         let assetDirectoryURL: URL
@@ -65,18 +81,18 @@ final class SharedInboxDebugInjectorTests: XCTestCase {
         let paths: SharedImportPaths
 
         @MainActor
-        static func make() throws -> Fixture {
+        static func make(appGroupIdentifier: String = SharedContainerConfig.appGroupIdentifier) throws -> Fixture {
             let containerURL = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString, isDirectory: true)
             let assetDirectoryURL = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString, isDirectory: true)
             try FileManager.default.createDirectory(at: containerURL, withIntermediateDirectories: true)
             try FileManager.default.createDirectory(at: assetDirectoryURL, withIntermediateDirectories: true)
 
             let paths = SharedImportPaths(
-                appGroupIdentifier: "group.com.neilmussett.familyrosary",
+                appGroupIdentifier: appGroupIdentifier,
                 sharedContainerURLProvider: { containerURL }
             )
             let logStore = SharedDiagnosticsLogStore(
-                appGroupIdentifier: "group.com.neilmussett.familyrosary",
+                appGroupIdentifier: appGroupIdentifier,
                 sharedContainerURLProvider: { containerURL }
             )
 

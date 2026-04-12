@@ -40,15 +40,15 @@ final class SharedInboxSimulatedShareRunnerTests: XCTestCase {
         XCTAssertEqual(result.discoveredItemCount, 1)
 
         let lines = try fixture.logStore.loadEntries().map(\.formattedLine).joined(separator: "\n")
-        XCTAssertTrue(lines.contains("SIM_SHARE | TEST_BEGIN | INFO"))
-        XCTAssertTrue(lines.contains("SIM_SHARE | SOURCE_FOUND | INFO"))
-        XCTAssertTrue(lines.contains("SIM_SHARE | COPY_SUCCESS | INFO"))
-        XCTAssertTrue(lines.contains("SIM_SHARE | MANIFEST_WRITE_SUCCESS | INFO"))
-        XCTAssertTrue(lines.contains("SIM_SHARE | DESTINATION_EXISTS_CONFIRMED | INFO"))
-        XCTAssertTrue(lines.contains("APP_IMPORT | SCAN_BEGIN | INFO"))
-        XCTAssertTrue(lines.contains("APP_IMPORT | ITEM_FOUND | INFO"))
-        XCTAssertTrue(lines.contains("APP_IMPORT | SCAN_COMPLETE | SUCCESS"))
-        XCTAssertTrue(lines.contains("SIM_SHARE | TEST_SUCCESS | SUCCESS"))
+        XCTAssertTrue(lines.contains("SIM_SHARE | Startup simulated share test beginning. | INFO"))
+        XCTAssertTrue(lines.contains("SIM_SHARE | Bundled source file located: debug_share_seed.m4a | INFO"))
+        XCTAssertTrue(lines.contains("SIM_SHARE | Temporary import file copy succeeded:"))
+        XCTAssertTrue(lines.contains("SIM_SHARE | Shared-style manifest/reference write succeeded. | INFO"))
+        XCTAssertTrue(lines.contains("APP_IMPORT | Import process beginning for partner TEST. | INFO"))
+        XCTAssertTrue(lines.contains("APP_IMPORT | Import file confirmed at path:"))
+        XCTAssertTrue(lines.contains("partner=TEST"))
+        XCTAssertTrue(lines.contains("APP_IMPORT | Import process succeeded for partner TEST. | SUCCESS"))
+        XCTAssertTrue(lines.contains("SIM_SHARE | Startup simulated share test succeeded. | SUCCESS"))
     }
 
     private struct Fixture {
