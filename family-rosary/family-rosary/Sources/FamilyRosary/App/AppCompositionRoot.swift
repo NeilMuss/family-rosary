@@ -98,6 +98,22 @@ struct AppCompositionRoot {
         UserDefaultsRosaryPreferencesStore()
     }
 
+    func makePendingImportStore() -> PendingImportStoring {
+        FileBackedPendingImportStore(
+            indexFileURL: FamilyRosaryPaths.pendingImportIndexFileURL(baseDirURL: makeBaseDirURLProvider()())
+        )
+    }
+
+    func makeFinalisedImportedRecordingStore() -> FinalisedImportedRecordingStoring {
+        FileBackedFinalisedImportedRecordingStore(
+            indexFileURL: FamilyRosaryPaths.finalisedImportIndexFileURL(baseDirURL: makeBaseDirURLProvider()())
+        )
+    }
+
+    func makePartnerStore() -> PrayerPartnerStoring {
+        UserDefaultsPrayerPartnerStore()
+    }
+
     func makeAvailablePrayerPartners() -> [PrayerPartner] {
         [
             PrayerPartner(id: "dad", displayName: "Dad"),
@@ -175,15 +191,12 @@ struct AppCompositionRoot {
             paths: paths,
             logger: SharedImportDiagnosticsLogger(sharedLogger: diagnosticsLogger)
         )
-        let pendingImportStore = FileBackedPendingImportStore(
-            indexFileURL: FamilyRosaryPaths.pendingImportIndexFileURL(baseDirURL: makeBaseDirURLProvider()())
-        )
         let pipeline = SharedRecordingImportPipeline(
             paths: paths,
             discoveryService: discovery,
             audioInspector: AVSharedAudioInspector(),
             audioPreparationService: makeImportedAudioPreparationService(),
-            pendingImportStore: pendingImportStore,
+            pendingImportStore: makePendingImportStore(),
             logger: SharedImportDiagnosticsLogger(sharedLogger: diagnosticsLogger),
             baseDirURLProvider: makeBaseDirURLProvider()
         )
@@ -209,15 +222,12 @@ struct AppCompositionRoot {
             paths: paths,
             logger: SharedImportDiagnosticsLogger(sharedLogger: importDiagnosticsLogger)
         )
-        let pendingImportStore = FileBackedPendingImportStore(
-            indexFileURL: FamilyRosaryPaths.pendingImportIndexFileURL(baseDirURL: makeBaseDirURLProvider()())
-        )
         let pipeline = SharedRecordingImportPipeline(
             paths: paths,
             discoveryService: discovery,
             audioInspector: AVSharedAudioInspector(),
             audioPreparationService: makeImportedAudioPreparationService(),
-            pendingImportStore: pendingImportStore,
+            pendingImportStore: makePendingImportStore(),
             logger: SharedImportDiagnosticsLogger(sharedLogger: importDiagnosticsLogger),
             baseDirURLProvider: makeBaseDirURLProvider()
         )
@@ -278,6 +288,20 @@ struct AppCompositionRoot {
             matcher: CanonicalAudioMatcher(format: format),
             validator: validator,
             transcoder: transcoder
+        )
+    }
+
+    @MainActor
+    func makeFinishImportViewModel(
+        pending: PendingImport,
+        onDone: @escaping () -> Void
+    ) -> FinishImportViewModel {
+        FinishImportViewModel(
+            pendingImport: pending,
+            partnerStore: makePartnerStore(),
+            finalisedStore: makeFinalisedImportedRecordingStore(),
+            pendingStore: makePendingImportStore(),
+            onDone: onDone
         )
     }
 

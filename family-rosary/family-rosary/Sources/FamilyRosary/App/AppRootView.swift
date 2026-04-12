@@ -4,11 +4,13 @@ import UIKit
 #endif
 
 struct AppRootView: View {
+    private let root: AppCompositionRoot
     @StateObject private var viewModel: FamilyRosaryFlowViewModel
     @StateObject private var shareImportPreviewViewModel: ShareImportPreviewViewModel
     @StateObject private var sharedInboxScanCoordinator: SharedInboxScanCoordinator
 
     init(root: AppCompositionRoot) {
+        self.root = root
         _viewModel = StateObject(wrappedValue: root.makeFamilyRosaryFlowViewModel())
         _shareImportPreviewViewModel = StateObject(wrappedValue: root.makeShareImportPreviewViewModel())
         _sharedInboxScanCoordinator = StateObject(wrappedValue: root.makeSharedInboxScanCoordinator())
@@ -65,11 +67,13 @@ struct AppRootView: View {
             ShareImportPreviewSheet(viewModel: shareImportPreviewViewModel)
         }
         .sheet(item: $shareImportPreviewViewModel.pendingImportForFinishing) { pendingImport in
-            PendingImportPlaceholderSheet(
-                pendingImport: pendingImport,
-                onClose: {
-                    shareImportPreviewViewModel.dismissPendingImportForFinishing()
-                }
+            FinishImportView(
+                viewModel: root.makeFinishImportViewModel(
+                    pending: pendingImport,
+                    onDone: {
+                        shareImportPreviewViewModel.dismissPendingImportForFinishing()
+                    }
+                )
             )
         }
     }
