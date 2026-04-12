@@ -33,6 +33,20 @@ enum FamilyRosaryPaths {
             .appendingPathComponent("imported_recordings.json")
     }
 
+    nonisolated static func pendingImportIndexFileURL(baseDirURL: URL? = nil) -> URL {
+        let baseURL = baseDirURL ?? Self.baseDirURL()
+        return baseURL
+            .appendingPathComponent("imports", isDirectory: true)
+            .appendingPathComponent("pending_imports.json")
+    }
+
+    nonisolated static func finalisedImportIndexFileURL(baseDirURL: URL? = nil) -> URL {
+        let baseURL = baseDirURL ?? Self.baseDirURL()
+        return baseURL
+            .appendingPathComponent("imports", isDirectory: true)
+            .appendingPathComponent("finalised_imports.json")
+    }
+
     nonisolated static func fileURL(personID: String, part: AudioRecordingPart, baseDirURL: URL? = nil) throws -> URL {
         let rawAudioURL = try rawAudioDirURL(baseDirURL: baseDirURL)
         let filename = "\(personID)_\(part.filenameToken).wav"

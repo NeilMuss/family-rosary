@@ -1,6 +1,6 @@
 import Foundation
 
-enum AudioRecordingPart {
+enum AudioRecordingPart: String, Codable {
     case apostlesCreed
     case ourFatherLead
     case ourFatherResponse
