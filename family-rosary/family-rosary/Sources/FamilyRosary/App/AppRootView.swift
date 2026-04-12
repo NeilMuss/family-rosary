@@ -39,7 +39,9 @@ struct AppRootView: View {
             }
         }
         .task {
-            pendingImportCoordinator.refreshPendingQueue()
+            sharedInboxScanCoordinator.runStartupSequenceIfNeeded()
+            await pendingImportCoordinator.importPendingSharedItemsAndRefreshPresentation()
+            sharedInboxScanCoordinator.automaticScan()
         }
         .onChange(of: viewModel.screen) { newValue in
             switch newValue {
@@ -55,9 +57,14 @@ struct AppRootView: View {
         .onOpenURL { url in
             pendingImportCoordinator.handleIncomingURL(url)
         }
+        .onReceive(NotificationCenter.default.publisher(for: .sharedPendingImportsDidChange)) { _ in
+            pendingImportCoordinator.refreshPendingQueue()
+        }
         #if canImport(UIKit)
         .onReceive(NotificationCenter.default.publisher(for: UIApplication.willEnterForegroundNotification)) { _ in
-            pendingImportCoordinator.refreshPendingQueue()
+            Task { @MainActor in
+                await pendingImportCoordinator.importPendingSharedItemsAndRefreshPresentation()
+            }
         }
         #endif
         .sheet(

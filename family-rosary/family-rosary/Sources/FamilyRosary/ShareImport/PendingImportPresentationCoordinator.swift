@@ -1,6 +1,10 @@
 import Foundation
 import Combine
 
+extension Notification.Name {
+    static let sharedPendingImportsDidChange = Notification.Name("SharedPendingImportsDidChange")
+}
+
 @MainActor
 final class PendingImportPresentationCoordinator: ObservableObject {
     @Published private(set) var currentPendingImport: PendingImport?
@@ -28,41 +32,51 @@ final class PendingImportPresentationCoordinator: ObservableObject {
     }
 
     func refreshPendingQueue() {
+        logger.log(stage: "PENDING_IMPORT_COORDINATOR_REFRESH_BEGIN", event: "INFO")
         let previousPendingID = currentPendingImport?.id
         let pendingImports = loadSortedPendingImports()
 
         pendingQueueCount = pendingImports.count
         logger.log(stage: "PENDING_IMPORT_QUEUE_COUNT", event: "INFO", detail: "count=\(pendingImports.count)")
+        logger.log(stage: "PENDING_IMPORT_COORDINATOR_REFRESH_COMPLETE", event: "INFO", detail: "count=\(pendingImports.count)")
 
         guard pendingImports.isEmpty == false else {
             currentPendingImport = nil
             currentQueuePosition = 0
+            logger.log(stage: "FINISH_IMPORT_PRESENTATION_SKIPPED", event: "INFO", detail: "reason=no_pending_imports")
             return
         }
 
         if let previousPendingID,
            let existingIndex = pendingImports.firstIndex(where: { $0.id == previousPendingID }) {
+            logger.log(
+                stage: "FINISH_IMPORT_PRESENTATION_ATTEMPT",
+                event: "INFO",
+                detail: "importID=\(pendingImports[existingIndex].importID) position=\(existingIndex + 1) total=\(pendingImports.count)"
+            )
             currentPendingImport = pendingImports[existingIndex]
             currentQueuePosition = existingIndex + 1
-            return
-        }
-
-        currentPendingImport = pendingImports[0]
-        currentQueuePosition = 1
-
-        if previousPendingID == nil {
             logger.log(
                 stage: "FINISH_IMPORT_PRESENTED",
                 event: "INFO",
-                detail: "importID=\(pendingImports[0].importID) position=1 total=\(pendingImports.count)"
+                detail: "importID=\(pendingImports[existingIndex].importID) position=\(existingIndex + 1) total=\(pendingImports.count)"
             )
-        } else {
-            logger.log(
-                stage: "NEXT_PENDING_IMPORT_PRESENTED",
-                event: "INFO",
-                detail: "importID=\(pendingImports[0].importID) position=1 total=\(pendingImports.count)"
-            )
+            return
         }
+
+        logger.log(
+            stage: "FINISH_IMPORT_PRESENTATION_ATTEMPT",
+            event: "INFO",
+            detail: "importID=\(pendingImports[0].importID) position=1 total=\(pendingImports.count)"
+        )
+        currentPendingImport = pendingImports[0]
+        currentQueuePosition = 1
+
+        logger.log(
+            stage: "FINISH_IMPORT_PRESENTED",
+            event: "INFO",
+            detail: "importID=\(pendingImports[0].importID) position=1 total=\(pendingImports.count)"
+        )
     }
 
     func handleIncomingURL(_ url: URL) {
@@ -71,9 +85,13 @@ final class PendingImportPresentationCoordinator: ObservableObject {
         }
 
         Task { @MainActor in
-            await importPendingSharedItems()
-            refreshPendingQueue()
+            await importPendingSharedItemsAndRefreshPresentation()
         }
+    }
+
+    func importPendingSharedItemsAndRefreshPresentation() async {
+        await importPendingSharedItems()
+        refreshPendingQueue()
     }
 
     func finishImportCompleted() {
@@ -97,6 +115,11 @@ final class PendingImportPresentationCoordinator: ObservableObject {
             switch result.status {
             case .pendingMetadata(let pendingImport):
                 logger.log(
+                    stage: "PENDING_IMPORT_CREATE_BEGIN",
+                    event: "INFO",
+                    detail: "importID=\(pendingImport.importID)"
+                )
+                logger.log(
                     stage: "PENDING_IMPORT_CREATED",
                     event: "INFO",
                     detail: "importID=\(pendingImport.importID) file=\(pendingImport.originalFilename)"
@@ -109,6 +132,7 @@ final class PendingImportPresentationCoordinator: ObservableObject {
                 )
             }
         }
+        NotificationCenter.default.post(name: .sharedPendingImportsDidChange, object: nil)
     }
 
     private func loadSortedPendingImports() -> [PendingImport] {

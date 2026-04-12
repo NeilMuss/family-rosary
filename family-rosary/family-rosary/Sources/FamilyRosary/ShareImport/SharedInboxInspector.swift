@@ -225,6 +225,7 @@ final class SharedInboxScanCoordinator: ObservableObject {
         Task { @MainActor in
             do {
                 _ = try await simulatedShareRunner.run()
+                NotificationCenter.default.post(name: .sharedPendingImportsDidChange, object: nil)
             } catch {
                 logger.log(stage: "SIMULATED_SHARE_TEST", event: "FAIL", detail: error.localizedDescription)
             }
@@ -287,6 +288,7 @@ final class SharedInboxScanCoordinator: ObservableObject {
                 importLogger.log(stage: "SCAN_COMPLETE", event: "FAIL", detail: "importID=\(result.importID) reason=\(message)")
             }
         }
+        NotificationCenter.default.post(name: .sharedPendingImportsDidChange, object: nil)
         refresh()
     }
 

@@ -155,11 +155,27 @@ struct SharedRecordingImportPipeline: SharedRecordingImportRunning {
                 importedAtISO8601: SharedRecordingReceipt.iso8601Formatter.string(from: importedAt)
             )
 
+            logger.log(
+                sessionID: sessionID,
+                importID: importID,
+                stage: "PENDING_IMPORT_CREATE_BEGIN",
+                event: .info,
+                path: destinationURL.path
+            )
             do {
                 try pendingImportStore.save(pendingImport)
             } catch {
                 throw SharedRecordingImportError.appLibraryRegisterFailed(importID: importID, underlying: error)
             }
+            let storedPendingImports = try pendingImportStore.all()
+            logger.log(
+                sessionID: sessionID,
+                importID: importID,
+                stage: "PENDING_IMPORT_CREATED",
+                event: .pass,
+                path: destinationURL.path,
+                reason: "count=\(storedPendingImports.count)"
+            )
             logger.log(
                 sessionID: sessionID,
                 importID: importID,

@@ -47,8 +47,40 @@ final class PendingImportPresentationCoordinatorTests: XCTestCase {
         let lines = try fixture.logStore.loadEntries().map(\.formattedLine).joined(separator: "\n")
         XCTAssertTrue(lines.contains("APP_IMPORT | SCAN_BEGIN | INFO"))
         XCTAssertTrue(lines.contains("APP_IMPORT | ITEM_FOUND | INFO | importID=a"))
+        XCTAssertTrue(lines.contains("APP_IMPORT | PENDING_IMPORT_CREATE_BEGIN | INFO"))
         XCTAssertTrue(lines.contains("APP_IMPORT | PENDING_IMPORT_CREATED | INFO"))
+        XCTAssertTrue(lines.contains("APP_IMPORT | PENDING_IMPORT_COORDINATOR_REFRESH_BEGIN | INFO"))
+        XCTAssertTrue(lines.contains("APP_IMPORT | PENDING_IMPORT_COORDINATOR_REFRESH_COMPLETE | INFO"))
+        XCTAssertTrue(lines.contains("APP_IMPORT | FINISH_IMPORT_PRESENTATION_ATTEMPT | INFO"))
         XCTAssertTrue(lines.contains("APP_IMPORT | FINISH_IMPORT_PRESENTED | INFO"))
+    }
+
+    func testImportPendingSharedItemsAndRefreshPresentationCreatesAndPresentsPendingImport() async throws {
+        let fixture = try Fixture.make()
+        let pendingImport = fixture.makePendingImport(id: "b", importID: "b", importedAt: "2026-04-12T12:03:00.000Z")
+        let discovered = [
+            SharedRecordingDiscoveredItem(
+                id: "b",
+                importID: "b",
+                folderURL: fixture.containerURL.appendingPathComponent("SharedInbox/b", isDirectory: true),
+                receiptURL: fixture.containerURL.appendingPathComponent("SharedInbox/b/receipt.json"),
+                receipt: nil,
+                audioFileURL: nil,
+                status: .ready
+            )
+        ]
+
+        let coordinator = fixture.makeCoordinator(
+            discoveryItems: discovered,
+            pipeline: StubPipeline(results: [
+                SharedRecordingImportResult(importID: "b", status: .pendingMetadata(pendingImport))
+            ])
+        )
+
+        await coordinator.importPendingSharedItemsAndRefreshPresentation()
+
+        XCTAssertEqual(coordinator.currentPendingImport?.importID, "b")
+        XCTAssertEqual(try fixture.pendingStore.all().first?.importID, "b")
     }
 
     func testSaveFinalizesOneItemAndAdvancesToNext() throws {

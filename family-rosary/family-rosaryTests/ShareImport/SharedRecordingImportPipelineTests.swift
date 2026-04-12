@@ -29,6 +29,23 @@ final class SharedRecordingImportPipelineTests: XCTestCase {
         }
     }
 
+    func testPipelineSuccessWritesPendingImportThatCanBeReadBackImmediately() async throws {
+        let fixture = try PipelineFixture.make()
+        let importID = "success-readback"
+        try fixture.writeStagedImport(importID: importID, receipt: true, audioData: Data("audio".utf8))
+
+        let result = await fixture.makePipeline().process(importID: importID)
+
+        switch result.status {
+        case .pendingMetadata(let pendingImport):
+            let stored = try fixture.pendingImportStore.all()
+            XCTAssertEqual(stored.count, 1)
+            XCTAssertEqual(stored.first, pendingImport)
+        case .failed(let message):
+            XCTFail("Expected success, got failure: \(message)")
+        }
+    }
+
     func testPipelineFailsWhenReceiptMissing() async throws {
         let fixture = try PipelineFixture.make()
         let importID = "missing-receipt"
