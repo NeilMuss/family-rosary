@@ -11,8 +11,8 @@ final class SharedInboxScanCoordinatorTests: XCTestCase {
         await coordinator.scanSharedInboxNow()
 
         let lines = try fixture.logStore.loadEntries().map(\.formattedLine).joined(separator: "\n")
-        XCTAssertTrue(lines.contains("SCAN_NOW | BEGIN"))
-        XCTAssertTrue(lines.contains("SCAN_NOW | ZERO_ITEMS"))
+        XCTAssertTrue(lines.contains("APP_IMPORT | SCAN_BEGIN | INFO"))
+        XCTAssertTrue(lines.contains("APP_IMPORT | SCAN_COMPLETE | ZERO_ITEMS"))
     }
 
     func testScanLogsPendingItemsFoundAndPerItemResults() async throws {
@@ -39,8 +39,8 @@ final class SharedInboxScanCoordinatorTests: XCTestCase {
         await coordinator.scanSharedInboxNow()
 
         let lines = try fixture.logStore.loadEntries().map(\.formattedLine).joined(separator: "\n")
-        XCTAssertTrue(lines.contains("SCAN_NOW | FOUND | count=1"))
-        XCTAssertTrue(lines.contains("APP_IMPORT | FAIL | importID=a reason=copy failed"))
+        XCTAssertTrue(lines.contains("APP_IMPORT | ITEM_FOUND | INFO | importID=a"))
+        XCTAssertTrue(lines.contains("APP_IMPORT | SCAN_COMPLETE | FAIL | importID=a reason=copy failed"))
     }
 
     func testReadSharedContainerListsFiles() async throws {
@@ -91,18 +91,37 @@ final class SharedInboxScanCoordinatorTests: XCTestCase {
                     mirrorToDebugLog: false
                 ),
                 appLogger: SharedDiagnosticsLogger(
+                    category: "APP",
+                    store: logStore,
+                    mirrorToDebugLog: false
+                ),
+                importLogger: SharedDiagnosticsLogger(
                     category: "APP_IMPORT",
                     store: logStore,
                     mirrorToDebugLog: false
                 ),
-                debugInjector: SharedInboxDebugInjector(
-                    paths: paths,
-                    logger: SharedDiagnosticsLogger(
-                        category: "SHARE_INBOX",
+                simulatedShareRunner: SharedInboxSimulatedShareRunner(
+                    injector: SharedInboxDebugInjector(
+                        paths: paths,
+                        logger: SharedDiagnosticsLogger(
+                            category: "SIM_SHARE",
+                            store: logStore,
+                            mirrorToDebugLog: false
+                        ),
+                        bundledAssetURLProvider: { nil }
+                    ),
+                    discoveryService: StubDiscovery(items: discoveredItems),
+                    pipeline: StubPipeline(results: results),
+                    simLogger: SharedDiagnosticsLogger(
+                        category: "SIM_SHARE",
                         store: logStore,
                         mirrorToDebugLog: false
                     ),
-                    bundledAssetURLProvider: { nil }
+                    importLogger: SharedDiagnosticsLogger(
+                        category: "APP_IMPORT",
+                        store: logStore,
+                        mirrorToDebugLog: false
+                    )
                 )
             )
         }

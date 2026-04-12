@@ -97,7 +97,8 @@ final class SharedInboxScanCoordinator: ObservableObject {
     private let logStore: SharedDiagnosticsLogStore
     private let logger: SharedDiagnosticsLogger
     private let appLogger: SharedDiagnosticsLogger
-    private let debugInjector: SharedInboxDebugInjector
+    private let importLogger: SharedDiagnosticsLogger
+    private let simulatedShareRunner: SharedInboxSimulatedShareRunner
 
     init(
         inspector: SharedInboxInspector,
@@ -108,7 +109,8 @@ final class SharedInboxScanCoordinator: ObservableObject {
         logStore: SharedDiagnosticsLogStore,
         logger: SharedDiagnosticsLogger,
         appLogger: SharedDiagnosticsLogger,
-        debugInjector: SharedInboxDebugInjector
+        importLogger: SharedDiagnosticsLogger,
+        simulatedShareRunner: SharedInboxSimulatedShareRunner
     ) {
         self.inspector = inspector
         self.discoveryService = discoveryService
@@ -118,7 +120,21 @@ final class SharedInboxScanCoordinator: ObservableObject {
         self.logStore = logStore
         self.logger = logger
         self.appLogger = appLogger
-        self.debugInjector = debugInjector
+        self.importLogger = importLogger
+        self.simulatedShareRunner = simulatedShareRunner
+    }
+
+    func appSessionBegin() {
+        appLogger.log(stage: "SESSION_BEGIN", event: "INFO")
+    }
+
+    func appBecameActive() {
+        appLogger.log(stage: "BECAME_ACTIVE", event: "INFO")
+    }
+
+    func diagnosticsViewAppeared() {
+        appLogger.log(stage: "DIAGNOSTICS_VIEW_APPEARED", event: "INFO")
+        refresh()
     }
 
     func refresh() {
@@ -170,23 +186,20 @@ final class SharedInboxScanCoordinator: ObservableObject {
         refresh()
     }
 
-    func injectBundledTestAudio() {
-        do {
-            let result = try debugInjector.injectBundledTestAudio()
-            logger.log(
-                stage: "DEBUG_INJECT",
-                event: "READY",
-                detail: "importID=\(result.importID) bytes=\(result.byteCount)"
-            )
-        } catch {
-            logger.log(stage: "DEBUG_INJECT", event: "FAIL", detail: error.localizedDescription)
+    func runSimulatedShareTest() {
+        Task { @MainActor in
+            do {
+                _ = try await simulatedShareRunner.run()
+            } catch {
+                logger.log(stage: "SIMULATED_SHARE_TEST", event: "FAIL", detail: error.localizedDescription)
+            }
+            refresh()
         }
-        refresh()
     }
 
     func writeExtensionCanaryEmulation() {
         do {
-            let canaryURL = try debugInjector.writeExtensionCanaryEmulation()
+            let canaryURL = try simulatedShareRunner.injector.writeExtensionCanaryEmulation()
             logger.log(stage: "DEBUG_EXTENSION_CANARY", event: "SUCCESS", detail: canaryURL.path)
         } catch {
             logger.log(stage: "DEBUG_EXTENSION_CANARY", event: "FAIL", detail: error.localizedDescription)
@@ -213,23 +226,25 @@ final class SharedInboxScanCoordinator: ObservableObject {
     }
 
     func scanSharedInboxNow() async {
-        logger.log(stage: "SCAN_NOW", event: "BEGIN")
+        importLogger.log(stage: "SCAN_BEGIN", event: "INFO")
         let discovered = discoveryService.discover()
 
         guard discovered.isEmpty == false else {
-            logger.log(stage: "SCAN_NOW", event: "ZERO_ITEMS")
+            importLogger.log(stage: "SCAN_COMPLETE", event: "ZERO_ITEMS")
             refresh()
             return
         }
 
-        logger.log(stage: "SCAN_NOW", event: "FOUND", detail: "count=\(discovered.count)")
+        for item in discovered.sorted(by: { $0.importID < $1.importID }) {
+            importLogger.log(stage: "ITEM_FOUND", event: "INFO", detail: "importID=\(item.importID)")
+        }
         let results = await pipeline.processAllPending()
         for result in results.sorted(by: { $0.importID < $1.importID }) {
             switch result.status {
             case .imported(let imported):
-                logger.log(stage: "APP_IMPORT", event: "SUCCESS", detail: "importID=\(result.importID) file=\(imported.filename)")
+                importLogger.log(stage: "SCAN_COMPLETE", event: "SUCCESS", detail: "importID=\(result.importID) file=\(imported.filename)")
             case .failed(let message):
-                logger.log(stage: "APP_IMPORT", event: "FAIL", detail: "importID=\(result.importID) reason=\(message)")
+                importLogger.log(stage: "SCAN_COMPLETE", event: "FAIL", detail: "importID=\(result.importID) reason=\(message)")
             }
         }
         refresh()

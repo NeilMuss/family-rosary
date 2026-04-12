@@ -42,8 +42,8 @@ struct SharedInboxDiagnosticsView: View {
             .font(.caption)
 
             HStack {
-                Button("Inject Bundled Test Audio") {
-                    viewModel.injectBundledTestAudio()
+                Button("Run Simulated Share Test") {
+                    viewModel.runSimulatedShareTest()
                 }
 
                 Button("Write Extension Canary (App-Side Emulation)") {
@@ -126,11 +126,18 @@ struct SharedInboxDiagnosticsView: View {
                 .font(.subheadline.weight(.semibold))
 
             ScrollView {
-                VStack(alignment: .leading, spacing: 3) {
-                    ForEach(viewModel.logEntries.suffix(200)) { entry in
-                        Text(entry.formattedLine)
-                            .font(.system(size: 10, design: .monospaced))
-                            .frame(maxWidth: .infinity, alignment: .leading)
+                if viewModel.logEntries.isEmpty {
+                    Text("No logs yet.")
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                        .frame(maxWidth: .infinity, alignment: .leading)
+                } else {
+                    VStack(alignment: .leading, spacing: 3) {
+                        ForEach(viewModel.logEntries.suffix(200)) { entry in
+                            Text(entry.formattedLine)
+                                .font(.system(size: 10, design: .monospaced))
+                                .frame(maxWidth: .infinity, alignment: .leading)
+                        }
                     }
                 }
             }
@@ -140,7 +147,7 @@ struct SharedInboxDiagnosticsView: View {
         .background(Color.black.opacity(0.08))
         .clipShape(RoundedRectangle(cornerRadius: 8))
         .task {
-            viewModel.refresh()
+            viewModel.diagnosticsViewAppeared()
         }
     }
 }

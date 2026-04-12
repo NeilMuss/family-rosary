@@ -201,10 +201,13 @@ struct AppCompositionRoot {
         let configuration = SharedImportConfiguration.fromMainBundle()
         let paths = SharedImportPaths(appGroupIdentifier: configuration.appGroupIdentifier)
         let diagnosticsStore = makeSharedDiagnosticsLogStore()
-        let diagnosticsLogger = makeSharedDiagnosticsLogger(category: "APP_IMPORT")
+        let importDiagnosticsLogger = makeSharedDiagnosticsLogger(category: "APP_IMPORT")
+        let shareInboxLogger = makeSharedDiagnosticsLogger(category: "SHARE_INBOX")
+        let appLogger = makeSharedDiagnosticsLogger(category: "APP")
+        let simShareLogger = makeSharedDiagnosticsLogger(category: "SIM_SHARE")
         let discovery = SharedRecordingDiscoveryService(
             paths: paths,
-            logger: SharedImportDiagnosticsLogger(sharedLogger: diagnosticsLogger)
+            logger: SharedImportDiagnosticsLogger(sharedLogger: importDiagnosticsLogger)
         )
         let recordingStore = FileBackedImportedRecordingStore(
             indexFileURL: FamilyRosaryPaths.importedRecordingIndexFileURL(baseDirURL: makeBaseDirURLProvider()())
@@ -215,12 +218,19 @@ struct AppCompositionRoot {
             audioInspector: AVSharedAudioInspector(),
             audioPreparationService: makeImportedAudioPreparationService(),
             recordingStore: recordingStore,
-            logger: SharedImportDiagnosticsLogger(sharedLogger: diagnosticsLogger),
+            logger: SharedImportDiagnosticsLogger(sharedLogger: importDiagnosticsLogger),
             baseDirURLProvider: makeBaseDirURLProvider()
         )
         let debugInjector = SharedInboxDebugInjector(
             paths: paths,
-            logger: makeSharedDiagnosticsLogger(category: "SHARE_INBOX")
+            logger: simShareLogger
+        )
+        let simulatedShareRunner = SharedInboxSimulatedShareRunner(
+            injector: debugInjector,
+            discoveryService: discovery,
+            pipeline: pipeline,
+            simLogger: simShareLogger,
+            importLogger: importDiagnosticsLogger
         )
         return SharedInboxScanCoordinator(
             inspector: SharedInboxInspector(paths: paths),
@@ -228,9 +238,10 @@ struct AppCompositionRoot {
             pipeline: pipeline,
             paths: paths,
             logStore: diagnosticsStore,
-            logger: makeSharedDiagnosticsLogger(category: "SHARE_INBOX"),
-            appLogger: makeSharedDiagnosticsLogger(category: "APP_IMPORT"),
-            debugInjector: debugInjector
+            logger: shareInboxLogger,
+            appLogger: appLogger,
+            importLogger: importDiagnosticsLogger,
+            simulatedShareRunner: simulatedShareRunner
         )
     }
 

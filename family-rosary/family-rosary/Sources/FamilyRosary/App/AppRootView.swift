@@ -37,6 +37,7 @@ struct AppRootView: View {
             }
         }
         .task {
+            sharedInboxScanCoordinator.appSessionBegin()
             shareImportPreviewViewModel.scanInboxAndPresent()
             sharedInboxScanCoordinator.automaticScan()
         }
@@ -46,6 +47,7 @@ struct AppRootView: View {
         }
         #if canImport(UIKit)
         .onReceive(NotificationCenter.default.publisher(for: UIApplication.willEnterForegroundNotification)) { _ in
+            sharedInboxScanCoordinator.appBecameActive()
             sharedInboxScanCoordinator.automaticScan()
         }
         #endif

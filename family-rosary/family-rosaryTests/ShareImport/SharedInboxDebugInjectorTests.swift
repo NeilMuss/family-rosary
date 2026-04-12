@@ -2,6 +2,7 @@ import Foundation
 import XCTest
 @testable import family_rosary
 
+@MainActor
 final class SharedInboxDebugInjectorTests: XCTestCase {
     func testInjectorWritesBundledAssetToSharedInbox() throws {
         let fixture = try Fixture.make()
@@ -63,6 +64,7 @@ final class SharedInboxDebugInjectorTests: XCTestCase {
         let logger: SharedDiagnosticsLogger
         let paths: SharedImportPaths
 
+        @MainActor
         static func make() throws -> Fixture {
             let containerURL = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString, isDirectory: true)
             let assetDirectoryURL = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString, isDirectory: true)
@@ -83,7 +85,7 @@ final class SharedInboxDebugInjectorTests: XCTestCase {
                 assetDirectoryURL: assetDirectoryURL,
                 logStore: logStore,
                 logger: SharedDiagnosticsLogger(
-                    category: "SHARE_INBOX",
+                    category: "SIM_SHARE",
                     store: logStore,
                     mirrorToDebugLog: false
                 ),
@@ -97,6 +99,7 @@ final class SharedInboxDebugInjectorTests: XCTestCase {
             return url
         }
 
+        @MainActor
         func makeInjector(sourceURL: URL?) -> SharedInboxDebugInjector {
             SharedInboxDebugInjector(
                 paths: paths,

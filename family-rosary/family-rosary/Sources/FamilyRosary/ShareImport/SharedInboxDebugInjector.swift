@@ -62,13 +62,10 @@ struct SharedInboxDebugInjector {
     }
 
     func injectBundledTestAudio() throws -> SharedInboxDebugInjectionResult {
-        logger.log(stage: "DEBUG_INJECT", event: "BEGIN", detail: "asset=\(Self.bundledAssetName).\(Self.bundledAssetExtension)")
-
         guard let sourceURL = bundledAssetURLProvider?() ?? bundle.url(
             forResource: Self.bundledAssetName,
             withExtension: Self.bundledAssetExtension
         ) else {
-            logger.log(stage: "DEBUG_INJECT", event: "FAIL", detail: SharedInboxDebugInjectorError.bundledAssetMissing(name: "\(Self.bundledAssetName).\(Self.bundledAssetExtension)").localizedDescription)
             throw SharedInboxDebugInjectorError.bundledAssetMissing(name: "\(Self.bundledAssetName).\(Self.bundledAssetExtension)")
         }
 
@@ -76,9 +73,13 @@ struct SharedInboxDebugInjector {
         do {
             sourceData = try Data(contentsOf: sourceURL)
         } catch {
-            logger.log(stage: "DEBUG_INJECT", event: "FAIL", detail: SharedInboxDebugInjectorError.failedToReadBundledAsset(path: sourceURL.path).localizedDescription)
             throw SharedInboxDebugInjectorError.failedToReadBundledAsset(path: sourceURL.path)
         }
+        logger.log(
+            stage: "SOURCE_FOUND",
+            event: "INFO",
+            detail: "sourceFilename=\(sourceURL.lastPathComponent) path=\(sourceURL.path) bytes=\(sourceData.count)"
+        )
 
         let normalizedFilename = try SharedImportPaths.normalizeAudioFilename(
             originalFilename: "\(Self.bundledAssetName).\(Self.bundledAssetExtension)",
@@ -92,21 +93,28 @@ struct SharedInboxDebugInjector {
         do {
             try fileManager.createDirectory(at: stagedFolderURL, withIntermediateDirectories: true)
         } catch {
-            logger.log(stage: "DEBUG_INJECT", event: "FAIL", detail: SharedInboxDebugInjectorError.failedToCreateStagedFolder(path: stagedFolderURL.path).localizedDescription)
             throw SharedInboxDebugInjectorError.failedToCreateStagedFolder(path: stagedFolderURL.path)
         }
 
         if fileManager.fileExists(atPath: stagedAudioURL.path) || fileManager.fileExists(atPath: receiptURL.path) {
-            logger.log(stage: "DEBUG_INJECT", event: "FAIL", detail: SharedInboxDebugInjectorError.stagedFileAlreadyExists(path: stagedFolderURL.path).localizedDescription)
             throw SharedInboxDebugInjectorError.stagedFileAlreadyExists(path: stagedFolderURL.path)
         }
 
+        logger.log(
+            stage: "COPY_BEGIN",
+            event: "INFO",
+            detail: "destinationFilename=\(stagedAudioURL.lastPathComponent) destinationPath=\(stagedAudioURL.path)"
+        )
         do {
             try sourceData.write(to: stagedAudioURL, options: .atomic)
         } catch {
-            logger.log(stage: "DEBUG_INJECT", event: "FAIL", detail: SharedInboxDebugInjectorError.failedToWriteStagedAudio(path: stagedAudioURL.path).localizedDescription)
             throw SharedInboxDebugInjectorError.failedToWriteStagedAudio(path: stagedAudioURL.path)
         }
+        logger.log(
+            stage: "COPY_SUCCESS",
+            event: "INFO",
+            detail: "destinationFilename=\(stagedAudioURL.lastPathComponent) destinationPath=\(stagedAudioURL.path) bytes=\(sourceData.count)"
+        )
 
         let byteCount = Int64(sourceData.count)
         let receipt = SharedRecordingReceipt(
@@ -123,14 +131,22 @@ struct SharedInboxDebugInjector {
             let data = try JSONEncoder().encode(receipt)
             try data.write(to: receiptURL, options: .atomic)
         } catch {
-            logger.log(stage: "DEBUG_INJECT", event: "FAIL", detail: SharedInboxDebugInjectorError.failedToWriteReceipt(path: receiptURL.path).localizedDescription)
             throw SharedInboxDebugInjectorError.failedToWriteReceipt(path: receiptURL.path)
         }
 
         logger.log(
-            stage: "DEBUG_INJECT",
-            event: "SUCCESS",
-            detail: "importID=\(importID) bytes=\(byteCount) staged=\(stagedAudioURL.path) receipt=\(receiptURL.path)"
+            stage: "MANIFEST_WRITE_SUCCESS",
+            event: "INFO",
+            detail: "importID=\(importID) receiptPath=\(receiptURL.path)"
+        )
+
+        guard fileManager.fileExists(atPath: stagedAudioURL.path) else {
+            throw SharedInboxDebugInjectorError.failedToWriteStagedAudio(path: stagedAudioURL.path)
+        }
+        logger.log(
+            stage: "DESTINATION_EXISTS_CONFIRMED",
+            event: "INFO",
+            detail: "importID=\(importID) destinationPath=\(stagedAudioURL.path)"
         )
 
         return SharedInboxDebugInjectionResult(
