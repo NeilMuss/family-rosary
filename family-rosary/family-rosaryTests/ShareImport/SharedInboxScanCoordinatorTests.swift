@@ -153,6 +153,11 @@ final class SharedInboxScanCoordinatorTests: XCTestCase {
                         store: logStore,
                         mirrorToDebugLog: false
                     )
+                ),
+                finalisedRecordingStore: FileBackedFinalisedImportedRecordingStore(
+                    indexFileURL: FamilyRosaryPaths.finalisedImportIndexFileURL(
+                        baseDirURL: containerURL
+                    )
                 )
             )
         }

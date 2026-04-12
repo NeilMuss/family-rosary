@@ -181,7 +181,7 @@ struct SharedInboxDiagnosticsView: View {
                     }
                 }
 
-                Text("Latest Receipt Snapshot")
+                Text("Latest Shared Inbox Receipt")
                     .font(.subheadline.weight(.semibold))
 
                 if let snapshot = viewModel.sharedContainerSnapshot {
@@ -193,7 +193,7 @@ struct SharedInboxDiagnosticsView: View {
                         if snapshot.latestReceiptExists, let latestReceiptPath = snapshot.latestReceiptPath {
                             Button("View Latest Receipt") {
                                 selectedReceipt = ReceiptViewerContent(
-                                    title: "Latest Receipt Snapshot",
+                                    title: "Latest Shared Inbox Receipt",
                                     receiptPath: latestReceiptPath,
                                     receiptText: loadReceiptText(from: latestReceiptPath)
                                 )
@@ -205,6 +205,35 @@ struct SharedInboxDiagnosticsView: View {
                     Text("receipt: <missing>")
                         .font(.system(size: 10, design: .monospaced))
                         .foregroundStyle(.secondary)
+                }
+
+                Text("Finalized Recordings")
+                    .font(.subheadline.weight(.semibold))
+
+                if viewModel.finalisedRecordings.isEmpty {
+                    Text("No finalized recordings saved yet.")
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                } else {
+                    VStack(alignment: .leading, spacing: 8) {
+                        ForEach(viewModel.finalisedRecordings) { recording in
+                            VStack(alignment: .leading, spacing: 2) {
+                                Text(recording.partnerName)
+                                    .font(.caption.weight(.semibold))
+                                Text("age at recording: \(recording.ageAtRecording)")
+                                    .font(.system(size: 11, design: .monospaced))
+                                Text("prayer: \(recording.prayer)")
+                                    .font(.system(size: 11, design: .monospaced))
+                                Text("part: \(recording.part)")
+                                    .font(.system(size: 11, design: .monospaced))
+                                Text("file: \(recording.filename)")
+                                    .font(.system(size: 10, design: .monospaced))
+                                    .foregroundStyle(.secondary)
+                            }
+                            .frame(maxWidth: .infinity, alignment: .leading)
+                            .padding(.vertical, 4)
+                        }
+                    }
                 }
 
                 Text("Shared Diagnostics Log")

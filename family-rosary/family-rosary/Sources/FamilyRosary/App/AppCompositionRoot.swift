@@ -36,7 +36,11 @@ struct AppCompositionRoot {
     }
 
     func makeAudioFileResolver() -> AudioFileResolving {
-        BundleThenDocumentsAudioFileResolver(baseDirURL: makeBaseDirURLProvider())
+        BundleThenDocumentsAudioFileResolver(
+            baseDirURL: makeBaseDirURLProvider(),
+            finalisedRecordingStore: makeFinalisedImportedRecordingStore(),
+            defaultPartnerID: PlaybackPartnerDefaults.defaultPartnerID
+        )
     }
 
     func makeSleeper() -> Sleeper {
@@ -156,9 +160,9 @@ struct AppCompositionRoot {
     }
 
     @MainActor
-    func makePrayViewModel(personID: String = "dad") -> PrayViewModel {
+    func makePrayViewModel(personID: String? = nil) -> PrayViewModel {
         return PrayViewModel(
-            personID: personID,
+            personID: personID ?? PlaybackPartnerDefaults.defaultPartnerID,
             sequencePlayer: makePrayerSequencePlayer(),
             resolver: makeAudioFileResolver(),
             microphonePermissionClient: makeMicrophonePermissionClient()
@@ -279,7 +283,8 @@ struct AppCompositionRoot {
             logger: shareInboxLogger,
             appLogger: appLogger,
             importLogger: importDiagnosticsLogger,
-            simulatedShareRunner: simulatedShareRunner
+            simulatedShareRunner: simulatedShareRunner,
+            finalisedRecordingStore: makeFinalisedImportedRecordingStore()
         )
     }
 

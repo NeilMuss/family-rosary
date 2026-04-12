@@ -13,6 +13,16 @@ struct SharedInboxItem: Identifiable, Equatable {
     let fileExistsAtManifestPath: Bool
 }
 
+struct FinalisedRecordingDiagnosticsItem: Identifiable, Equatable {
+    let id: String
+    let importID: String
+    let partnerName: String
+    let ageAtRecording: Int
+    let prayer: String
+    let part: String
+    let filename: String
+}
+
 struct SharedContainerDiagnosticsSnapshot: Equatable {
     let appGroupIdentifier: String
     let containerPath: String?
@@ -90,6 +100,7 @@ final class SharedInboxScanCoordinator: ObservableObject {
     @Published private(set) var logEntries: [SharedDiagnosticsEntry] = []
     @Published private(set) var sharedContainerSnapshot: SharedContainerDiagnosticsSnapshot?
     @Published private(set) var sharedContainerEntries: [String] = []
+    @Published private(set) var finalisedRecordings: [FinalisedRecordingDiagnosticsItem] = []
 
     private let inspector: SharedInboxInspector
     private let discoveryService: SharedRecordingDiscovering
@@ -101,6 +112,7 @@ final class SharedInboxScanCoordinator: ObservableObject {
     private let appLogger: SharedDiagnosticsLogger
     private let importLogger: SharedDiagnosticsLogger
     private let simulatedShareRunner: any SharedInboxSimulatedShareRunning
+    private let finalisedRecordingStore: FinalisedImportedRecordingStoring
     private static var hasRunStartupSequenceThisLaunch = false
     private static var hasLoggedLaunchTitleScreenClosedThisLaunch = false
     private static var hasLoggedMainPrayerScreenShowingThisLaunch = false
@@ -115,7 +127,8 @@ final class SharedInboxScanCoordinator: ObservableObject {
         logger: SharedDiagnosticsLogger,
         appLogger: SharedDiagnosticsLogger,
         importLogger: SharedDiagnosticsLogger,
-        simulatedShareRunner: any SharedInboxSimulatedShareRunning
+        simulatedShareRunner: any SharedInboxSimulatedShareRunning,
+        finalisedRecordingStore: FinalisedImportedRecordingStoring
     ) {
         self.inspector = inspector
         self.discoveryService = discoveryService
@@ -127,6 +140,7 @@ final class SharedInboxScanCoordinator: ObservableObject {
         self.appLogger = appLogger
         self.importLogger = importLogger
         self.simulatedShareRunner = simulatedShareRunner
+        self.finalisedRecordingStore = finalisedRecordingStore
     }
 
     func appSessionBegin() {
@@ -178,6 +192,7 @@ final class SharedInboxScanCoordinator: ObservableObject {
         items = inspector.inspect()
         logEntries = (try? logStore.loadEntries()) ?? []
         sharedContainerSnapshot = makeSharedContainerSnapshot()
+        finalisedRecordings = loadFinalisedRecordingDiagnosticsItems()
         logSharedContainerDetails()
     }
 
@@ -343,6 +358,28 @@ final class SharedInboxScanCoordinator: ObservableObject {
         appLogger.log(stage: "APP_GROUP_CONTAINER_URL", event: "VALUE", detail: snapshot.containerPath ?? "nil")
         appLogger.log(stage: "LOG_FILE_URL", event: "VALUE", detail: snapshot.logFilePath ?? "nil")
         appLogger.log(stage: "INBOX_URL", event: "VALUE", detail: snapshot.inboxPath ?? "nil")
+    }
+
+    private func loadFinalisedRecordingDiagnosticsItems() -> [FinalisedRecordingDiagnosticsItem] {
+        let recordings = (try? finalisedRecordingStore.all()) ?? []
+        return recordings
+            .sorted { lhs, rhs in
+                if lhs.finalisedAtISO8601 != rhs.finalisedAtISO8601 {
+                    return lhs.finalisedAtISO8601 > rhs.finalisedAtISO8601
+                }
+                return lhs.id > rhs.id
+            }
+            .map { recording in
+                FinalisedRecordingDiagnosticsItem(
+                    id: recording.id,
+                    importID: recording.importID,
+                    partnerName: recording.partnerDisplayName ?? recording.partnerID,
+                    ageAtRecording: recording.ageAtRecording,
+                    prayer: recording.prayer.displayName,
+                    part: recording.prayerPart.displayTitle,
+                    filename: recording.originalFilename
+                )
+            }
     }
 
     static func resetLaunchGuardsForTesting() {
