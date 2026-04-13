@@ -33,7 +33,7 @@ final class FinishImportViewModel: ObservableObject {
     private let pendingStore: PendingImportStoring
     private let nowProvider: () -> Date
     private let onDone: () -> Void
-    private let logger: SharedDiagnosticsLogger?
+    let logger: SharedDiagnosticsLogger?
 
     init(
         pendingImport: PendingImport,
@@ -109,6 +109,16 @@ final class FinishImportViewModel: ObservableObject {
     }
 
     func save() {
+        save(trimStart: 0, trimEnd: pendingImport.durationSeconds)
+    }
+
+    func save(trimStart: TimeInterval, trimEnd: TimeInterval) {
+        Task { @MainActor in
+            await saveAsync(trimStart: trimStart, trimEnd: trimEnd)
+        }
+    }
+
+    private func saveAsync(trimStart: TimeInterval, trimEnd: TimeInterval) async {
         didAttemptSave = true
         let messages = currentValidationMessages()
         validationMessages = messages
@@ -130,12 +140,43 @@ final class FinishImportViewModel: ObservableObject {
         }
 
         logger?.log(
+            stage: "TRIM_EXPORT_BEGIN",
+            event: "INFO",
+            detail: String(format: "start=%.2f end=%.2f", trimStart, trimEnd)
+        )
+
+        let trimmedAudioURL: URL
+        do {
+            trimmedAudioURL = try await exportTrimmedAudio(
+                sourceURL: pendingImport.libraryFileURL,
+                start: trimStart,
+                end: trimEnd
+            )
+            logger?.log(
+                stage: "TRIM_EXPORT_SUCCESS",
+                event: "INFO",
+                detail: "output=\(trimmedAudioURL.lastPathComponent)"
+            )
+        } catch {
+            logger?.log(
+                stage: "TRIM_EXPORT_FAIL",
+                event: "FAIL",
+                detail: error.localizedDescription
+            )
+            validationMessages = ["The app could not trim this recording. Please try again."]
+            return
+        }
+
+        logger?.log(
             stage: "FINAL_RECORD_SAVE_BEGIN",
             event: "INFO",
             detail: "importID=\(pendingImport.importID)"
         )
 
         let finalisedAt = nowProvider()
+        let backupURL = pendingImport.libraryFileURL
+            .deletingPathExtension()
+            .appendingPathExtension("backup.m4a")
         let recording = FinalisedImportedRecording(
             id: pendingImport.id,
             importID: pendingImport.importID,
@@ -146,7 +187,7 @@ final class FinishImportViewModel: ObservableObject {
             prayerPart: selectedPart,
             libraryFileURL: pendingImport.libraryFileURL,
             originalFilename: pendingImport.originalFilename,
-            durationSeconds: pendingImport.durationSeconds,
+            durationSeconds: trimEnd - trimStart,
             importedAtISO8601: pendingImport.importedAtISO8601,
             finalisedAtISO8601: SharedRecordingReceipt.iso8601Formatter.string(from: finalisedAt)
         )
@@ -163,13 +204,23 @@ final class FinishImportViewModel: ObservableObject {
                 return
             }
 
+            try replaceCanonicalFile(
+                destinationURL: pendingImport.libraryFileURL,
+                trimmedAudioURL: trimmedAudioURL,
+                backupURL: backupURL
+            )
             try finalisedStore.save(recording)
             let reloadedRecordings = try finalisedStore.all()
             guard reloadedRecordings.contains(where: { $0.importID == pendingImport.importID }) else {
+                try? restoreCanonicalFileIfNeeded(
+                    destinationURL: pendingImport.libraryFileURL,
+                    backupURL: backupURL
+                )
                 logger?.log(stage: "FINISH_IMPORT_SAVE_FAIL", event: "FAIL", detail: "error=recording_save_reload_missing importID=\(pendingImport.importID)")
                 validationMessages = ["The app could not save this imported recording. Please try again."]
                 return
             }
+            try? FileManager.default.removeItem(at: backupURL)
             logger?.log(
                 stage: "FINAL_RECORD_SAVE_SUCCESS",
                 event: "INFO",
@@ -190,6 +241,10 @@ final class FinishImportViewModel: ObservableObject {
                 self.onDone()
             }
         } catch {
+            try? restoreCanonicalFileIfNeeded(
+                destinationURL: pendingImport.libraryFileURL,
+                backupURL: backupURL
+            )
             logger?.log(
                 stage: "FINISH_IMPORT_SAVE_FAIL",
                 event: "FAIL",
@@ -197,6 +252,28 @@ final class FinishImportViewModel: ObservableObject {
             )
             validationMessages = ["The app could not save this imported recording. Please try again."]
         }
+    }
+
+    private func replaceCanonicalFile(destinationURL: URL, trimmedAudioURL: URL, backupURL: URL) throws {
+        let fileManager = FileManager.default
+        if fileManager.fileExists(atPath: backupURL.path) {
+            try fileManager.removeItem(at: backupURL)
+        }
+        if fileManager.fileExists(atPath: destinationURL.path) {
+            try fileManager.copyItem(at: destinationURL, to: backupURL)
+            try fileManager.removeItem(at: destinationURL)
+        }
+        try fileManager.copyItem(at: trimmedAudioURL, to: destinationURL)
+    }
+
+    private func restoreCanonicalFileIfNeeded(destinationURL: URL, backupURL: URL) throws {
+        let fileManager = FileManager.default
+        guard fileManager.fileExists(atPath: backupURL.path) else { return }
+        if fileManager.fileExists(atPath: destinationURL.path) {
+            try fileManager.removeItem(at: destinationURL)
+        }
+        try fileManager.copyItem(at: backupURL, to: destinationURL)
+        try fileManager.removeItem(at: backupURL)
     }
 
     private func currentValidationMessages() -> [String] {

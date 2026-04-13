@@ -2,9 +2,11 @@ import SwiftUI
 
 struct FinishImportView: View {
     @StateObject private var viewModel: FinishImportViewModel
+    @StateObject private var audioPlayerViewModel: AudioPlayerViewModel
 
     init(viewModel: FinishImportViewModel) {
         _viewModel = StateObject(wrappedValue: viewModel)
+        _audioPlayerViewModel = StateObject(wrappedValue: AudioPlayerViewModel(logger: viewModel.logger))
     }
 
     var body: some View {
@@ -22,6 +24,55 @@ struct FinishImportView: View {
                         Text("Duration: \(durationText)")
                             .font(.footnote)
                             .foregroundStyle(.secondary)
+                    }
+                }
+
+                Section("Preview") {
+                    if let errorMessage = audioPlayerViewModel.errorMessage {
+                        Text(errorMessage)
+                            .foregroundStyle(.red)
+                    } else {
+                        HStack {
+                            Button(audioPlayerViewModel.isPlaying ? "Pause" : "Play") {
+                                audioPlayerViewModel.togglePlay()
+                            }
+
+                            Spacer()
+
+                            Text("\(Self.clockFormatter.string(from: audioPlayerViewModel.currentTime) ?? "0:00") / \(Self.clockFormatter.string(from: audioPlayerViewModel.duration) ?? "0:00")")
+                                .font(.footnote.monospacedDigit())
+                                .foregroundStyle(.secondary)
+                        }
+                    }
+                }
+
+                Section("Trim") {
+                    HStack {
+                        Text("Start")
+                        Spacer()
+                        Button("-") {
+                            audioPlayerViewModel.decrementTrimStart()
+                        }
+                        Text(Self.secondsFormatter(audioPlayerViewModel.trimStart))
+                            .font(.footnote.monospacedDigit())
+                            .frame(minWidth: 52)
+                        Button("+") {
+                            audioPlayerViewModel.incrementTrimStart()
+                        }
+                    }
+
+                    HStack {
+                        Text("End")
+                        Spacer()
+                        Button("-") {
+                            audioPlayerViewModel.decrementTrimEnd()
+                        }
+                        Text(Self.secondsFormatter(audioPlayerViewModel.trimEnd))
+                            .font(.footnote.monospacedDigit())
+                            .frame(minWidth: 52)
+                        Button("+") {
+                            audioPlayerViewModel.incrementTrimEnd()
+                        }
                     }
                 }
 
@@ -83,12 +134,21 @@ struct FinishImportView: View {
 
                 Section {
                     Button("Save") {
-                        viewModel.save()
+                        viewModel.save(
+                            trimStart: audioPlayerViewModel.trimStart,
+                            trimEnd: audioPlayerViewModel.trimEnd
+                        )
                     }
                     .disabled(viewModel.canSave == false)
                 }
             }
             .navigationTitle("Finish Import")
+            .onAppear {
+                audioPlayerViewModel.load(url: viewModel.pendingImport.libraryFileURL)
+            }
+            .onDisappear {
+                audioPlayerViewModel.pause()
+            }
         }
     }
 
@@ -99,4 +159,16 @@ struct FinishImportView: View {
         formatter.zeroFormattingBehavior = [.pad]
         return formatter
     }()
+
+    private static let clockFormatter: DateComponentsFormatter = {
+        let formatter = DateComponentsFormatter()
+        formatter.allowedUnits = [.minute, .second]
+        formatter.unitsStyle = .positional
+        formatter.zeroFormattingBehavior = [.pad]
+        return formatter
+    }()
+
+    private static func secondsFormatter(_ value: TimeInterval) -> String {
+        String(format: "%.1fs", value)
+    }
 }
