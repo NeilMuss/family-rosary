@@ -2,153 +2,280 @@ import SwiftUI
 
 struct FinishImportView: View {
     @StateObject private var viewModel: FinishImportViewModel
+    @StateObject private var wizardViewModel: FinishImportWizardViewModel
     @StateObject private var audioPlayerViewModel: AudioPlayerViewModel
 
     init(viewModel: FinishImportViewModel) {
         _viewModel = StateObject(wrappedValue: viewModel)
+        _wizardViewModel = StateObject(wrappedValue: FinishImportWizardViewModel(finishImportViewModel: viewModel))
         _audioPlayerViewModel = StateObject(wrappedValue: AudioPlayerViewModel(logger: viewModel.logger))
     }
 
     var body: some View {
         NavigationStack {
-            Form {
-                Section {
+            VStack(alignment: .leading, spacing: 24) {
+                VStack(alignment: .leading, spacing: 8) {
+                    Text("Finish Import")
+                        .font(.largeTitle.weight(.semibold))
+                    Text("Step \(wizardViewModel.stepNumber) of \(wizardViewModel.totalSteps)")
+                        .font(.headline)
+                        .foregroundStyle(.secondary)
                     if viewModel.totalPendingCount > 1 {
                         Text("Pending import \(viewModel.queuePosition) of \(viewModel.totalPendingCount)")
-                            .font(.footnote)
-                            .foregroundStyle(.secondary)
-                    }
-                    Text(viewModel.pendingImport.originalFilename)
-                        .font(.headline)
-                    if let durationText = Self.durationFormatter.string(from: viewModel.pendingImport.durationSeconds) {
-                        Text("Duration: \(durationText)")
-                            .font(.footnote)
+                            .font(.subheadline)
                             .foregroundStyle(.secondary)
                     }
                 }
 
-                Section("Preview") {
-                    if let errorMessage = audioPlayerViewModel.errorMessage {
-                        Text(errorMessage)
-                            .foregroundStyle(.red)
-                    } else {
-                        HStack {
-                            Button(audioPlayerViewModel.isPlaying ? "Pause" : "Play") {
-                                audioPlayerViewModel.togglePlay()
-                            }
+                ScrollView {
+                    VStack(alignment: .leading, spacing: 20) {
+                        Text(wizardViewModel.currentStep.title)
+                            .font(.title2.weight(.semibold))
 
-                            Spacer()
+                        stepContent
 
-                            Text("\(Self.clockFormatter.string(from: audioPlayerViewModel.currentTime) ?? "0:00") / \(Self.clockFormatter.string(from: audioPlayerViewModel.duration) ?? "0:00")")
-                                .font(.footnote.monospacedDigit())
-                                .foregroundStyle(.secondary)
-                        }
-                    }
-                }
-
-                Section("Trim") {
-                    HStack {
-                        Text("Start")
-                        Spacer()
-                        Button("-") {
-                            audioPlayerViewModel.decrementTrimStart()
-                        }
-                        Text(Self.secondsFormatter(audioPlayerViewModel.trimStart))
-                            .font(.footnote.monospacedDigit())
-                            .frame(minWidth: 52)
-                        Button("+") {
-                            audioPlayerViewModel.incrementTrimStart()
-                        }
-                    }
-
-                    HStack {
-                        Text("End")
-                        Spacer()
-                        Button("-") {
-                            audioPlayerViewModel.decrementTrimEnd()
-                        }
-                        Text(Self.secondsFormatter(audioPlayerViewModel.trimEnd))
-                            .font(.footnote.monospacedDigit())
-                            .frame(minWidth: 52)
-                        Button("+") {
-                            audioPlayerViewModel.incrementTrimEnd()
-                        }
-                    }
-                }
-
-                Section("Partner") {
-                    Picker("Partner", selection: $viewModel.selectedPartnerID) {
-                        Text("Select a partner").tag(Optional<String>.none)
-                        ForEach(viewModel.availablePartners) { partner in
-                            Text(partner.displayName).tag(Optional(partner.id))
-                        }
-                    }
-                    .id(viewModel.partnerPickerRefreshID)
-
-                    Button(viewModel.isAddingNewPartner ? "Adding New Partner" : "Add New Partner") {
-                        viewModel.isAddingNewPartner = true
-                    }
-
-                    if viewModel.isAddingNewPartner {
-                        TextField("Partner name", text: $viewModel.newPartnerName)
-
-                        HStack {
-                            Button("Confirm") {
-                                viewModel.confirmAddNewPartner()
-                            }
-                            Button("Cancel", role: .cancel) {
-                                viewModel.cancelAddNewPartner()
-                            }
-                        }
-                    }
-                }
-
-                Section("Recording Details") {
-                    TextField("Age at recording", text: $viewModel.ageAtRecordingText)
-                        .keyboardType(.numberPad)
-
-                    Picker("Prayer", selection: $viewModel.selectedPrayer) {
-                        Text("Select a prayer").tag(Optional<PrayerName>.none)
-                        ForEach(viewModel.availablePrayers) { prayer in
-                            Text(prayer.displayName).tag(Optional(prayer))
-                        }
-                    }
-
-                    Picker("Prayer Part", selection: $viewModel.selectedPart) {
-                        Text("Select a prayer part").tag(Optional<AudioRecordingPart>.none)
-                        ForEach(viewModel.availableParts, id: \.self) { part in
-                            Text(part.displayTitle).tag(Optional(part))
-                        }
-                    }
-                    .disabled(viewModel.selectedPrayer == nil)
-                }
-
-                if viewModel.didAttemptSave, viewModel.validationMessages.isEmpty == false {
-                    Section("Please Fix") {
-                        ForEach(viewModel.validationMessages, id: \.self) { message in
+                        if let message = wizardViewModel.currentValidationMessage {
                             Text(message)
+                                .font(.body)
                                 .foregroundStyle(.red)
                         }
+
+                        if wizardViewModel.currentStep == .confirm,
+                           viewModel.didAttemptSave,
+                           viewModel.validationMessages.isEmpty == false {
+                            VStack(alignment: .leading, spacing: 8) {
+                                ForEach(viewModel.validationMessages, id: \.self) { message in
+                                    Text(message)
+                                        .foregroundStyle(.red)
+                                }
+                            }
+                        }
                     }
+                    .frame(maxWidth: .infinity, alignment: .leading)
                 }
 
-                Section {
-                    Button("Save") {
-                        viewModel.save(
+                HStack(spacing: 16) {
+                    Button("Back") {
+                        wizardViewModel.goBack()
+                    }
+                    .buttonStyle(.bordered)
+                    .disabled(wizardViewModel.canGoBack == false)
+
+                    Button(wizardViewModel.continueButtonTitle) {
+                        wizardViewModel.continueTapped(
                             trimStart: audioPlayerViewModel.trimStart,
                             trimEnd: audioPlayerViewModel.trimEnd
                         )
                     }
-                    .disabled(viewModel.canSave == false)
+                    .buttonStyle(.borderedProminent)
+                    .disabled(wizardViewModel.canContinue == false)
                 }
             }
-            .navigationTitle("Finish Import")
+            .padding(24)
+            .navigationBarTitleDisplayMode(.inline)
             .onAppear {
                 audioPlayerViewModel.load(url: viewModel.pendingImport.libraryFileURL)
             }
             .onDisappear {
                 audioPlayerViewModel.pause()
             }
+        }
+    }
+
+    @ViewBuilder
+    private var stepContent: some View {
+        switch wizardViewModel.currentStep {
+        case .preview:
+            previewStep
+        case .person:
+            personStep
+        case .age:
+            ageStep
+        case .prayer:
+            prayerStep
+        case .part:
+            partStep
+        case .confirm:
+            confirmStep
+        }
+    }
+
+    private var previewStep: some View {
+        VStack(alignment: .leading, spacing: 16) {
+            Text(viewModel.pendingImport.originalFilename)
+                .font(.title3.weight(.medium))
+            if let durationText = Self.durationFormatter.string(from: viewModel.pendingImport.durationSeconds) {
+                Text("Duration: \(durationText)")
+                    .font(.body)
+                    .foregroundStyle(.secondary)
+            }
+
+            if let errorMessage = audioPlayerViewModel.errorMessage {
+                Text(errorMessage)
+                    .foregroundStyle(.red)
+            } else {
+                HStack(spacing: 16) {
+                    Button(audioPlayerViewModel.isPlaying ? "Pause" : "Play") {
+                        audioPlayerViewModel.togglePlay()
+                    }
+                    .buttonStyle(.borderedProminent)
+
+                    Text("\(Self.clockFormatter.string(from: audioPlayerViewModel.currentTime) ?? "0:00") / \(Self.clockFormatter.string(from: audioPlayerViewModel.duration) ?? "0:00")")
+                        .font(.title3.monospacedDigit())
+                        .foregroundStyle(.secondary)
+                }
+            }
+
+            VStack(alignment: .leading, spacing: 12) {
+                trimRow(
+                    title: "Start",
+                    value: audioPlayerViewModel.trimStart,
+                    onDecrement: audioPlayerViewModel.decrementTrimStart,
+                    onIncrement: audioPlayerViewModel.incrementTrimStart
+                )
+                trimRow(
+                    title: "End",
+                    value: audioPlayerViewModel.trimEnd,
+                    onDecrement: audioPlayerViewModel.decrementTrimEnd,
+                    onIncrement: audioPlayerViewModel.incrementTrimEnd
+                )
+            }
+        }
+    }
+
+    private var personStep: some View {
+        VStack(alignment: .leading, spacing: 14) {
+            ForEach(wizardViewModel.availablePartners) { partner in
+                largeChoiceButton(
+                    title: partner.displayName,
+                    isSelected: wizardViewModel.draft.selectedPartnerID == partner.id && wizardViewModel.draft.isAddingNewPartner == false
+                ) {
+                    wizardViewModel.selectExistingPartner(partner.id)
+                }
+            }
+
+            largeChoiceButton(
+                title: "Add new person",
+                isSelected: wizardViewModel.draft.isAddingNewPartner
+            ) {
+                wizardViewModel.chooseAddNewPartner()
+            }
+
+            if wizardViewModel.draft.isAddingNewPartner {
+                TextField(
+                    "Enter name",
+                    text: Binding(
+                        get: { wizardViewModel.draft.newPartnerName },
+                        set: { wizardViewModel.updateNewPartnerName($0) }
+                    )
+                )
+                .textFieldStyle(.roundedBorder)
+                .font(.title3)
+            }
+        }
+    }
+
+    private var ageStep: some View {
+        VStack(alignment: .leading, spacing: 20) {
+            Text("Use the buttons to choose their age.")
+                .font(.body)
+                .foregroundStyle(.secondary)
+
+            HStack(spacing: 20) {
+                Button("-") {
+                    wizardViewModel.decrementAge()
+                }
+                .buttonStyle(.bordered)
+                .font(.largeTitle)
+
+                Text(wizardViewModel.draft.ageAtRecording.map(String.init) ?? "--")
+                    .font(.system(size: 44, weight: .bold, design: .rounded))
+                    .frame(minWidth: 100)
+
+                Button("+") {
+                    wizardViewModel.incrementAge()
+                }
+                .buttonStyle(.borderedProminent)
+                .font(.largeTitle)
+            }
+        }
+    }
+
+    private var prayerStep: some View {
+        VStack(alignment: .leading, spacing: 14) {
+            ForEach(wizardViewModel.availablePrayers) { prayer in
+                largeChoiceButton(
+                    title: prayer.displayName,
+                    isSelected: wizardViewModel.draft.selectedPrayer == prayer
+                ) {
+                    wizardViewModel.selectPrayer(prayer)
+                }
+            }
+        }
+    }
+
+    private var partStep: some View {
+        VStack(alignment: .leading, spacing: 14) {
+            ForEach(wizardViewModel.availableParts, id: \.self) { part in
+                largeChoiceButton(
+                    title: part.displayTitle,
+                    isSelected: wizardViewModel.draft.selectedPart == part
+                ) {
+                    wizardViewModel.selectPart(part)
+                }
+            }
+        }
+    }
+
+    private var confirmStep: some View {
+        VStack(alignment: .leading, spacing: 14) {
+            summaryRow(label: "Person", value: wizardViewModel.summaryPartnerName)
+            summaryRow(label: "Age", value: wizardViewModel.draft.ageAtRecording.map(String.init) ?? "Not set")
+            summaryRow(label: "Prayer", value: wizardViewModel.draft.selectedPrayer?.displayName ?? "Not set")
+            summaryRow(label: "Part", value: wizardViewModel.draft.selectedPart?.displayTitle ?? "Not set")
+            summaryRow(label: "Filename", value: viewModel.pendingImport.originalFilename)
+        }
+    }
+
+    private func trimRow(
+        title: String,
+        value: TimeInterval,
+        onDecrement: @escaping () -> Void,
+        onIncrement: @escaping () -> Void
+    ) -> some View {
+        HStack {
+            Text(title)
+                .font(.title3)
+            Spacer()
+            Button("-") { onDecrement() }
+                .buttonStyle(.bordered)
+            Text(Self.secondsFormatter(value))
+                .font(.title3.monospacedDigit())
+                .frame(minWidth: 70)
+            Button("+") { onIncrement() }
+                .buttonStyle(.borderedProminent)
+        }
+    }
+
+    private func largeChoiceButton(title: String, isSelected: Bool, action: @escaping () -> Void) -> some View {
+        Button(action: action) {
+            Text(title)
+                .font(.title3.weight(.medium))
+                .frame(maxWidth: .infinity, alignment: .leading)
+                .padding()
+                .background(isSelected ? Color.accentColor.opacity(0.18) : Color(.secondarySystemBackground))
+                .cornerRadius(12)
+        }
+        .buttonStyle(.plain)
+    }
+
+    private func summaryRow(label: String, value: String) -> some View {
+        VStack(alignment: .leading, spacing: 4) {
+            Text(label)
+                .font(.headline)
+                .foregroundStyle(.secondary)
+            Text(value)
+                .font(.title3)
         }
     }
 
