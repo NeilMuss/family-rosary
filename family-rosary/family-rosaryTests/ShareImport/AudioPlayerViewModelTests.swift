@@ -5,23 +5,31 @@ import XCTest
 
 @MainActor
 final class AudioPlayerViewModelTests: XCTestCase {
-    func testPreviewUsesSameSourceForDurationAndPlayback() {
+    func testPreviewPlayActionRetainsPlayerAndEntersPlayingState() {
         let player = FakePreviewAudioPlayer(duration: 7.5)
         let factory = FakePreviewAudioPlayerFactory(player: player)
-        let viewModel = AudioPlayerViewModel(playerFactory: factory)
+        let sessionController = FakePreviewAudioSessionController()
+        let viewModel = AudioPlayerViewModel(
+            sessionController: sessionController,
+            playerFactory: factory
+        )
         let url = URL(fileURLWithPath: "/tmp/preview-source.m4a")
 
         viewModel.load(url: url)
+        factory.releaseStrongReference()
         viewModel.play()
 
         XCTAssertEqual(factory.loadedURLs, [url])
         XCTAssertEqual(viewModel.duration, 7.5)
         XCTAssertEqual(player.playCallCount, 1)
         XCTAssertTrue(viewModel.isPlaying)
+        XCTAssertEqual(sessionController.configureCallCount, 1)
+        XCTAssertNotNil(factory.weakPlayer)
     }
 
-    func testPreviewSurfacesExplicitErrorWhenSetupFails() {
+    func testPreviewStartFailureSurfacesExplicitError() {
         let viewModel = AudioPlayerViewModel(
+            sessionController: FailingPreviewAudioSessionController(),
             playerFactory: FailingPreviewAudioPlayerFactory()
         )
 
@@ -29,6 +37,20 @@ final class AudioPlayerViewModelTests: XCTestCase {
 
         XCTAssertEqual(viewModel.errorMessage, "The app could not prepare the preview for this recording.")
         XCTAssertEqual(viewModel.duration, 0)
+    }
+
+    func testPreviewStartFailureSurfacesExplicitPlaybackError() {
+        let player = FakePreviewAudioPlayer(duration: 7.5, playResult: false)
+        let viewModel = AudioPlayerViewModel(
+            sessionController: FakePreviewAudioSessionController(),
+            playerFactory: FakePreviewAudioPlayerFactory(player: player)
+        )
+
+        viewModel.load(url: URL(fileURLWithPath: "/tmp/preview-source.m4a"))
+        viewModel.play()
+
+        XCTAssertEqual(viewModel.errorMessage, "The app could not start preview playback.")
+        XCTAssertFalse(viewModel.isPlaying)
     }
 }
 
@@ -38,17 +60,19 @@ private final class FakePreviewAudioPlayer: PreviewAudioPlaying {
     var currentTime: TimeInterval = 0
     var isPlaying = false
     private(set) var playCallCount = 0
+    private let playResult: Bool
 
-    init(duration: TimeInterval) {
+    init(duration: TimeInterval, playResult: Bool = true) {
         self.duration = duration
+        self.playResult = playResult
     }
 
     func prepareToPlay() -> Bool { true }
 
     func play() -> Bool {
         playCallCount += 1
-        isPlaying = true
-        return true
+        isPlaying = playResult
+        return playResult
     }
 
     func pause() {
@@ -61,16 +85,39 @@ private final class FakePreviewAudioPlayer: PreviewAudioPlaying {
 }
 
 private final class FakePreviewAudioPlayerFactory: PreviewAudioPlayerBuilding {
-    let player: FakePreviewAudioPlayer
+    private var strongPlayer: FakePreviewAudioPlayer?
+    weak var weakPlayer: FakePreviewAudioPlayer?
     private(set) var loadedURLs: [URL] = []
 
     init(player: FakePreviewAudioPlayer) {
-        self.player = player
+        self.strongPlayer = player
+        self.weakPlayer = player
     }
 
     func makePlayer(url: URL) throws -> any PreviewAudioPlaying {
         loadedURLs.append(url)
-        return player
+        guard let strongPlayer else {
+            throw NSError(domain: "AudioPlayerViewModelTests", code: 2, userInfo: [NSLocalizedDescriptionKey: "player missing"])
+        }
+        return strongPlayer
+    }
+
+    func releaseStrongReference() {
+        strongPlayer = nil
+    }
+}
+
+private final class FakePreviewAudioSessionController: PreviewAudioSessionControlling {
+    private(set) var configureCallCount = 0
+
+    func configureForPlayback() throws {
+        configureCallCount += 1
+    }
+}
+
+private struct FailingPreviewAudioSessionController: PreviewAudioSessionControlling {
+    func configureForPlayback() throws {
+        throw NSError(domain: "AudioPlayerViewModelTests", code: 3, userInfo: [NSLocalizedDescriptionKey: "session unavailable"])
     }
 }
 

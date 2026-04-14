@@ -50,9 +50,11 @@ final class FinishImportViewModelTests: XCTestCase {
         XCTAssertFalse(viewModel.isAddingNewPartner)
 
         let lines = try fixture.logStore.loadEntries().map(\.formattedLine).joined(separator: "\n")
-        XCTAssertTrue(lines.contains("APP_IMPORT | ADD_PARTNER_SAVE_BEGIN | INFO | partner=Grandma"))
-        XCTAssertTrue(lines.contains("APP_IMPORT | ADD_PARTNER_SAVE_SUCCESS | INFO | partner=Grandma"))
-        XCTAssertTrue(lines.contains("APP_IMPORT | PARTNER_STORE_RELOAD_SUCCESS | INFO"))
+        XCTAssertTrue(lines.contains("APP_IMPORT | PARTNER_ADD_BEGIN | INFO | partner=Grandma"))
+        XCTAssertTrue(lines.contains("APP_IMPORT | PARTNER_ADD_SUCCESS | INFO | partner=Grandma"))
+        XCTAssertTrue(lines.contains("APP_IMPORT | PARTNER_OPTIONS_RELOAD_SUCCESS | INFO"))
+        XCTAssertTrue(lines.contains("APP_IMPORT | PARTNER_PICKER_SOURCE_UPDATED | INFO"))
+        XCTAssertTrue(lines.contains("APP_IMPORT | PARTNER_AUTOSELECT_SUCCESS | INFO | partnerID=grandma"))
     }
 
     func testAddNewPartnerRefreshesPartnerListImmediately() throws {
@@ -84,6 +86,7 @@ final class FinishImportViewModelTests: XCTestCase {
         XCTAssertEqual(savedPartner?.id, "grandma")
         XCTAssertGreaterThanOrEqual(reloader.loadCount, 2)
         XCTAssertTrue(viewModel.availablePartners.contains(PrayerPartner(id: "zz-grandma-canonical", displayName: "Grandma (Canonical)")))
+        XCTAssertEqual(viewModel.selectedPartnerID, "grandma")
     }
 
     func testSaveMovesPendingToFinalised() throws {

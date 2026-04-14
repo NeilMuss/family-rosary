@@ -2,6 +2,10 @@ import AVFoundation
 import Combine
 import Foundation
 
+protocol PreviewAudioSessionControlling {
+    func configureForPlayback() throws
+}
+
 protocol PreviewAudioPlaying: AnyObject {
     var delegate: AVAudioPlayerDelegate? { get set }
     var duration: TimeInterval { get }
@@ -17,6 +21,14 @@ extension AVAudioPlayer: PreviewAudioPlaying {}
 
 protocol PreviewAudioPlayerBuilding {
     func makePlayer(url: URL) throws -> any PreviewAudioPlaying
+}
+
+struct AVPreviewAudioSessionController: PreviewAudioSessionControlling {
+    func configureForPlayback() throws {
+        let session = AVAudioSession.sharedInstance()
+        try session.setCategory(.playback, mode: .spokenAudio)
+        try session.setActive(true)
+    }
 }
 
 struct AVPreviewAudioPlayerFactory: PreviewAudioPlayerBuilding {
@@ -35,6 +47,7 @@ final class AudioPlayerViewModel: NSObject, ObservableObject {
     @Published private(set) var trimEnd: TimeInterval = 0
 
     private let logger: SharedDiagnosticsLogger?
+    private let sessionController: PreviewAudioSessionControlling
     private let playerFactory: PreviewAudioPlayerBuilding
     private var player: (any PreviewAudioPlaying)?
     private var progressTimer: Timer?
@@ -43,9 +56,11 @@ final class AudioPlayerViewModel: NSObject, ObservableObject {
 
     init(
         logger: SharedDiagnosticsLogger? = nil,
+        sessionController: PreviewAudioSessionControlling? = nil,
         playerFactory: PreviewAudioPlayerBuilding? = nil
     ) {
         self.logger = logger
+        self.sessionController = sessionController ?? AVPreviewAudioSessionController()
         self.playerFactory = playerFactory ?? AVPreviewAudioPlayerFactory()
         super.init()
     }
@@ -56,11 +71,18 @@ final class AudioPlayerViewModel: NSObject, ObservableObject {
         stopPlayback()
         logger?.log(stage: "PREVIEW_LOAD_BEGIN", event: "INFO")
         logger?.log(stage: "PREVIEW_SOURCE_URL", event: "INFO", detail: url.path)
+        logger?.log(stage: "PREVIEW_PLAYER_CREATE_BEGIN", event: "INFO")
 
         do {
             let player = try playerFactory.makePlayer(url: url)
             player.delegate = self
-            player.prepareToPlay()
+            guard player.prepareToPlay() else {
+                throw NSError(
+                    domain: "AudioPlayerViewModel",
+                    code: 1,
+                    userInfo: [NSLocalizedDescriptionKey: "Preview player could not prepare audio playback."]
+                )
+            }
             self.player = player
             loadedURL = url
             duration = player.duration
@@ -68,12 +90,14 @@ final class AudioPlayerViewModel: NSObject, ObservableObject {
             trimStart = 0
             trimEnd = player.duration
             errorMessage = nil
+            logger?.log(stage: "PREVIEW_PLAYER_CREATE_SUCCESS", event: "INFO")
             logger?.log(
                 stage: "PREVIEW_DURATION",
                 event: "INFO",
                 detail: String(format: "duration=%.2f", player.duration)
             )
             logTrimRange()
+            updatePlaybackState(isPlaying: player.isPlaying)
         } catch {
             player = nil
             loadedURL = nil
@@ -87,6 +111,7 @@ final class AudioPlayerViewModel: NSObject, ObservableObject {
                 event: "FAIL",
                 detail: "setup_failed=\(error.localizedDescription)"
             )
+            updatePlaybackState(isPlaying: false)
         }
     }
 
@@ -94,6 +119,9 @@ final class AudioPlayerViewModel: NSObject, ObservableObject {
         logger?.log(stage: "PREVIEW_PLAY_TAP", event: "INFO")
         guard let player else {
             errorMessage = "The app could not prepare the preview for this recording."
+            if loadedURL != nil {
+                logger?.log(stage: "PREVIEW_PLAYER_DEALLOCATED_UNEXPECTEDLY", event: "FAIL")
+            }
             logger?.log(stage: "PREVIEW_PLAY_FAILED", event: "FAIL", detail: "setup_failed=player_missing")
             return
         }
@@ -102,22 +130,36 @@ final class AudioPlayerViewModel: NSObject, ObservableObject {
             player.currentTime = trimStart
         }
         logTrimRange()
-        if player.play() {
-            isPlaying = true
+        logger?.log(stage: "PREVIEW_PLAY_CALL_BEGIN", event: "INFO")
+        do {
+            try sessionController.configureForPlayback()
+        } catch {
+            errorMessage = "The app could not start preview playback: \(error.localizedDescription)"
+            logger?.log(stage: "PREVIEW_PLAY_FAILED", event: "FAIL", detail: "audio_session=\(error.localizedDescription)")
+            updatePlaybackState(isPlaying: false)
+            return
+        }
+        let didStart = player.play()
+        updatePlaybackState(isPlaying: player.isPlaying)
+        if didStart, player.isPlaying {
             currentTime = player.currentTime
             errorMessage = nil
             startProgressTimer()
             logger?.log(stage: "PREVIEW_PLAY_STARTED", event: "INFO")
         } else {
             errorMessage = "The app could not start preview playback."
-            logger?.log(stage: "PREVIEW_PLAY_FAILED", event: "FAIL", detail: "play_returned_false")
+            logger?.log(
+                stage: "PREVIEW_PLAY_FAILED",
+                event: "FAIL",
+                detail: "play_returned_false playerIsPlaying=\(player.isPlaying)"
+            )
         }
     }
 
     func pause() {
         guard let player, player.isPlaying else { return }
         player.pause()
-        isPlaying = false
+        updatePlaybackState(isPlaying: player.isPlaying)
         currentTime = player.currentTime
         stopProgressTimer()
         logger?.log(stage: "AUDIO_PREVIEW_PAUSE", event: "INFO")
@@ -146,7 +188,7 @@ final class AudioPlayerViewModel: NSObject, ObservableObject {
     func stopPlayback() {
         player?.stop()
         player?.currentTime = trimStart
-        isPlaying = false
+        updatePlaybackState(isPlaying: false)
         currentTime = trimStart
         stopProgressTimer()
     }
@@ -192,16 +234,27 @@ final class AudioPlayerViewModel: NSObject, ObservableObject {
             player.pause()
             player.currentTime = trimStart
             stopProgressTimer()
-            isPlaying = false
+            updatePlaybackState(isPlaying: false)
             currentTime = trimStart
             return
         }
         currentTime = player.currentTime
+        updatePlaybackState(isPlaying: player.isPlaying)
     }
 
     private func stopProgressTimer() {
         progressTimer?.invalidate()
         progressTimer = nil
+    }
+
+    private func updatePlaybackState(isPlaying: Bool) {
+        guard self.isPlaying != isPlaying else { return }
+        self.isPlaying = isPlaying
+        logger?.log(
+            stage: "PREVIEW_PLAYER_STATE_CHANGED",
+            event: "INFO",
+            detail: "isPlaying=\(isPlaying)"
+        )
     }
 }
 
@@ -209,7 +262,7 @@ extension AudioPlayerViewModel: AVAudioPlayerDelegate {
     nonisolated func audioPlayerDidFinishPlaying(_ player: AVAudioPlayer, successfully flag: Bool) {
         Task { @MainActor in
             self.stopProgressTimer()
-            self.isPlaying = false
+            self.updatePlaybackState(isPlaying: false)
             self.currentTime = self.trimStart
             player.currentTime = self.trimStart
         }
@@ -218,7 +271,7 @@ extension AudioPlayerViewModel: AVAudioPlayerDelegate {
     nonisolated func audioPlayerDecodeErrorDidOccur(_ player: AVAudioPlayer, error: Error?) {
         Task { @MainActor in
             self.stopProgressTimer()
-            self.isPlaying = false
+            self.updatePlaybackState(isPlaying: false)
             self.currentTime = self.trimStart
             self.errorMessage = "The app could not continue preview playback."
             self.logger?.log(
