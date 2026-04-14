@@ -45,6 +45,7 @@ final class AudioPlayerViewModel: NSObject, ObservableObject {
     @Published private(set) var errorMessage: String?
     @Published private(set) var trimStart: TimeInterval = 0
     @Published private(set) var trimEnd: TimeInterval = 0
+    @Published private(set) var didReachTrimEnd = false
 
     private let logger: SharedDiagnosticsLogger?
     private let sessionController: PreviewAudioSessionControlling
@@ -52,7 +53,7 @@ final class AudioPlayerViewModel: NSObject, ObservableObject {
     private var player: (any PreviewAudioPlaying)?
     private var progressTimer: Timer?
     private var loadedURL: URL?
-    private let trimStep: TimeInterval = 0.25
+    private let trimStep: TimeInterval = 0.1
 
     init(
         logger: SharedDiagnosticsLogger? = nil,
@@ -89,6 +90,7 @@ final class AudioPlayerViewModel: NSObject, ObservableObject {
             currentTime = 0
             trimStart = 0
             trimEnd = player.duration
+            didReachTrimEnd = false
             errorMessage = nil
             logger?.log(stage: "PREVIEW_PLAYER_CREATE_SUCCESS", event: "INFO")
             logger?.log(
@@ -143,6 +145,7 @@ final class AudioPlayerViewModel: NSObject, ObservableObject {
         updatePlaybackState(isPlaying: player.isPlaying)
         if didStart, player.isPlaying {
             currentTime = player.currentTime
+            didReachTrimEnd = false
             errorMessage = nil
             startProgressTimer()
             logger?.log(stage: "PREVIEW_PLAY_STARTED", event: "INFO")
@@ -169,6 +172,12 @@ final class AudioPlayerViewModel: NSObject, ObservableObject {
         isPlaying ? pause() : play()
     }
 
+    func restart() {
+        logger?.log(stage: "PREVIEW_RESTART_TAP", event: "INFO")
+        seekToTrimStart()
+        play()
+    }
+
     func decrementTrimStart() {
         setTrimStart(trimStart - trimStep)
     }
@@ -190,13 +199,14 @@ final class AudioPlayerViewModel: NSObject, ObservableObject {
         player?.currentTime = trimStart
         updatePlaybackState(isPlaying: false)
         currentTime = trimStart
+        didReachTrimEnd = false
         stopProgressTimer()
     }
 
     private func setTrimStart(_ proposedValue: TimeInterval) {
         let clamped = min(max(0, proposedValue), max(0, trimEnd - trimStep))
         trimStart = clamped
-        logTrimRange()
+        logRangeUpdated()
         if currentTime < trimStart || currentTime >= trimEnd {
             stopPlayback()
         }
@@ -205,7 +215,7 @@ final class AudioPlayerViewModel: NSObject, ObservableObject {
     private func setTrimEnd(_ proposedValue: TimeInterval) {
         let clamped = max(min(duration, proposedValue), min(duration, trimStart + trimStep))
         trimEnd = clamped
-        logTrimRange()
+        logRangeUpdated()
         if currentTime >= trimEnd || currentTime < trimStart {
             stopPlayback()
         }
@@ -214,6 +224,15 @@ final class AudioPlayerViewModel: NSObject, ObservableObject {
     private func logTrimRange() {
         logger?.log(
             stage: "PREVIEW_TRIM_RANGE",
+            event: "INFO",
+            detail: String(format: "start=%.2f end=%.2f", trimStart, trimEnd)
+        )
+    }
+
+    private func logRangeUpdated() {
+        logTrimRange()
+        logger?.log(
+            stage: "PREVIEW_RANGE_UPDATED",
             event: "INFO",
             detail: String(format: "start=%.2f end=%.2f", trimStart, trimEnd)
         )
@@ -232,14 +251,31 @@ final class AudioPlayerViewModel: NSObject, ObservableObject {
         guard let player else { return }
         if player.currentTime >= trimEnd {
             player.pause()
-            player.currentTime = trimStart
+            player.currentTime = trimEnd
             stopProgressTimer()
             updatePlaybackState(isPlaying: false)
-            currentTime = trimStart
+            currentTime = trimEnd
+            didReachTrimEnd = true
+            logger?.log(stage: "PREVIEW_STOP_AT_TRIM_END", event: "INFO")
+            logger?.log(
+                stage: "PREVIEW_PLAYHEAD_UPDATED",
+                event: "INFO",
+                detail: String(format: "time=%.2f", currentTime)
+            )
             return
         }
         currentTime = player.currentTime
+        didReachTrimEnd = false
         updatePlaybackState(isPlaying: player.isPlaying)
+        logger?.log(
+            stage: "PREVIEW_PLAYHEAD_UPDATED",
+            event: "INFO",
+            detail: String(format: "time=%.2f", currentTime)
+        )
+    }
+
+    func processProgressTickForTesting() {
+        handleProgressTick()
     }
 
     private func stopProgressTimer() {
@@ -256,6 +292,20 @@ final class AudioPlayerViewModel: NSObject, ObservableObject {
             detail: "isPlaying=\(isPlaying)"
         )
     }
+
+    private func seekToTrimStart() {
+        player?.stop()
+        player?.currentTime = trimStart
+        currentTime = trimStart
+        didReachTrimEnd = false
+        updatePlaybackState(isPlaying: false)
+        stopProgressTimer()
+        logger?.log(
+            stage: "PREVIEW_SEEK_TO_TRIM_START",
+            event: "INFO",
+            detail: String(format: "time=%.2f", trimStart)
+        )
+    }
 }
 
 extension AudioPlayerViewModel: AVAudioPlayerDelegate {
@@ -263,8 +313,10 @@ extension AudioPlayerViewModel: AVAudioPlayerDelegate {
         Task { @MainActor in
             self.stopProgressTimer()
             self.updatePlaybackState(isPlaying: false)
-            self.currentTime = self.trimStart
-            player.currentTime = self.trimStart
+            self.currentTime = self.trimEnd
+            self.didReachTrimEnd = true
+            player.currentTime = self.trimEnd
+            self.logger?.log(stage: "PREVIEW_STOP_AT_TRIM_END", event: "INFO")
         }
     }
 
@@ -273,6 +325,7 @@ extension AudioPlayerViewModel: AVAudioPlayerDelegate {
             self.stopProgressTimer()
             self.updatePlaybackState(isPlaying: false)
             self.currentTime = self.trimStart
+            self.didReachTrimEnd = false
             self.errorMessage = "The app could not continue preview playback."
             self.logger?.log(
                 stage: "PREVIEW_PLAY_FAILED",

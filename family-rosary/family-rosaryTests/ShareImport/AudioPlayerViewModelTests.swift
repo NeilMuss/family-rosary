@@ -5,6 +5,11 @@ import XCTest
 
 @MainActor
 final class AudioPlayerViewModelTests: XCTestCase {
+    func testDisplayedTimeFormattingShowsTenths() {
+        XCTAssertEqual(FinishImportView.tenthsFormatter(5.3), "0:05.3")
+        XCTAssertEqual(FinishImportView.tenthsFormatter(72.7), "1:12.7")
+    }
+
     func testPreviewPlayActionRetainsPlayerAndEntersPlayingState() {
         let player = FakePreviewAudioPlayer(duration: 7.5)
         let factory = FakePreviewAudioPlayerFactory(player: player)
@@ -28,6 +33,20 @@ final class AudioPlayerViewModelTests: XCTestCase {
     }
 
     func testPreviewStartFailureSurfacesExplicitError() {
+        let player = FakePreviewAudioPlayer(duration: 7.5)
+        let viewModel = AudioPlayerViewModel(
+            sessionController: FailingPreviewAudioSessionController(),
+            playerFactory: FakePreviewAudioPlayerFactory(player: player)
+        )
+
+        viewModel.load(url: URL(fileURLWithPath: "/tmp/broken-preview.m4a"))
+        viewModel.play()
+
+        XCTAssertEqual(viewModel.errorMessage, "The app could not start preview playback: session unavailable")
+        XCTAssertFalse(viewModel.isPlaying)
+    }
+
+    func testPreviewSetupFailureSurfacesExplicitError() {
         let viewModel = AudioPlayerViewModel(
             sessionController: FailingPreviewAudioSessionController(),
             playerFactory: FailingPreviewAudioPlayerFactory()
@@ -39,18 +58,79 @@ final class AudioPlayerViewModelTests: XCTestCase {
         XCTAssertEqual(viewModel.duration, 0)
     }
 
-    func testPreviewStartFailureSurfacesExplicitPlaybackError() {
-        let player = FakePreviewAudioPlayer(duration: 7.5, playResult: false)
-        let viewModel = AudioPlayerViewModel(
+    func testRestartSeeksToTrimStart() {
+        let player = FakePreviewAudioPlayer(duration: 7.5)
+        let viewModel = makeViewModel(player: player)
+
+        viewModel.load(url: URL(fileURLWithPath: "/tmp/preview-source.m4a"))
+        viewModel.incrementTrimStart()
+        viewModel.incrementTrimStart()
+        player.currentTime = 3.2
+
+        viewModel.restart()
+
+        XCTAssertEqual(player.currentTime, viewModel.trimStart, accuracy: 0.001)
+        XCTAssertEqual(viewModel.currentTime, viewModel.trimStart, accuracy: 0.001)
+        XCTAssertTrue(viewModel.isPlaying)
+    }
+
+    func testPreviewStopsAtTrimEnd() {
+        let player = FakePreviewAudioPlayer(duration: 7.5)
+        let viewModel = makeViewModel(player: player)
+
+        viewModel.load(url: URL(fileURLWithPath: "/tmp/preview-source.m4a"))
+        for _ in 0..<5 { viewModel.decrementTrimEnd() }
+        viewModel.restart()
+        player.currentTime = viewModel.trimEnd
+
+        viewModel.processProgressTickForTesting()
+
+        XCTAssertFalse(viewModel.isPlaying)
+        XCTAssertTrue(viewModel.didReachTrimEnd)
+        XCTAssertEqual(viewModel.currentTime, viewModel.trimEnd, accuracy: 0.001)
+        XCTAssertEqual(player.currentTime, viewModel.trimEnd, accuracy: 0.001)
+    }
+
+    func testTrimChangesAffectSubsequentRestartPlayback() {
+        let player = FakePreviewAudioPlayer(duration: 7.5)
+        let viewModel = makeViewModel(player: player)
+
+        viewModel.load(url: URL(fileURLWithPath: "/tmp/preview-source.m4a"))
+        viewModel.incrementTrimStart()
+        viewModel.incrementTrimStart()
+        let firstTrimStart = viewModel.trimStart
+        viewModel.restart()
+        XCTAssertEqual(player.currentTime, firstTrimStart, accuracy: 0.001)
+
+        viewModel.incrementTrimStart()
+        viewModel.incrementTrimStart()
+        let secondTrimStart = viewModel.trimStart
+        viewModel.restart()
+
+        XCTAssertEqual(player.currentTime, secondTrimStart, accuracy: 0.001)
+        XCTAssertNotEqual(firstTrimStart, secondTrimStart)
+    }
+
+    func testNaturalStopUpdatesPlayingStateAndLeavesPlayheadAtTrimEnd() {
+        let player = FakePreviewAudioPlayer(duration: 7.5)
+        let viewModel = makeViewModel(player: player)
+
+        viewModel.load(url: URL(fileURLWithPath: "/tmp/preview-source.m4a"))
+        viewModel.restart()
+        player.currentTime = viewModel.trimEnd
+
+        viewModel.processProgressTickForTesting()
+
+        XCTAssertFalse(viewModel.isPlaying)
+        XCTAssertTrue(viewModel.didReachTrimEnd)
+        XCTAssertEqual(viewModel.currentTime, viewModel.trimEnd, accuracy: 0.001)
+    }
+
+    private func makeViewModel(player: FakePreviewAudioPlayer) -> AudioPlayerViewModel {
+        AudioPlayerViewModel(
             sessionController: FakePreviewAudioSessionController(),
             playerFactory: FakePreviewAudioPlayerFactory(player: player)
         )
-
-        viewModel.load(url: URL(fileURLWithPath: "/tmp/preview-source.m4a"))
-        viewModel.play()
-
-        XCTAssertEqual(viewModel.errorMessage, "The app could not start preview playback.")
-        XCTAssertFalse(viewModel.isPlaying)
     }
 }
 

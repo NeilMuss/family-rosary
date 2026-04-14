@@ -27,8 +27,53 @@ final class FinishImportWizardViewModelTests: XCTestCase {
         XCTAssertEqual(wizard.currentStep, .age)
         XCTAssertFalse(wizard.canContinue)
 
-        wizard.incrementAge()
+        wizard.updateAgeInput("7")
         XCTAssertTrue(wizard.canContinue)
+    }
+
+    func testAgeInputSevenProducesAgeSeven() throws {
+        let fixture = try Fixture.make()
+        let wizard = fixture.makeWizard()
+
+        wizard.selectExistingPartner("dad")
+        wizard.updateAgeInput("7")
+
+        XCTAssertEqual(wizard.age, 7)
+        XCTAssertEqual(wizard.draft.ageAtRecording, 7)
+        XCTAssertTrue(wizard.canContinue)
+    }
+
+    func testAgeInputLettersIsInvalid() throws {
+        let fixture = try Fixture.make()
+        let wizard = fixture.makeWizard()
+
+        wizard.selectExistingPartner("dad")
+        wizard.updateAgeInput("abc")
+
+        XCTAssertNil(wizard.age)
+        XCTAssertFalse(wizard.canContinue)
+    }
+
+    func testAgeInputAboveRangeIsInvalid() throws {
+        let fixture = try Fixture.make()
+        let wizard = fixture.makeWizard()
+
+        wizard.selectExistingPartner("dad")
+        wizard.updateAgeInput("150")
+
+        XCTAssertEqual(wizard.age, 150)
+        XCTAssertFalse(wizard.canContinue)
+    }
+
+    func testEmptyAgeInputIsInvalid() throws {
+        let fixture = try Fixture.make()
+        let wizard = fixture.makeWizard()
+
+        wizard.selectExistingPartner("dad")
+        wizard.updateAgeInput("")
+
+        XCTAssertNil(wizard.age)
+        XCTAssertFalse(wizard.canContinue)
     }
 
     func testPrayerSelectionUpdatesDraft() throws {
@@ -36,7 +81,7 @@ final class FinishImportWizardViewModelTests: XCTestCase {
         let wizard = fixture.makeWizard()
 
         wizard.selectExistingPartner("dad")
-        wizard.incrementAge()
+        wizard.updateAgeInput("7")
         wizard.continueTapped(trimStart: 0, trimEnd: 1)
         wizard.selectPrayer(.gloryBe)
 
@@ -48,7 +93,7 @@ final class FinishImportWizardViewModelTests: XCTestCase {
         let wizard = fixture.makeWizard()
 
         wizard.selectExistingPartner("dad")
-        wizard.incrementAge()
+        wizard.updateAgeInput("7")
         wizard.continueTapped(trimStart: 0, trimEnd: 1)
         wizard.selectPrayer(.hailMary)
         wizard.selectPart(.hailMaryResponse)
@@ -61,7 +106,7 @@ final class FinishImportWizardViewModelTests: XCTestCase {
         let wizard = fixture.makeWizard()
 
         wizard.selectExistingPartner("dad")
-        wizard.incrementAge()
+        wizard.updateAgeInput("7")
         wizard.continueTapped(trimStart: 0, trimEnd: 1)
         wizard.selectPrayer(.ourFather)
         wizard.selectPart(.ourFatherLead)
@@ -71,7 +116,7 @@ final class FinishImportWizardViewModelTests: XCTestCase {
         wizard.continueTapped(trimStart: 0.5, trimEnd: 2.5)
 
         XCTAssertEqual(fixture.savedDraft?.selectedPartnerID, "dad")
-        XCTAssertEqual(fixture.savedDraft?.ageAtRecording, 1)
+        XCTAssertEqual(fixture.savedDraft?.ageAtRecording, 7)
         XCTAssertEqual(fixture.savedDraft?.selectedPrayer, .ourFather)
         XCTAssertEqual(fixture.savedDraft?.selectedPart, .ourFatherLead)
         XCTAssertEqual(fixture.savedTrimStart, 0.5)

@@ -40,6 +40,7 @@ struct FinishImportDraft: Equatable {
 final class FinishImportWizardViewModel: ObservableObject {
     @Published private(set) var currentStep: FinishImportStep = .preview
     @Published var draft: FinishImportDraft
+    @Published var ageInput: String
 
     let finishImportViewModel: FinishImportViewModel
 
@@ -60,6 +61,7 @@ final class FinishImportWizardViewModel: ObservableObject {
             selectedPrayer: finishImportViewModel.selectedPrayer,
             selectedPart: finishImportViewModel.selectedPart
         )
+        self.ageInput = finishImportViewModel.ageAtRecordingText
         self.onSave = onSave ?? { [weak finishImportViewModel] draft, trimStart, trimEnd in
             guard let finishImportViewModel else { return }
             if draft.isAddingNewPartner {
@@ -94,8 +96,8 @@ final class FinishImportWizardViewModel: ObservableObject {
             }
             return draft.selectedPartnerID != nil
         case .age:
-            guard let age = draft.ageAtRecording else { return false }
-            return (1...120).contains(age)
+            guard let age else { return false }
+            return (0...120).contains(age)
         case .prayer:
             return draft.selectedPrayer != nil
         case .part:
@@ -109,8 +111,12 @@ final class FinishImportWizardViewModel: ObservableObject {
         let hasPerson = draft.isAddingNewPartner
             ? draft.newPartnerName.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty == false
             : draft.selectedPartnerID != nil
-        let hasAge = draft.ageAtRecording.map { (1...120).contains($0) } ?? false
+        let hasAge = age.map { (0...120).contains($0) } ?? false
         return hasPerson && hasAge && draft.selectedPrayer != nil && draft.selectedPart != nil
+    }
+
+    var age: Int? {
+        Int(ageInput)
     }
 
     var continueButtonTitle: String {
@@ -130,7 +136,7 @@ final class FinishImportWizardViewModel: ObservableObject {
             }
             return nil
         case .age:
-            return canContinue ? nil : "Choose an age between 1 and 120."
+            return canContinue ? nil : "Enter a valid age (0–120)"
         case .prayer:
             return canContinue ? nil : "Choose the prayer."
         case .part:
@@ -213,14 +219,11 @@ final class FinishImportWizardViewModel: ObservableObject {
         draft.newPartnerName = value
     }
 
-    func incrementAge() {
-        let next = min(120, (draft.ageAtRecording ?? 0) + 1)
-        setAge(next)
-    }
-
-    func decrementAge() {
-        let next = max(1, (draft.ageAtRecording ?? 1) - 1)
-        setAge(next)
+    func updateAgeInput(_ value: String) {
+        let digitsOnly = value.filter(\.isNumber)
+        ageInput = digitsOnly
+        draft.ageAtRecording = Int(digitsOnly)
+        logger?.log(stage: "FINISH_IMPORT_AGE_SET", event: "INFO", detail: "value=\(draft.ageAtRecording.map(String.init) ?? "nil")")
     }
 
     func selectPrayer(_ prayer: PrayerName) {
@@ -236,11 +239,6 @@ final class FinishImportWizardViewModel: ObservableObject {
         draft.selectedPart = part
         logger?.log(stage: "FINISH_IMPORT_PART_SELECTED", event: "INFO", detail: "part=\(part.rawValue)")
         autoAdvance(from: .part)
-    }
-
-    private func setAge(_ age: Int) {
-        draft.ageAtRecording = min(max(age, 1), 120)
-        logger?.log(stage: "FINISH_IMPORT_AGE_SET", event: "INFO", detail: "value=\(draft.ageAtRecording ?? 0)")
     }
 
     private func autoAdvance(from step: FinishImportStep) {

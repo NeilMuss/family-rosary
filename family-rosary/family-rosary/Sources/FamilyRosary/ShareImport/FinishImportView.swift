@@ -4,6 +4,7 @@ struct FinishImportView: View {
     @StateObject private var viewModel: FinishImportViewModel
     @StateObject private var wizardViewModel: FinishImportWizardViewModel
     @StateObject private var audioPlayerViewModel: AudioPlayerViewModel
+    @FocusState private var isAgeFieldFocused: Bool
 
     init(viewModel: FinishImportViewModel) {
         _viewModel = StateObject(wrappedValue: viewModel)
@@ -56,12 +57,14 @@ struct FinishImportView: View {
 
                 HStack(spacing: 16) {
                     Button("Back") {
+                        isAgeFieldFocused = false
                         wizardViewModel.goBack()
                     }
                     .buttonStyle(.bordered)
                     .disabled(wizardViewModel.canGoBack == false)
 
                     Button(wizardViewModel.continueButtonTitle) {
+                        isAgeFieldFocused = false
                         wizardViewModel.continueTapped(
                             trimStart: audioPlayerViewModel.trimStart,
                             trimEnd: audioPlayerViewModel.trimEnd
@@ -75,9 +78,16 @@ struct FinishImportView: View {
             .navigationBarTitleDisplayMode(.inline)
             .onAppear {
                 audioPlayerViewModel.load(url: viewModel.pendingImport.libraryFileURL)
+                isAgeFieldFocused = wizardViewModel.currentStep == .age
             }
             .onDisappear {
                 audioPlayerViewModel.pause()
+            }
+            .onChange(of: wizardViewModel.currentStep) { step in
+                isAgeFieldFocused = step == .age
+            }
+            .onTapGesture {
+                isAgeFieldFocused = false
             }
         }
     }
@@ -104,8 +114,12 @@ struct FinishImportView: View {
         VStack(alignment: .leading, spacing: 16) {
             Text(viewModel.pendingImport.originalFilename)
                 .font(.title3.weight(.medium))
-            if let durationText = Self.durationFormatter.string(from: audioPlayerViewModel.duration), audioPlayerViewModel.duration > 0 {
-                Text("Duration: \(durationText)")
+            if audioPlayerViewModel.duration > 0 {
+                let trimmedDuration = max(0, audioPlayerViewModel.trimEnd - audioPlayerViewModel.trimStart)
+                Text("Duration: \(Self.tenthsFormatter(audioPlayerViewModel.duration))")
+                    .font(.body)
+                    .foregroundStyle(.secondary)
+                Text("Selected clip: \(Self.tenthsFormatter(audioPlayerViewModel.trimStart)) - \(Self.tenthsFormatter(audioPlayerViewModel.trimEnd)) (\(Self.tenthsFormatter(trimmedDuration)))")
                     .font(.body)
                     .foregroundStyle(.secondary)
             }
@@ -120,8 +134,19 @@ struct FinishImportView: View {
                     }
                     .buttonStyle(.borderedProminent)
 
-                    Text("\(Self.clockFormatter.string(from: audioPlayerViewModel.currentTime) ?? "0:00") / \(Self.clockFormatter.string(from: audioPlayerViewModel.duration) ?? "0:00")")
+                    Button("Restart") {
+                        audioPlayerViewModel.restart()
+                    }
+                    .buttonStyle(.bordered)
+
+                    Text("\(Self.tenthsFormatter(audioPlayerViewModel.currentTime)) / \(Self.tenthsFormatter(audioPlayerViewModel.duration))")
                         .font(.title3.monospacedDigit())
+                        .foregroundStyle(.secondary)
+                }
+
+                if audioPlayerViewModel.didReachTrimEnd {
+                    Text("Preview reached trim end.")
+                        .font(.body)
                         .foregroundStyle(.secondary)
                 }
             }
@@ -178,27 +203,24 @@ struct FinishImportView: View {
 
     private var ageStep: some View {
         VStack(alignment: .leading, spacing: 20) {
-            Text("Use the buttons to choose their age.")
+            Text("Age at recording")
+                .font(.headline)
+
+            Text("How old were they when this was recorded?")
                 .font(.body)
                 .foregroundStyle(.secondary)
 
-            HStack(spacing: 20) {
-                Button("-") {
-                    wizardViewModel.decrementAge()
-                }
-                .buttonStyle(.bordered)
-                .font(.largeTitle)
-
-                Text(wizardViewModel.draft.ageAtRecording.map(String.init) ?? "--")
-                    .font(.system(size: 44, weight: .bold, design: .rounded))
-                    .frame(minWidth: 100)
-
-                Button("+") {
-                    wizardViewModel.incrementAge()
-                }
-                .buttonStyle(.borderedProminent)
-                .font(.largeTitle)
-            }
+            TextField(
+                "e.g. 7",
+                text: Binding(
+                    get: { wizardViewModel.ageInput },
+                    set: { wizardViewModel.updateAgeInput($0) }
+                ),
+                prompt: Text("e.g. 7")
+            )
+            .textFieldStyle(.roundedBorder)
+            .keyboardType(.numberPad)
+            .focused($isAgeFieldFocused)
         }
     }
 
@@ -250,7 +272,7 @@ struct FinishImportView: View {
             Spacer()
             Button("-") { onDecrement() }
                 .buttonStyle(.bordered)
-            Text(Self.secondsFormatter(value))
+            Text(Self.tenthsFormatter(value))
                 .font(.title3.monospacedDigit())
                 .frame(minWidth: 70)
             Button("+") { onIncrement() }
@@ -280,23 +302,12 @@ struct FinishImportView: View {
         }
     }
 
-    private static let durationFormatter: DateComponentsFormatter = {
-        let formatter = DateComponentsFormatter()
-        formatter.allowedUnits = [.minute, .second]
-        formatter.unitsStyle = .abbreviated
-        formatter.zeroFormattingBehavior = [.pad]
-        return formatter
-    }()
-
-    private static let clockFormatter: DateComponentsFormatter = {
-        let formatter = DateComponentsFormatter()
-        formatter.allowedUnits = [.minute, .second]
-        formatter.unitsStyle = .positional
-        formatter.zeroFormattingBehavior = [.pad]
-        return formatter
-    }()
-
-    private static func secondsFormatter(_ value: TimeInterval) -> String {
-        String(format: "%.1fs", value)
+    static func tenthsFormatter(_ value: TimeInterval) -> String {
+        let clamped = max(0, value)
+        let totalTenths = Int((clamped * 10).rounded())
+        let minutes = totalTenths / 600
+        let seconds = (totalTenths % 600) / 10
+        let tenths = totalTenths % 10
+        return String(format: "%d:%02d.%d", minutes, seconds, tenths)
     }
 }

@@ -1,98 +1,71 @@
+import Combine
+import SwiftUI
 import UIKit
 import UniformTypeIdentifiers
+
+@MainActor
+final class ShareResultViewModel: ObservableObject {
+    @Published var state = ShareExtensionPresentationState.processing
+}
 
 final class ShareViewController: UIViewController {
     private let sessionID = UUID().uuidString
     private let configuration = SharedImportConfiguration.fromMainBundle()
-    private var didStartDiagnostics = false
-    private var currentStep = "Preparing diagnostic screen…"
-    private var lastLifecycleEvent = "init"
-    private var sharedLogWriteStatus = "NOT ATTEMPTED"
-    private var appGroupContainerPath = "nil"
-    private var logFilePath = "nil"
-    private var inboxPath = "nil"
-    private var extraDetail = ""
+    private let resultViewModel = ShareResultViewModel()
+    private var didStartImport = false
+    private var pendingFailureError: NSError?
 
-    private lazy var debugLabel: UILabel = {
-        let label = UILabel()
-        label.translatesAutoresizingMaskIntoConstraints = false
-        label.numberOfLines = 0
-        label.font = .monospacedSystemFont(ofSize: 16, weight: .regular)
-        label.textColor = .label
-        label.textAlignment = .left
-        label.text = ""
-        return label
-    }()
-
-    override func loadView() {
-        lastLifecycleEvent = "loadView"
-
-        let rootView = UIView()
-        rootView.backgroundColor = .systemBackground
-        rootView.addSubview(debugLabel)
-        NSLayoutConstraint.activate([
-            debugLabel.leadingAnchor.constraint(equalTo: rootView.layoutMarginsGuide.leadingAnchor),
-            debugLabel.trailingAnchor.constraint(equalTo: rootView.layoutMarginsGuide.trailingAnchor),
-            debugLabel.topAnchor.constraint(equalTo: rootView.safeAreaLayoutGuide.topAnchor, constant: 20),
-            debugLabel.bottomAnchor.constraint(lessThanOrEqualTo: rootView.safeAreaLayoutGuide.bottomAnchor, constant: -20)
-        ])
-        view = rootView
-
-        updateStatus("SESSION_BEGIN", details: ["lifecycle": lastLifecycleEvent])
-    }
+    private lazy var hostingController = UIHostingController(
+        rootView: ShareResultView(
+            viewModel: resultViewModel,
+            onDone: { [weak self] in
+                self?.dismissAfterFailure()
+            }
+        )
+    )
 
     override func viewDidLoad() {
         super.viewDidLoad()
-        lastLifecycleEvent = "viewDidLoad"
-        refreshDebugView()
-    }
-
-    override func viewWillAppear(_ animated: Bool) {
-        super.viewWillAppear(animated)
-        lastLifecycleEvent = "viewWillAppear"
-        refreshDebugView()
-    }
-
-    override func viewDidAppear(_ animated: Bool) {
-        super.viewDidAppear(animated)
-        lastLifecycleEvent = "viewDidAppear"
-        refreshDebugView()
-        startDiagnosticsIfNeeded()
-    }
-
-    private func startDiagnosticsIfNeeded() {
-        guard didStartDiagnostics == false else { return }
-        didStartDiagnostics = true
-
+        embedResultView()
         Task { @MainActor in
-            await runDiagnostics()
+            await startImportIfNeeded()
         }
     }
 
-    @MainActor
-    private func runDiagnostics() async {
+    private func embedResultView() {
+        addChild(hostingController)
+        hostingController.view.translatesAutoresizingMaskIntoConstraints = false
+        hostingController.view.backgroundColor = .clear
+        view = UIView()
+        view.backgroundColor = .systemBackground
+        view.addSubview(hostingController.view)
+        NSLayoutConstraint.activate([
+            hostingController.view.leadingAnchor.constraint(equalTo: view.leadingAnchor),
+            hostingController.view.trailingAnchor.constraint(equalTo: view.trailingAnchor),
+            hostingController.view.topAnchor.constraint(equalTo: view.topAnchor),
+            hostingController.view.bottomAnchor.constraint(equalTo: view.bottomAnchor)
+        ])
+        hostingController.didMove(toParent: self)
+    }
+
+    private func startImportIfNeeded() async {
+        guard didStartImport == false else { return }
+        didStartImport = true
+        await runImport()
+    }
+
+    private func runImport() async {
         updateStatus("LOGGING READY", details: [
             "extensionContextPresent": extensionContext == nil ? "NO" : "YES"
         ])
-        await delayForReadability()
 
         guard resolveSharedPaths() else {
-            if appGroupContainerPath == "nil" {
-                await failAndHold("FAIL: APP GROUP CONTAINER NIL", details: [
-                    "reason": "containerURL() returned nil"
-                ])
-            } else {
-                await failAndHold("FAIL: LOG FILE URL NIL", details: [
-                    "reason": "logFileURL() could not be resolved"
-                ])
-            }
+            presentFailure(message: "Could not import audio")
             return
         }
 
         guard let extensionContext else {
-            await failAndHold("FAIL: NO EXTENSIONCONTEXT", details: [
-                "reason": "extensionContext was nil"
-            ])
+            presentFailure(message: "Could not import audio")
             return
         }
 
@@ -100,31 +73,24 @@ final class ShareViewController: UIViewController {
         updateStatus("INPUT ITEMS INSPECTED", details: [
             "inputItemCount": String(inputItems.count)
         ])
-        await delayForReadability()
-
         guard inputItems.isEmpty == false else {
-            await failAndHold("FAIL: NO INPUT ITEMS", details: [
-                "reason": "extensionContext.inputItems was empty"
-            ])
+            presentFailure(message: "Could not import audio")
             return
         }
 
         updateStatus("ATTACHMENT SEARCH BEGIN")
-        await delayForReadability()
-
         let providers = inputItems.flatMap { $0.attachments ?? [] }
         guard providers.isEmpty == false else {
-            await failAndHold("FAIL: NO ATTACHMENTS", details: [
-                "reason": "No attachments found on extension items"
-            ])
+            presentFailure(message: "Could not import audio")
             return
         }
 
         guard let candidate = firstAudioCandidate(from: providers) else {
             let seenTypes = providers.flatMap(\.registeredTypeIdentifiers).joined(separator: ",")
-            await failAndHold("FAIL: NO AUDIO PROVIDER", details: [
+            updateStatus("FAIL: NO AUDIO PROVIDER", details: [
                 "registeredTypeIdentifiers": seenTypes
             ])
+            presentFailure(message: "Could not import audio", reason: "Unsupported format")
             return
         }
 
@@ -132,8 +98,6 @@ final class ShareViewController: UIViewController {
             "typeIdentifier": candidate.preferredTypeIdentifier,
             "registeredTypeIdentifiers": candidate.registeredTypeIdentifiers.joined(separator: ",")
         ])
-        await delayForReadability()
-
         updateStatus("LOAD ITEM BEGIN", details: [
             "typeIdentifier": candidate.preferredTypeIdentifier
         ])
@@ -146,45 +110,28 @@ final class ShareViewController: UIViewController {
             ])
             await stageLoadedAttachment(loaded, extensionContext: extensionContext)
         } catch let error as ShareImportError {
-            switch error {
-            case .loadedItemWasNotFileURL:
-                await failAndHold("FAIL: ITEM NOT URL", details: [
-                    "reason": error.localizedDescription
-                ])
-            case .providerCouldNotLoadItem:
-                await failAndHold("FAIL: LOAD ITEM ERROR", details: [
-                    "reason": error.localizedDescription
-                ])
-            default:
-                await failAndHold("FAIL: LOAD ITEM ERROR", details: [
-                    "reason": error.localizedDescription
-                ])
-            }
-        } catch {
-            await failAndHold("FAIL: LOAD ITEM ERROR", details: [
+            updateStatus("FAIL: LOAD ITEM ERROR", details: [
                 "reason": error.localizedDescription
             ])
+            presentFailure(message: "Could not import audio", reason: userFacingReason(for: error), error: error.asNSError)
+        } catch {
+            updateStatus("FAIL: LOAD ITEM ERROR", details: [
+                "reason": error.localizedDescription
+            ])
+            presentFailure(message: "Could not import audio", reason: "File unreadable")
         }
     }
 
-    // MARK: - Staging pipeline
-
-    /// Copies the already-loaded temp file into SharedInbox, writes receipt.json,
-    /// then calls completeRequest. This is the only place completeRequest is called.
-    /// All failures call failAndHold (which calls cancelRequest) and return early.
     @MainActor
     private func stageLoadedAttachment(
         _ loaded: LoadedShareAttachment,
         extensionContext: NSExtensionContext
     ) async {
-        // The file has already been security-scoped and copied to a temp location
-        // inside loadAttachment. We record the stage for traceability.
         updateStatus("SECURITY SCOPE BEGIN", details: [
             "note": "file already copied to tmp by loadAttachment",
             "tmpPath": loaded.fileURL.path
         ])
 
-        // Resolve the SharedInbox URL.
         let store = SharedDiagnosticsLogStore(
             appGroupIdentifier: configuration.appGroupIdentifier,
             fileManager: FileManager.default,
@@ -194,13 +141,13 @@ final class ShareViewController: UIViewController {
         do {
             inboxURL = try store.inboxURL()
         } catch {
-            await failAndHold("FAIL: INBOX UNAVAILABLE", details: [
+            updateStatus("FAIL: INBOX UNAVAILABLE", details: [
                 "reason": error.localizedDescription
             ])
+            presentFailure(message: "Could not import audio", reason: "Storage unavailable")
             return
         }
 
-        // Build destination paths.
         let importID = UUID().uuidString
         let stagedFolderURL = inboxURL.appendingPathComponent(importID, isDirectory: true)
         let audioFilename = resolveAudioFilename(
@@ -211,7 +158,6 @@ final class ShareViewController: UIViewController {
         let stagedAudioURL = stagedFolderURL.appendingPathComponent(audioFilename)
         let receiptURL = stagedFolderURL.appendingPathComponent("receipt.json")
 
-        // ── COPY ─────────────────────────────────────────────────────────────
         updateStatus("COPY BEGIN", details: [
             "importID": importID,
             "sourceFilename": loaded.sourceFilename,
@@ -225,10 +171,11 @@ final class ShareViewController: UIViewController {
             )
             try FileManager.default.copyItem(at: loaded.fileURL, to: stagedAudioURL)
         } catch {
-            await failAndHold("FAIL: COPY FAILED", details: [
+            updateStatus("FAIL: COPY FAILED", details: [
                 "importID": importID,
                 "reason": error.localizedDescription
             ])
+            presentFailure(message: "Could not import audio", reason: "File unreadable")
             return
         }
 
@@ -237,7 +184,6 @@ final class ShareViewController: UIViewController {
             "byteCount": String(loaded.byteCount)
         ])
 
-        // ── MANIFEST ──────────────────────────────────────────────────────────
         updateStatus("MANIFEST WRITE BEGIN", details: ["importID": importID])
 
         do {
@@ -253,25 +199,37 @@ final class ShareViewController: UIViewController {
             let receiptData = try JSONEncoder().encode(receipt)
             try receiptData.write(to: receiptURL, options: .atomic)
         } catch {
-            await failAndHold("FAIL: MANIFEST WRITE FAILED", details: [
+            updateStatus("FAIL: MANIFEST WRITE FAILED", details: [
                 "importID": importID,
                 "reason": error.localizedDescription
             ])
+            presentFailure(message: "Could not import audio")
             return
         }
 
         updateStatus("MANIFEST WRITE SUCCESS", details: ["importID": importID])
 
-        // ── COMPLETE ──────────────────────────────────────────────────────────
-        // This is the only call to completeRequest in the entire extension.
         if let shareImportURL = configuration.makeShareImportURL(importID: importID) {
             openContainingApp(url: shareImportURL)
         } else {
             updateStatus("FAIL: OPEN APP URL INVALID", details: ["importID": importID])
         }
 
-        updateStatus("COMPLETE REQUEST", details: ["importID": importID])
-        extensionContext.completeRequest(returningItems: nil)
+        resultViewModel.state = .success
+        Task { @MainActor in
+            try? await Task.sleep(nanoseconds: 1_100_000_000)
+            extensionContext.completeRequest(returningItems: nil)
+        }
+    }
+
+    private func presentFailure(message: String, reason: String? = nil, error: NSError? = nil) {
+        pendingFailureError = error ?? diagnosticNSError(reason ?? message)
+        let renderedMessage = reason.map { "\(message)\n\($0)" } ?? message
+        resultViewModel.state = .failure(message: renderedMessage)
+    }
+
+    private func dismissAfterFailure() {
+        extensionContext?.cancelRequest(withError: pendingFailureError ?? diagnosticNSError("Could not import audio"))
     }
 
     private func openContainingApp(url: URL) {
@@ -291,7 +249,6 @@ final class ShareViewController: UIViewController {
         updateStatus("FAIL: OPEN APP FAILED", details: ["url": url.absoluteString])
     }
 
-    /// Derives a safe filename for the staged audio file.
     private func resolveAudioFilename(
         sourceFilename: String,
         sourceExtension: String,
@@ -310,8 +267,7 @@ final class ShareViewController: UIViewController {
 
         let baseName = (sourceFilename as NSString).deletingPathExtension
         let sanitized = baseName
-            .folding(options: [.diacriticInsensitive, .caseInsensitive],
-                     locale: Locale(identifier: "en_US_POSIX"))
+            .folding(options: [.diacriticInsensitive, .caseInsensitive], locale: Locale(identifier: "en_US_POSIX"))
             .replacingOccurrences(of: "[^a-zA-Z0-9]+", with: "_", options: .regularExpression)
             .trimmingCharacters(in: CharacterSet(charactersIn: "_"))
             .lowercased()
@@ -319,8 +275,6 @@ final class ShareViewController: UIViewController {
         return "\(finalStem).\(resolvedExt)"
     }
 
-    // Matches field names in the main app's SharedRecordingReceipt exactly
-    // so JSONDecoder on the other side can read it without a custom key mapping.
     private struct StagedReceiptPayload: Codable {
         let importID: String
         let sourceFilename: String
@@ -339,18 +293,8 @@ final class ShareViewController: UIViewController {
 
     @MainActor
     private func updateStatus(_ step: String, details: [String: String?] = [:]) {
-        currentStep = step
-        extraDetail = renderDetails(details)
         resolveSharedPaths()
         attemptSharedLogWrite(step: step, details: details)
-        refreshDebugView()
-    }
-
-    @MainActor
-    private func failAndHold(_ step: String, details: [String: String?] = [:]) async {
-        updateStatus(step, details: details)
-        await holdForInspection()
-        extensionContext?.cancelRequest(withError: diagnosticNSError(step))
     }
 
     @discardableResult
@@ -362,34 +306,16 @@ final class ShareViewController: UIViewController {
         )
 
         do {
-            appGroupContainerPath = try store.containerURL().path
+            _ = try store.containerURL().path
+            _ = try store.logFileURL().path
+            _ = try store.inboxURL().path
+            return true
         } catch {
-            appGroupContainerPath = "nil"
-            logFilePath = "nil"
-            inboxPath = "nil"
             return false
         }
-
-        do {
-            logFilePath = try store.logFileURL().path
-        } catch {
-            logFilePath = "nil"
-            return false
-        }
-
-        do {
-            inboxPath = try store.inboxURL().path
-        } catch {
-            inboxPath = "nil"
-        }
-
-        return true
     }
 
     private func attemptSharedLogWrite(step: String, details: [String: String?]) {
-        sharedLogWriteStatus = "ATTEMPTED"
-        refreshDebugView()
-
         let entry = SharedDiagnosticsEntry(
             timestampISO8601: ISO8601DateFormatter().string(from: Date()),
             category: "SHARE_EXT",
@@ -404,35 +330,13 @@ final class ShareViewController: UIViewController {
                 fileManager: FileManager.default,
                 allowFallbackToLocalDocuments: false
             ).append(entry)
-            sharedLogWriteStatus = "SUCCEEDED"
         } catch {
-            if error.localizedDescription.localizedCaseInsensitiveContains("app group container unavailable") {
-                sharedLogWriteStatus = "FAILED app group unavailable"
-            } else {
-                sharedLogWriteStatus = "FAILED \(error.localizedDescription)"
-            }
         }
 
         let detailLine = renderDetails(details)
         let consoleLine = detailLine.isEmpty ? "SHARE_EXT \(step)" : "SHARE_EXT \(step) | \(detailLine)"
         print(consoleLine)
         NSLog("%@", consoleLine)
-    }
-
-    private func refreshDebugView() {
-        debugLabel.text = [
-            "ENTRY CLASS: \(String(describing: type(of: self)))",
-            "STEP: \(currentStep)",
-            "LIFECYCLE: \(lastLifecycleEvent)",
-            "APP GROUP ID: \(configuration.appGroupIdentifier.isEmpty ? "nil" : configuration.appGroupIdentifier)",
-            "APP GROUP CONTAINER URL: \(appGroupContainerPath)",
-            "LOG FILE URL: \(logFilePath)",
-            "INBOX URL: \(inboxPath)",
-            "SHARED LOG WRITE: \(sharedLogWriteStatus)",
-            extraDetail.isEmpty ? nil : "DETAIL: \(extraDetail)"
-        ]
-        .compactMap { $0 }
-        .joined(separator: "\n")
     }
 
     private func renderDetails(_ details: [String: String?]) -> String {
@@ -539,12 +443,17 @@ final class ShareViewController: UIViewController {
         }
     }
 
-    @MainActor
-    private func delayForReadability() async {
-    }
-
-    @MainActor
-    private func holdForInspection() async {
+    private func userFacingReason(for error: ShareImportError) -> String {
+        switch error {
+        case .noAudioAttachmentProviderFound:
+            return "Unsupported format"
+        case .providerCouldNotLoadItem, .loadedItemWasNotFileURL:
+            return "File unreadable"
+        case .missingFileExtension:
+            return "Unsupported format"
+        default:
+            return "Please try again"
+        }
     }
 
     private func diagnosticNSError(_ description: String) -> NSError {
