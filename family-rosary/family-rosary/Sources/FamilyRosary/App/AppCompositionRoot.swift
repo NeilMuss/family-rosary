@@ -334,6 +334,7 @@ struct AppCompositionRoot {
         FinishImportViewModel(
             pendingImport: pending,
             partnerStore: makePartnerStore(),
+            partnerListProvider: makeAvailablePrayerPartners,
             finalisedStore: makeFinalisedImportedRecordingStore(),
             pendingStore: makePendingImportStore(),
             queuePosition: queuePosition,

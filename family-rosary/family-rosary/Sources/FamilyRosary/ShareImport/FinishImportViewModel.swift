@@ -29,6 +29,7 @@ final class FinishImportViewModel: ObservableObject {
     @Published var didAttemptSave = false
 
     private let partnerStore: PrayerPartnerStoring
+    private let partnerListProvider: () -> [PrayerPartner]
     private let finalisedStore: FinalisedImportedRecordingStoring
     private let pendingStore: PendingImportStoring
     private let nowProvider: () -> Date
@@ -38,6 +39,7 @@ final class FinishImportViewModel: ObservableObject {
     init(
         pendingImport: PendingImport,
         partnerStore: PrayerPartnerStoring,
+        partnerListProvider: (() -> [PrayerPartner])? = nil,
         finalisedStore: FinalisedImportedRecordingStoring,
         pendingStore: PendingImportStoring,
         queuePosition: Int = 1,
@@ -48,6 +50,7 @@ final class FinishImportViewModel: ObservableObject {
     ) {
         self.pendingImport = pendingImport
         self.partnerStore = partnerStore
+        self.partnerListProvider = partnerListProvider ?? { partnerStore.all() }
         self.finalisedStore = finalisedStore
         self.pendingStore = pendingStore
         self.queuePosition = queuePosition
@@ -55,9 +58,7 @@ final class FinishImportViewModel: ObservableObject {
         self.logger = logger
         self.nowProvider = nowProvider
         self.onDone = onDone
-        self.availablePartners = partnerStore.all().sorted {
-            $0.displayName.localizedCaseInsensitiveCompare($1.displayName) == .orderedAscending
-        }
+        self.availablePartners = Self.sortedPartners(self.partnerListProvider())
     }
 
     var availableParts: [AudioRecordingPart] {
@@ -72,35 +73,34 @@ final class FinishImportViewModel: ObservableObject {
         currentValidationMessages().isEmpty
     }
 
-    func confirmAddNewPartner() {
+    @discardableResult
+    func confirmAddNewPartner() -> PrayerPartner? {
         let trimmed = newPartnerName.trimmingCharacters(in: .whitespacesAndNewlines)
         guard trimmed.isEmpty == false else {
             validationMessages = ["Please enter a name for the new partner."]
-            return
+            return nil
         }
 
         let partner = PrayerPartner(
-            id: makeUniquePartnerID(from: trimmed, existingPartners: partnerStore.all()),
+            id: makeUniquePartnerID(from: trimmed, existingPartners: partnerListProvider()),
             displayName: trimmed
         )
         logger?.log(stage: "ADD_PARTNER_SAVE_BEGIN", event: "INFO", detail: "partner=\(trimmed)")
         partnerStore.add(partner)
-        let reloadedPartners = partnerStore.all().sorted {
-            $0.displayName.localizedCaseInsensitiveCompare($1.displayName) == .orderedAscending
-        }
+        let reloadedPartners = reloadAvailablePartners()
         guard let savedPartner = reloadedPartners.first(where: { $0.id == partner.id }) else {
             logger?.log(stage: "FINISH_IMPORT_SAVE_FAIL", event: "FAIL", detail: "error=partner_save_reload_missing id=\(partner.id)")
             validationMessages = ["The app could not save the new partner. Please try again."]
-            return
+            return nil
         }
         logger?.log(stage: "ADD_PARTNER_SAVE_SUCCESS", event: "INFO", detail: "partner=\(savedPartner.displayName)")
         logger?.log(stage: "PARTNER_STORE_RELOAD_SUCCESS", event: "INFO", detail: "count=\(reloadedPartners.count)")
-        availablePartners = reloadedPartners
         selectedPartnerID = partner.id
         partnerPickerRefreshID = UUID()
         isAddingNewPartner = false
         newPartnerName = ""
         validationMessages.removeAll(where: { $0 == "Please choose a partner." || $0 == "Please enter a name for the new partner." })
+        return savedPartner
     }
 
     func cancelAddNewPartner() {
@@ -276,6 +276,12 @@ final class FinishImportViewModel: ObservableObject {
         try fileManager.removeItem(at: backupURL)
     }
 
+    private func reloadAvailablePartners() -> [PrayerPartner] {
+        let partners = Self.sortedPartners(partnerListProvider())
+        availablePartners = partners
+        return partners
+    }
+
     private func currentValidationMessages() -> [String] {
         var messages: [String] = []
 
@@ -323,5 +329,11 @@ final class FinishImportViewModel: ObservableObject {
             suffix += 1
         }
         return "\(fallbackBase)-\(suffix)"
+    }
+
+    private static func sortedPartners(_ partners: [PrayerPartner]) -> [PrayerPartner] {
+        partners.sorted {
+            $0.displayName.localizedCaseInsensitiveCompare($1.displayName) == .orderedAscending
+        }
     }
 }

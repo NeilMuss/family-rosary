@@ -541,12 +541,10 @@ final class ShareViewController: UIViewController {
 
     @MainActor
     private func delayForReadability() async {
-        try? await Task.sleep(nanoseconds: 1_000_000_000)
     }
 
     @MainActor
     private func holdForInspection() async {
-        try? await Task.sleep(nanoseconds: 5_000_000_000)
     }
 
     private func diagnosticNSError(_ description: String) -> NSError {

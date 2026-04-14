@@ -2,6 +2,29 @@ import AVFoundation
 import Combine
 import Foundation
 
+protocol PreviewAudioPlaying: AnyObject {
+    var delegate: AVAudioPlayerDelegate? { get set }
+    var duration: TimeInterval { get }
+    var currentTime: TimeInterval { get set }
+    var isPlaying: Bool { get }
+    @discardableResult func prepareToPlay() -> Bool
+    @discardableResult func play() -> Bool
+    func pause()
+    func stop()
+}
+
+extension AVAudioPlayer: PreviewAudioPlaying {}
+
+protocol PreviewAudioPlayerBuilding {
+    func makePlayer(url: URL) throws -> any PreviewAudioPlaying
+}
+
+struct AVPreviewAudioPlayerFactory: PreviewAudioPlayerBuilding {
+    func makePlayer(url: URL) throws -> any PreviewAudioPlaying {
+        try AVAudioPlayer(contentsOf: url)
+    }
+}
+
 @MainActor
 final class AudioPlayerViewModel: NSObject, ObservableObject {
     @Published private(set) var isPlaying = false
@@ -12,13 +35,18 @@ final class AudioPlayerViewModel: NSObject, ObservableObject {
     @Published private(set) var trimEnd: TimeInterval = 0
 
     private let logger: SharedDiagnosticsLogger?
-    private var player: AVAudioPlayer?
+    private let playerFactory: PreviewAudioPlayerBuilding
+    private var player: (any PreviewAudioPlaying)?
     private var progressTimer: Timer?
     private var loadedURL: URL?
     private let trimStep: TimeInterval = 0.25
 
-    init(logger: SharedDiagnosticsLogger? = nil) {
+    init(
+        logger: SharedDiagnosticsLogger? = nil,
+        playerFactory: PreviewAudioPlayerBuilding? = nil
+    ) {
         self.logger = logger
+        self.playerFactory = playerFactory ?? AVPreviewAudioPlayerFactory()
         super.init()
     }
 
@@ -26,10 +54,11 @@ final class AudioPlayerViewModel: NSObject, ObservableObject {
         guard loadedURL != url else { return }
 
         stopPlayback()
-        logger?.log(stage: "AUDIO_PREVIEW_LOAD_BEGIN", event: "INFO", detail: url.lastPathComponent)
+        logger?.log(stage: "PREVIEW_LOAD_BEGIN", event: "INFO")
+        logger?.log(stage: "PREVIEW_SOURCE_URL", event: "INFO", detail: url.path)
 
         do {
-            let player = try AVAudioPlayer(contentsOf: url)
+            let player = try playerFactory.makePlayer(url: url)
             player.delegate = self
             player.prepareToPlay()
             self.player = player
@@ -40,10 +69,11 @@ final class AudioPlayerViewModel: NSObject, ObservableObject {
             trimEnd = player.duration
             errorMessage = nil
             logger?.log(
-                stage: "AUDIO_PREVIEW_LOAD_SUCCESS",
+                stage: "PREVIEW_DURATION",
                 event: "INFO",
                 detail: String(format: "duration=%.2f", player.duration)
             )
+            logTrimRange()
         } catch {
             player = nil
             loadedURL = nil
@@ -51,31 +81,36 @@ final class AudioPlayerViewModel: NSObject, ObservableObject {
             currentTime = 0
             trimStart = 0
             trimEnd = 0
-            errorMessage = "Unable to preview audio"
+            errorMessage = "The app could not prepare the preview for this recording."
             logger?.log(
-                stage: "AUDIO_PREVIEW_LOAD_FAIL",
+                stage: "PREVIEW_PLAY_FAILED",
                 event: "FAIL",
-                detail: error.localizedDescription
+                detail: "setup_failed=\(error.localizedDescription)"
             )
         }
     }
 
     func play() {
-        guard let player else { return }
+        logger?.log(stage: "PREVIEW_PLAY_TAP", event: "INFO")
+        guard let player else {
+            errorMessage = "The app could not prepare the preview for this recording."
+            logger?.log(stage: "PREVIEW_PLAY_FAILED", event: "FAIL", detail: "setup_failed=player_missing")
+            return
+        }
         guard player.isPlaying == false else { return }
         if player.currentTime < trimStart || player.currentTime >= trimEnd {
             player.currentTime = trimStart
         }
+        logTrimRange()
         if player.play() {
             isPlaying = true
             currentTime = player.currentTime
+            errorMessage = nil
             startProgressTimer()
-            logger?.log(
-                stage: "TRIM_PLAY_SEGMENT",
-                event: "INFO",
-                detail: String(format: "start=%.2f end=%.2f", trimStart, trimEnd)
-            )
-            logger?.log(stage: "AUDIO_PREVIEW_PLAY", event: "INFO")
+            logger?.log(stage: "PREVIEW_PLAY_STARTED", event: "INFO")
+        } else {
+            errorMessage = "The app could not start preview playback."
+            logger?.log(stage: "PREVIEW_PLAY_FAILED", event: "FAIL", detail: "play_returned_false")
         }
     }
 
@@ -119,11 +154,7 @@ final class AudioPlayerViewModel: NSObject, ObservableObject {
     private func setTrimStart(_ proposedValue: TimeInterval) {
         let clamped = min(max(0, proposedValue), max(0, trimEnd - trimStep))
         trimStart = clamped
-        logger?.log(
-            stage: "TRIM_SET_START",
-            event: "INFO",
-            detail: String(format: "value=%.2f", clamped)
-        )
+        logTrimRange()
         if currentTime < trimStart || currentTime >= trimEnd {
             stopPlayback()
         }
@@ -132,32 +163,40 @@ final class AudioPlayerViewModel: NSObject, ObservableObject {
     private func setTrimEnd(_ proposedValue: TimeInterval) {
         let clamped = max(min(duration, proposedValue), min(duration, trimStart + trimStep))
         trimEnd = clamped
-        logger?.log(
-            stage: "TRIM_SET_END",
-            event: "INFO",
-            detail: String(format: "value=%.2f", clamped)
-        )
+        logTrimRange()
         if currentTime >= trimEnd || currentTime < trimStart {
             stopPlayback()
         }
     }
 
+    private func logTrimRange() {
+        logger?.log(
+            stage: "PREVIEW_TRIM_RANGE",
+            event: "INFO",
+            detail: String(format: "start=%.2f end=%.2f", trimStart, trimEnd)
+        )
+    }
+
     private func startProgressTimer() {
         stopProgressTimer()
         progressTimer = Timer.scheduledTimer(withTimeInterval: 0.2, repeats: true) { [weak self] _ in
-            Task { @MainActor in
-                guard let self, let player = self.player else { return }
-                if player.currentTime >= self.trimEnd {
-                    player.pause()
-                    player.currentTime = self.trimStart
-                    self.stopProgressTimer()
-                    self.isPlaying = false
-                    self.currentTime = self.trimStart
-                    return
-                }
-                self.currentTime = player.currentTime
+            Task { @MainActor [weak self] in
+                self?.handleProgressTick()
             }
         }
+    }
+
+    private func handleProgressTick() {
+        guard let player else { return }
+        if player.currentTime >= trimEnd {
+            player.pause()
+            player.currentTime = trimStart
+            stopProgressTimer()
+            isPlaying = false
+            currentTime = trimStart
+            return
+        }
+        currentTime = player.currentTime
     }
 
     private func stopProgressTimer() {
@@ -181,9 +220,9 @@ extension AudioPlayerViewModel: AVAudioPlayerDelegate {
             self.stopProgressTimer()
             self.isPlaying = false
             self.currentTime = self.trimStart
-            self.errorMessage = "Unable to preview audio"
+            self.errorMessage = "The app could not continue preview playback."
             self.logger?.log(
-                stage: "AUDIO_PREVIEW_LOAD_FAIL",
+                stage: "PREVIEW_PLAY_FAILED",
                 event: "FAIL",
                 detail: error?.localizedDescription ?? "decode error"
             )

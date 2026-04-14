@@ -69,6 +69,23 @@ final class FinishImportViewModelTests: XCTestCase {
         XCTAssertNotEqual(viewModel.partnerPickerRefreshID, oldRefreshID)
     }
 
+    func testAddNewPartnerReloadsCanonicalPartnerList() throws {
+        let fixture = try Fixture.make()
+        let reloader = CanonicalPartnerReloader(base: fixture.partnerStore)
+        let viewModel = fixture.makeViewModel(
+            pendingImport: fixture.makePendingImport(id: "pending-c3", importID: "import-c3"),
+            partnerListProvider: reloader.load
+        )
+
+        viewModel.isAddingNewPartner = true
+        viewModel.newPartnerName = "Grandma"
+        let savedPartner = viewModel.confirmAddNewPartner()
+
+        XCTAssertEqual(savedPartner?.id, "grandma")
+        XCTAssertGreaterThanOrEqual(reloader.loadCount, 2)
+        XCTAssertTrue(viewModel.availablePartners.contains(PrayerPartner(id: "zz-grandma-canonical", displayName: "Grandma (Canonical)")))
+    }
+
     func testSaveMovesPendingToFinalised() throws {
         let fixture = try Fixture.make()
         let pendingImport = fixture.makePendingImport(id: "pending-d", importID: "import-d")
@@ -227,10 +244,14 @@ final class FinishImportViewModelTests: XCTestCase {
         }
 
         @MainActor
-        func makeViewModel(pendingImport: PendingImport) -> FinishImportViewModel {
+        func makeViewModel(
+            pendingImport: PendingImport,
+            partnerListProvider: (() -> [PrayerPartner])? = nil
+        ) -> FinishImportViewModel {
             FinishImportViewModel(
                 pendingImport: pendingImport,
                 partnerStore: partnerStore,
+                partnerListProvider: partnerListProvider,
                 finalisedStore: finalisedStore,
                 pendingStore: pendingStore,
                 queuePosition: 1,
@@ -240,5 +261,23 @@ final class FinishImportViewModelTests: XCTestCase {
                 onDone: doneSpy.call
             )
         }
+    }
+}
+
+private final class CanonicalPartnerReloader {
+    private let base: UserDefaultsPrayerPartnerStore
+    private(set) var loadCount = 0
+
+    init(base: UserDefaultsPrayerPartnerStore) {
+        self.base = base
+    }
+
+    func load() -> [PrayerPartner] {
+        loadCount += 1
+        var partners = base.all()
+        if partners.contains(where: { $0.id == "grandma" }) {
+            partners.append(PrayerPartner(id: "zz-grandma-canonical", displayName: "Grandma (Canonical)"))
+        }
+        return partners
     }
 }

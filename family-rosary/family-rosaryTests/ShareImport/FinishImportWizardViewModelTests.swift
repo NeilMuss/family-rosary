@@ -78,6 +78,21 @@ final class FinishImportWizardViewModelTests: XCTestCase {
         XCTAssertEqual(fixture.savedTrimEnd, 2.5)
     }
 
+    func testAddingNewPartnerPersistsAndSelectsPartnerBeforeAdvancing() throws {
+        let fixture = try Fixture.make()
+        let wizard = fixture.makeWizard()
+
+        wizard.chooseAddNewPartner()
+        wizard.updateNewPartnerName("Grandma")
+        wizard.continueTapped(trimStart: 0, trimEnd: 1)
+
+        XCTAssertEqual(wizard.currentStep, .age)
+        XCTAssertFalse(wizard.draft.isAddingNewPartner)
+        XCTAssertEqual(wizard.draft.selectedPartnerID, "grandma")
+        XCTAssertTrue(fixture.finishImportViewModel.availablePartners.contains(PrayerPartner(id: "grandma", displayName: "Grandma")))
+        XCTAssertEqual(fixture.finishImportViewModel.selectedPartnerID, "grandma")
+    }
+
     private final class SaveSpy {
         var draft: FinishImportDraft?
         var trimStart: TimeInterval?

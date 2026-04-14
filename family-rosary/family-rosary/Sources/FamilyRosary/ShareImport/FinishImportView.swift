@@ -104,7 +104,7 @@ struct FinishImportView: View {
         VStack(alignment: .leading, spacing: 16) {
             Text(viewModel.pendingImport.originalFilename)
                 .font(.title3.weight(.medium))
-            if let durationText = Self.durationFormatter.string(from: viewModel.pendingImport.durationSeconds) {
+            if let durationText = Self.durationFormatter.string(from: audioPlayerViewModel.duration), audioPlayerViewModel.duration > 0 {
                 Text("Duration: \(durationText)")
                     .font(.body)
                     .foregroundStyle(.secondary)
@@ -173,6 +173,7 @@ struct FinishImportView: View {
                 .font(.title3)
             }
         }
+        .id(viewModel.partnerPickerRefreshID)
     }
 
     private var ageStep: some View {

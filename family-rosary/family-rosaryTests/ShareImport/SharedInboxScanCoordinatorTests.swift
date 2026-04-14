@@ -69,6 +69,16 @@ final class SharedInboxScanCoordinatorTests: XCTestCase {
         XCTAssertTrue(lines.contains("APP | Launch title screen showing. | INFO"))
     }
 
+    func testAutomaticScanDoesNotRunSimulatedShare() async throws {
+        let fixture = try Fixture.make()
+        let startupRunner = StubSimulatedShareRunner()
+        let coordinator = fixture.makeCoordinator(discoveredItems: [], results: [], simulatedShareRunner: startupRunner)
+
+        coordinator.automaticScan()
+
+        XCTAssertEqual(startupRunner.runCount, 0)
+    }
+
     func testLaunchScreenTransitionLogsOnlyOncePerLaunch() async throws {
         let fixture = try Fixture.make()
         let coordinator = fixture.makeCoordinator(discoveredItems: [], results: [])

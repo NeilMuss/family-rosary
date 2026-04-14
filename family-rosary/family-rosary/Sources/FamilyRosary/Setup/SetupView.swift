@@ -70,13 +70,16 @@ struct SetupView: View {
                 .buttonStyle(.borderedProminent)
                 .padding(.horizontal, 24)
 
+                #if DEBUG
                 VStack(alignment: .leading, spacing: 12) {
-                    Text("Shared Inbox Diagnostics")
-                        .font(.system(size: 20, weight: .semibold))
-                    SharedInboxDiagnosticsView(viewModel: sharedInboxScanCoordinator)
+                    DisclosureGroup("Shared Inbox Diagnostics") {
+                        SharedInboxDiagnosticsView(viewModel: sharedInboxScanCoordinator)
+                    }
+                    .font(.system(size: 18, weight: .semibold))
                 }
                 .frame(maxWidth: .infinity, alignment: .leading)
                 .padding(.horizontal, 24)
+                #endif
 
                 Spacer(minLength: 24)
             }

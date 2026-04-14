@@ -174,6 +174,14 @@ final class FinishImportWizardViewModel: ObservableObject {
                 event: "INFO",
                 detail: "length=\(draft.newPartnerName.trimmingCharacters(in: .whitespacesAndNewlines).count)"
             )
+            finishImportViewModel.isAddingNewPartner = true
+            finishImportViewModel.newPartnerName = draft.newPartnerName
+            guard let savedPartner = finishImportViewModel.confirmAddNewPartner() else {
+                return
+            }
+            draft.isAddingNewPartner = false
+            draft.newPartnerName = ""
+            draft.selectedPartnerID = savedPartner.id
         }
 
         if currentStep == .confirm {
