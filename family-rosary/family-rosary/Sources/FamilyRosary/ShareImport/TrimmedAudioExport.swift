@@ -26,10 +26,35 @@ enum TrimmedAudioExportError: LocalizedError {
     }
 }
 
+struct TrimmedAudioFadeOutConfiguration: Equatable {
+    let durationMs: Int
+    let startTime: CMTime
+    let endTime: CMTime
+}
+
+private let trimmedAudioFadeOutDurationMs = 20
+
+func makeTrimmedAudioFadeOutConfiguration(
+    trimmedDuration: TimeInterval,
+    fadeOutDurationMs: Int = trimmedAudioFadeOutDurationMs
+) -> TrimmedAudioFadeOutConfiguration? {
+    guard trimmedDuration > 0 else { return nil }
+
+    let fadeDurationSeconds = min(trimmedDuration, Double(fadeOutDurationMs) / 1_000)
+    guard fadeDurationSeconds > 0 else { return nil }
+
+    return TrimmedAudioFadeOutConfiguration(
+        durationMs: fadeOutDurationMs,
+        startTime: CMTime(seconds: trimmedDuration - fadeDurationSeconds, preferredTimescale: 600),
+        endTime: CMTime(seconds: trimmedDuration, preferredTimescale: 600)
+    )
+}
+
 func exportTrimmedAudio(
     sourceURL: URL,
     start: TimeInterval,
-    end: TimeInterval
+    end: TimeInterval,
+    logger: SharedDiagnosticsLogger? = nil
 ) async throws -> URL {
     guard end > start else {
         throw TrimmedAudioExportError.invalidTimeRange
@@ -50,10 +75,28 @@ func exportTrimmedAudio(
 
     exportSession.outputURL = outputURL
     exportSession.outputFileType = .m4a
+    let trimmedDuration = end - start
     exportSession.timeRange = CMTimeRange(
         start: CMTime(seconds: start, preferredTimescale: 600),
-        duration: CMTime(seconds: end - start, preferredTimescale: 600)
+        duration: CMTime(seconds: trimmedDuration, preferredTimescale: 600)
     )
+
+    if let fadeOutConfiguration = makeTrimmedAudioFadeOutConfiguration(trimmedDuration: trimmedDuration),
+       let audioTrack = asset.tracks(withMediaType: .audio).first {
+        logger?.log(stage: "TRIM_FADE_OUT_BEGIN", event: "INFO")
+        logger?.log(stage: "TRIM_FADE_OUT_DURATION_MS", event: "INFO", detail: "value=\(fadeOutConfiguration.durationMs)")
+        let parameters = AVMutableAudioMixInputParameters(track: audioTrack)
+        parameters.setVolumeRamp(
+            fromStartVolume: 1,
+            toEndVolume: 0,
+            timeRange: CMTimeRange(start: fadeOutConfiguration.startTime, end: fadeOutConfiguration.endTime)
+        )
+        let audioMix = AVMutableAudioMix()
+        audioMix.inputParameters = [parameters]
+        exportSession.audioMix = audioMix
+        logger?.log(stage: "TRIM_FADE_OUT_APPLIED", event: "INFO", detail: "output=\(outputURL.lastPathComponent)")
+    }
+
     let box = ExportSessionBox(session: exportSession)
 
     try await withCheckedThrowingContinuation { continuation in

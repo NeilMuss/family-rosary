@@ -22,19 +22,23 @@ final class PrayViewModel: ObservableObject {
     private let sequencePlayer: PrayerSequencePlaying
     private let resolver: AudioFileResolving
     private let microphonePermissionClient: MicrophonePermissionClient
+    private let idleTimerController: IdleTimerControlling
     private var playTask: Task<Void, Never>?
     private var isStartingPrayer = false
+    private var isHoldingIdleTimer = false
 
     init(
         personID: String = "dad",
         sequencePlayer: PrayerSequencePlaying,
         resolver: AudioFileResolving,
-        microphonePermissionClient: MicrophonePermissionClient
+        microphonePermissionClient: MicrophonePermissionClient,
+        idleTimerController: IdleTimerControlling = ApplicationIdleTimerController()
     ) {
         self.personID = personID
         self.sequencePlayer = sequencePlayer
         self.resolver = resolver
         self.microphonePermissionClient = microphonePermissionClient
+        self.idleTimerController = idleTimerController
     }
 
     func onTapPray() {
@@ -79,6 +83,7 @@ final class PrayViewModel: ObservableObject {
     func onTapStop() {
         playTask?.cancel()
         sequencePlayer.stop()
+        restoreIdleTimerIfNeeded()
         isPraying = false
         isPreparingAudio = false
         currentPrompt = nil
@@ -102,6 +107,7 @@ final class PrayViewModel: ObservableObject {
         playTask = Task { [weak self] in
             guard let self else { return }
             defer {
+                self.restoreIdleTimerIfNeeded()
                 self.isPraying = false
                 self.isPreparingAudio = false
                 self.playTask = nil
@@ -109,6 +115,7 @@ final class PrayViewModel: ObservableObject {
 
             do {
                 self.isPraying = true
+                self.holdIdleTimer()
                 #if DEBUG
                 try await self.sequencePlayer.play(
                     steps: steps,
@@ -209,6 +216,18 @@ final class PrayViewModel: ObservableObject {
         }
 
         return steps
+    }
+
+    private func holdIdleTimer() {
+        guard !isHoldingIdleTimer else { return }
+        idleTimerController.disableIdleTimer()
+        isHoldingIdleTimer = true
+    }
+
+    private func restoreIdleTimerIfNeeded() {
+        guard isHoldingIdleTimer else { return }
+        idleTimerController.restoreIdleTimer()
+        isHoldingIdleTimer = false
     }
 
     #if DEBUG

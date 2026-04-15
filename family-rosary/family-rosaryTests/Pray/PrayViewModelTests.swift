@@ -158,6 +158,55 @@ final class PrayViewModelTests: XCTestCase {
         await Task.yield()
     }
 
+    func testOnTapPrayDisablesIdleTimerAndRestoresWhenPlaybackCompletes() async {
+        let fakeSequencePlayer = FakePrayerSequencePlayer(blockUntilReleased: true)
+        let resolver = FakeAudioFileResolver()
+        let idleTimerController = FakeIdleTimerController()
+        seedResolver(resolver)
+
+        let viewModel = PrayViewModel(
+            personID: "dad",
+            sequencePlayer: fakeSequencePlayer,
+            resolver: resolver,
+            microphonePermissionClient: AlwaysGrantedMicrophonePermissionClient(),
+            idleTimerController: idleTimerController
+        )
+
+        viewModel.onTapPray()
+        await Task.yield()
+
+        XCTAssertEqual(idleTimerController.disableCalls, 1)
+        XCTAssertEqual(idleTimerController.restoreCalls, 0)
+
+        fakeSequencePlayer.releasePlay()
+        await Task.yield()
+
+        XCTAssertEqual(idleTimerController.restoreCalls, 1)
+    }
+
+    func testOnTapStopRestoresIdleTimerDuringActivePrayerPlayback() async {
+        let fakeSequencePlayer = FakePrayerSequencePlayer(blockUntilReleased: true)
+        let resolver = FakeAudioFileResolver()
+        let idleTimerController = FakeIdleTimerController()
+        seedResolver(resolver)
+
+        let viewModel = PrayViewModel(
+            personID: "dad",
+            sequencePlayer: fakeSequencePlayer,
+            resolver: resolver,
+            microphonePermissionClient: AlwaysGrantedMicrophonePermissionClient(),
+            idleTimerController: idleTimerController
+        )
+
+        viewModel.onTapPray()
+        await Task.yield()
+        viewModel.onTapStop()
+        await Task.yield()
+
+        XCTAssertEqual(idleTimerController.disableCalls, 1)
+        XCTAssertEqual(idleTimerController.restoreCalls, 1)
+    }
+
     private func seedResolver(_ resolver: FakeAudioFileResolver) {
         resolver.stub(personID: "dad", token: "apostles_creed_lead", path: "/tmp/dad_apostles_creed_lead.m4a")
         resolver.stub(personID: "dad", token: "apostles_creed_response", path: "/tmp/dad_apostles_creed_response.m4a")
@@ -235,4 +284,18 @@ private struct AlwaysGrantedMicrophonePermissionClient: MicrophonePermissionClie
 
 private struct DeniedMicrophonePermissionClient: MicrophonePermissionClient {
     func requestAccess() async -> Bool { false }
+}
+
+@MainActor
+private final class FakeIdleTimerController: IdleTimerControlling {
+    private(set) var disableCalls = 0
+    private(set) var restoreCalls = 0
+
+    func disableIdleTimer() {
+        disableCalls += 1
+    }
+
+    func restoreIdleTimer() {
+        restoreCalls += 1
+    }
 }

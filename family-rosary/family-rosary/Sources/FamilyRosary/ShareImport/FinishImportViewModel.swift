@@ -153,7 +153,8 @@ final class FinishImportViewModel: ObservableObject {
             trimmedAudioURL = try await exportTrimmedAudio(
                 sourceURL: pendingImport.libraryFileURL,
                 start: trimStart,
-                end: trimEnd
+                end: trimEnd,
+                logger: logger
             )
             logger?.log(
                 stage: "TRIM_EXPORT_SUCCESS",
