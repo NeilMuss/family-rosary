@@ -134,8 +134,22 @@ final class FinishImportWizardViewModelTests: XCTestCase {
         XCTAssertEqual(wizard.currentStep, .age)
         XCTAssertFalse(wizard.draft.isAddingNewPartner)
         XCTAssertEqual(wizard.draft.selectedPartnerID, "grandma")
-        XCTAssertTrue(fixture.finishImportViewModel.availablePartners.contains(PrayerPartner(id: "grandma", displayName: "Grandma")))
+        XCTAssertTrue(wizard.availablePartners.contains(PrayerPartner(id: "grandma", displayName: "Grandma")))
         XCTAssertEqual(fixture.finishImportViewModel.selectedPartnerID, "grandma")
+    }
+
+    func testAddingNewPartnerRefreshesChooserListImmediately() throws {
+        let fixture = try Fixture.make()
+        let wizard = fixture.makeWizard()
+        let oldRefreshID = wizard.partnerChooserRefreshID
+
+        wizard.chooseAddNewPartner()
+        wizard.updateNewPartnerName("Ausra")
+        wizard.continueTapped(trimStart: 0, trimEnd: 1)
+
+        XCTAssertTrue(wizard.availablePartners.contains(PrayerPartner(id: "ausra", displayName: "Ausra")))
+        XCTAssertEqual(wizard.draft.selectedPartnerID, "ausra")
+        XCTAssertNotEqual(wizard.partnerChooserRefreshID, oldRefreshID)
     }
 
     private final class SaveSpy {

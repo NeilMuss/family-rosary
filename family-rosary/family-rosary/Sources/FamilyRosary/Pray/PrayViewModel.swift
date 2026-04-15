@@ -32,13 +32,13 @@ final class PrayViewModel: ObservableObject {
         sequencePlayer: PrayerSequencePlaying,
         resolver: AudioFileResolving,
         microphonePermissionClient: MicrophonePermissionClient,
-        idleTimerController: IdleTimerControlling = ApplicationIdleTimerController()
+        idleTimerController: IdleTimerControlling? = nil
     ) {
         self.personID = personID
         self.sequencePlayer = sequencePlayer
         self.resolver = resolver
         self.microphonePermissionClient = microphonePermissionClient
-        self.idleTimerController = idleTimerController
+        self.idleTimerController = idleTimerController ?? ApplicationIdleTimerController()
     }
 
     func onTapPray() {

@@ -17,15 +17,13 @@ final class ApplicationIdleTimerController: IdleTimerControlling {
     private var disableCount = 0
     private var previousIdleTimerDisabled: Bool?
 
-    init(
-        #if canImport(UIKit)
-        application: UIApplication = .shared
-        #endif
-    ) {
-        #if canImport(UIKit)
-        self.application = application
-        #endif
+    #if canImport(UIKit)
+    init() {
+        self.application = .shared
     }
+    #else
+    init() {}
+    #endif
 
     func disableIdleTimer() {
         DebugLog.shared.log("IDLE_TIMER_DISABLE_BEGIN")

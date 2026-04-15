@@ -198,7 +198,7 @@ struct FinishImportView: View {
                 .font(.title3)
             }
         }
-        .id(viewModel.partnerPickerRefreshID)
+        .id(wizardViewModel.partnerChooserRefreshID)
     }
 
     private var ageStep: some View {

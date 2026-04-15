@@ -50,10 +50,10 @@ final class FinishImportViewModelTests: XCTestCase {
         XCTAssertFalse(viewModel.isAddingNewPartner)
 
         let lines = try fixture.logStore.loadEntries().map(\.formattedLine).joined(separator: "\n")
-        XCTAssertTrue(lines.contains("APP_IMPORT | PARTNER_ADD_BEGIN | INFO | partner=Grandma"))
-        XCTAssertTrue(lines.contains("APP_IMPORT | PARTNER_ADD_SUCCESS | INFO | partner=Grandma"))
-        XCTAssertTrue(lines.contains("APP_IMPORT | PARTNER_OPTIONS_RELOAD_SUCCESS | INFO"))
-        XCTAssertTrue(lines.contains("APP_IMPORT | PARTNER_PICKER_SOURCE_UPDATED | INFO"))
+        XCTAssertTrue(lines.contains("APP_IMPORT | ADD_PARTNER_BEGIN | INFO | partner=Grandma"))
+        XCTAssertTrue(lines.contains("APP_IMPORT | ADD_PARTNER_SAVE_SUCCESS | INFO | partner=Grandma"))
+        XCTAssertTrue(lines.contains("APP_IMPORT | PARTNER_CHOOSER_RELOAD_SUCCESS | INFO"))
+        XCTAssertTrue(lines.contains("APP_IMPORT | PARTNER_CHOOSER_UPDATED | INFO"))
         XCTAssertTrue(lines.contains("APP_IMPORT | PARTNER_AUTOSELECT_SUCCESS | INFO | partnerID=grandma"))
     }
 
@@ -87,6 +87,23 @@ final class FinishImportViewModelTests: XCTestCase {
         XCTAssertGreaterThanOrEqual(reloader.loadCount, 2)
         XCTAssertTrue(viewModel.availablePartners.contains(PrayerPartner(id: "zz-grandma-canonical", displayName: "Grandma (Canonical)")))
         XCTAssertEqual(viewModel.selectedPartnerID, "grandma")
+    }
+
+    func testAddNewPartnerWritesRequestedChooserRefreshLogs() throws {
+        let fixture = try Fixture.make()
+        let viewModel = fixture.makeViewModel(pendingImport: fixture.makePendingImport(id: "pending-c4", importID: "import-c4"))
+
+        viewModel.isAddingNewPartner = true
+        viewModel.newPartnerName = "Ausra"
+        viewModel.confirmAddNewPartner()
+
+        let lines = try fixture.logStore.loadEntries().map(\.formattedLine).joined(separator: "\n")
+        XCTAssertTrue(lines.contains("APP_IMPORT | ADD_PARTNER_BEGIN | INFO | partner=Ausra"))
+        XCTAssertTrue(lines.contains("APP_IMPORT | ADD_PARTNER_SAVE_SUCCESS | INFO | partner=Ausra"))
+        XCTAssertTrue(lines.contains("APP_IMPORT | PARTNER_CHOOSER_RELOAD_BEGIN | INFO"))
+        XCTAssertTrue(lines.contains("APP_IMPORT | PARTNER_CHOOSER_RELOAD_SUCCESS | INFO"))
+        XCTAssertTrue(lines.contains("APP_IMPORT | PARTNER_CHOOSER_UPDATED | INFO"))
+        XCTAssertTrue(lines.contains("APP_IMPORT | PARTNER_AUTOSELECT_SUCCESS | INFO | partnerID=ausra"))
     }
 
     func testSaveMovesPendingToFinalised() throws {

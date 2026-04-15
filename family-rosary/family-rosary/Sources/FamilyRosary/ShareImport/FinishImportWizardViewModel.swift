@@ -41,11 +41,14 @@ final class FinishImportWizardViewModel: ObservableObject {
     @Published private(set) var currentStep: FinishImportStep = .preview
     @Published var draft: FinishImportDraft
     @Published var ageInput: String
+    @Published private(set) var availablePartners: [PrayerPartner]
+    @Published private(set) var partnerChooserRefreshID: UUID
 
     let finishImportViewModel: FinishImportViewModel
 
     private let logger: SharedDiagnosticsLogger?
     private let onSave: (_ draft: FinishImportDraft, _ trimStart: TimeInterval, _ trimEnd: TimeInterval) -> Void
+    private var cancellables: Set<AnyCancellable> = []
 
     init(
         finishImportViewModel: FinishImportViewModel,
@@ -62,6 +65,8 @@ final class FinishImportWizardViewModel: ObservableObject {
             selectedPart: finishImportViewModel.selectedPart
         )
         self.ageInput = finishImportViewModel.ageAtRecordingText
+        self.availablePartners = finishImportViewModel.availablePartners
+        self.partnerChooserRefreshID = finishImportViewModel.partnerPickerRefreshID
         self.onSave = onSave ?? { [weak finishImportViewModel] draft, trimStart, trimEnd in
             guard let finishImportViewModel else { return }
             if draft.isAddingNewPartner {
@@ -76,6 +81,7 @@ final class FinishImportWizardViewModel: ObservableObject {
             finishImportViewModel.selectedPart = draft.selectedPart
             finishImportViewModel.save(trimStart: trimStart, trimEnd: trimEnd)
         }
+        bindFinishImportViewModel()
         logStepChanged()
     }
 
@@ -144,10 +150,6 @@ final class FinishImportWizardViewModel: ObservableObject {
         case .confirm:
             return draftIsComplete ? nil : "Please complete each step before saving."
         }
-    }
-
-    var availablePartners: [PrayerPartner] {
-        finishImportViewModel.availablePartners
     }
 
     var availablePrayers: [PrayerName] {
@@ -244,6 +246,20 @@ final class FinishImportWizardViewModel: ObservableObject {
     private func autoAdvance(from step: FinishImportStep) {
         guard currentStep == step, canContinue else { return }
         continueTapped(trimStart: 0, trimEnd: finishImportViewModel.pendingImport.durationSeconds)
+    }
+
+    private func bindFinishImportViewModel() {
+        finishImportViewModel.$availablePartners
+            .sink { [weak self] partners in
+                self?.availablePartners = partners
+            }
+            .store(in: &cancellables)
+
+        finishImportViewModel.$partnerPickerRefreshID
+            .sink { [weak self] refreshID in
+                self?.partnerChooserRefreshID = refreshID
+            }
+            .store(in: &cancellables)
     }
 
     private func logStepChanged() {

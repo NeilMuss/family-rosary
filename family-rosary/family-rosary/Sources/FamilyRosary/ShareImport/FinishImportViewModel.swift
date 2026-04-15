@@ -85,18 +85,18 @@ final class FinishImportViewModel: ObservableObject {
             id: makeUniquePartnerID(from: trimmed, existingPartners: partnerListProvider()),
             displayName: trimmed
         )
-        logger?.log(stage: "PARTNER_ADD_BEGIN", event: "INFO", detail: "partner=\(trimmed)")
+        logger?.log(stage: "ADD_PARTNER_BEGIN", event: "INFO", detail: "partner=\(trimmed)")
         partnerStore.add(partner)
-        logger?.log(stage: "PARTNER_ADD_SUCCESS", event: "INFO", detail: "partner=\(trimmed)")
-        logger?.log(stage: "PARTNER_OPTIONS_RELOAD_BEGIN", event: "INFO")
+        logger?.log(stage: "ADD_PARTNER_SAVE_SUCCESS", event: "INFO", detail: "partner=\(trimmed)")
+        logger?.log(stage: "PARTNER_CHOOSER_RELOAD_BEGIN", event: "INFO")
         let reloadedPartners = reloadAvailablePartners()
         guard let savedPartner = reloadedPartners.first(where: { $0.id == partner.id }) else {
             logger?.log(stage: "FINISH_IMPORT_SAVE_FAIL", event: "FAIL", detail: "error=partner_save_reload_missing id=\(partner.id)")
             validationMessages = ["The app could not save the new partner. Please try again."]
             return nil
         }
-        logger?.log(stage: "PARTNER_OPTIONS_RELOAD_SUCCESS", event: "INFO", detail: "count=\(reloadedPartners.count)")
-        logger?.log(stage: "PARTNER_PICKER_SOURCE_UPDATED", event: "INFO", detail: "count=\(availablePartners.count)")
+        logger?.log(stage: "PARTNER_CHOOSER_RELOAD_SUCCESS", event: "INFO", detail: "count=\(reloadedPartners.count)")
+        logger?.log(stage: "PARTNER_CHOOSER_UPDATED", event: "INFO", detail: "count=\(availablePartners.count)")
         selectedPartnerID = partner.id
         partnerPickerRefreshID = UUID()
         logger?.log(stage: "PARTNER_AUTOSELECT_SUCCESS", event: "INFO", detail: "partnerID=\(partner.id)")

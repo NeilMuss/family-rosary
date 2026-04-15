@@ -61,6 +61,7 @@ func exportTrimmedAudio(
     }
 
     let asset = AVURLAsset(url: sourceURL)
+    let audioTracks = try await asset.loadTracks(withMediaType: .audio)
     guard let exportSession = AVAssetExportSession(asset: asset, presetName: AVAssetExportPresetAppleM4A) else {
         throw TrimmedAudioExportError.exportSessionUnavailable
     }
@@ -82,7 +83,7 @@ func exportTrimmedAudio(
     )
 
     if let fadeOutConfiguration = makeTrimmedAudioFadeOutConfiguration(trimmedDuration: trimmedDuration),
-       let audioTrack = asset.tracks(withMediaType: .audio).first {
+       let audioTrack = audioTracks.first {
         logger?.log(stage: "TRIM_FADE_OUT_BEGIN", event: "INFO")
         logger?.log(stage: "TRIM_FADE_OUT_DURATION_MS", event: "INFO", detail: "value=\(fadeOutConfiguration.durationMs)")
         let parameters = AVMutableAudioMixInputParameters(track: audioTrack)
