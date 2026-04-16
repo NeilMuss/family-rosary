@@ -79,6 +79,7 @@ final class FamilyRosaryFlowViewModel: ObservableObject {
         prayViewModel.interactiveCalibration = calibration
         let prayerModeViewModel = PrayerModeViewModel(
             prayViewModel: prayViewModel,
+            preferencesStore: root.makeRosaryPreferencesStore(),
             prayerMode: request.prayerMode,
             prayerStyle: request.prayerStyle,
             onEndRosary: { [weak self] in

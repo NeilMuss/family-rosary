@@ -12,10 +12,14 @@ struct RecordPrayerView: View {
             Text(viewModel.part.displayTitle)
                 .font(.title2)
                 .fontWeight(.semibold)
+                .foregroundStyle(LiturgicalTheme.textSecondary)
 
             Text(viewModel.promptText)
                 .font(.title3)
                 .multilineTextAlignment(.center)
+                .padding(.horizontal)
+                .foregroundStyle(LiturgicalTheme.textPrimary)
+                .liturgicalSurface()
                 .padding(.horizontal)
 
             if case .review = viewModel.phase {
@@ -26,20 +30,20 @@ struct RecordPrayerView: View {
                             .fontWeight(.semibold)
                             .frame(maxWidth: .infinity)
                             .frame(height: 60)
-                            .buttonStyle(.borderedProminent)
+                            .buttonStyle(LiturgicalPrimaryButtonStyle())
 
                         Button("Redo", action: viewModel.onTapRedo)
                             .font(.title3)
                             .fontWeight(.semibold)
                             .frame(maxWidth: .infinity)
                             .frame(height: 60)
-                            .buttonStyle(.bordered)
+                            .buttonStyle(LiturgicalSecondaryButtonStyle())
                     }
 
                     Button("Replay", action: viewModel.onTapReplay)
                         .font(.subheadline)
                         .frame(maxWidth: .infinity)
-                        .buttonStyle(.bordered)
+                        .buttonStyle(LiturgicalSecondaryButtonStyle())
                 }
                 .padding(.horizontal)
             } else {
@@ -50,14 +54,14 @@ struct RecordPrayerView: View {
                         .frame(maxWidth: .infinity)
                         .frame(height: 72)
                 }
-                .buttonStyle(.borderedProminent)
+                .buttonStyle(LiturgicalPrimaryButtonStyle())
                 .padding(.horizontal)
             }
 
             if let errorMessage = viewModel.errorMessage, !errorMessage.isEmpty {
                 Text(errorMessage)
                     .font(.footnote)
-                    .foregroundStyle(.secondary)
+                    .foregroundStyle(LiturgicalTheme.error)
                     .multilineTextAlignment(.center)
                     .padding(.horizontal)
             }
@@ -66,7 +70,8 @@ struct RecordPrayerView: View {
         }
         .padding(.top, 40)
         .frame(maxWidth: .infinity, maxHeight: .infinity)
-        .background(Color.white)
+        .liturgicalScreen(showsCandlePlaceholder: true)
+        .animation(.easeInOut(duration: 0.4), value: primaryButtonTitle)
     }
 
     private var primaryButtonTitle: String {

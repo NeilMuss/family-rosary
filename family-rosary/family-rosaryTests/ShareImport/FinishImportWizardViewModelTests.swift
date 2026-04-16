@@ -152,6 +152,19 @@ final class FinishImportWizardViewModelTests: XCTestCase {
         XCTAssertNotEqual(wizard.partnerChooserRefreshID, oldRefreshID)
     }
 
+    func testRefreshPartnersClearsDraftSelectionWhenCanonicalListRemovesPartner() throws {
+        let fixture = try Fixture.make(
+            partnerListProvider: { [PrayerPartner(id: "mom", displayName: "Mom")] }
+        )
+        let wizard = fixture.makeWizard()
+
+        wizard.selectExistingPartner("dad")
+        wizard.refreshPartners()
+
+        XCTAssertNil(wizard.draft.selectedPartnerID)
+        XCTAssertEqual(wizard.availablePartners.map(\.id), ["mom"])
+    }
+
     private final class SaveSpy {
         var draft: FinishImportDraft?
         var trimStart: TimeInterval?
@@ -173,7 +186,9 @@ final class FinishImportWizardViewModelTests: XCTestCase {
         var savedTrimEnd: TimeInterval? { saveSpy.trimEnd }
 
         @MainActor
-        static func make() throws -> Fixture {
+        static func make(
+            partnerListProvider: (() -> [PrayerPartner])? = nil
+        ) throws -> Fixture {
             let baseDirURL = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString, isDirectory: true)
             try FileManager.default.createDirectory(at: baseDirURL, withIntermediateDirectories: true)
             let suiteName = "FinishImportWizardViewModelTests.\(UUID().uuidString)"
@@ -197,6 +212,7 @@ final class FinishImportWizardViewModelTests: XCTestCase {
             let finishImportViewModel = FinishImportViewModel(
                 pendingImport: pendingImport,
                 partnerStore: UserDefaultsPrayerPartnerStore(userDefaults: userDefaults),
+                partnerListProvider: partnerListProvider,
                 finalisedStore: finalisedStore,
                 pendingStore: pendingStore,
                 onDone: {}

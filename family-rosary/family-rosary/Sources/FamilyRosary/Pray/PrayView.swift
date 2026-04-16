@@ -19,11 +19,15 @@ struct PrayView: View {
                     Text(prompt.title)
                         .font(.system(size: 34, weight: .bold))
                         .multilineTextAlignment(.center)
+                        .foregroundStyle(LiturgicalTheme.textPrimary)
 
                     Text(prompt.text)
                         .font(.system(size: 24, weight: .medium))
                         .multilineTextAlignment(.center)
+                        .foregroundStyle(LiturgicalTheme.textSecondary)
                 }
+                .padding(.horizontal)
+                .liturgicalSurface()
                 .padding(.horizontal)
             }
 
@@ -52,7 +56,7 @@ struct PrayView: View {
                             ForEach(Array(prayViewModel.debugLog.enumerated()), id: \.offset) { _, line in
                                 Text(line)
                                     .font(.system(.caption2, design: .monospaced))
-                                    .foregroundStyle(.secondary)
+                                    .foregroundStyle(LiturgicalTheme.textSecondary)
                                     .frame(maxWidth: .infinity, alignment: .leading)
                             }
                         }
@@ -60,13 +64,12 @@ struct PrayView: View {
                     .frame(height: 110)
                 }
                 .padding(8)
-                .background(Color.black.opacity(0.04))
-                .clipShape(RoundedRectangle(cornerRadius: 8))
+                .liturgicalSurface()
                 .padding(.horizontal)
             } else if !prayViewModel.debugText.isEmpty {
                 Text(prayViewModel.debugText)
                     .font(.caption2)
-                    .foregroundStyle(.secondary)
+                    .foregroundStyle(LiturgicalTheme.textSecondary)
                     .multilineTextAlignment(.center)
                     .padding(.horizontal)
             }
@@ -75,11 +78,12 @@ struct PrayView: View {
             Text("Family Rosary")
                 .font(.title)
                 .fontWeight(.semibold)
+                .foregroundStyle(LiturgicalTheme.textPrimary)
 
             if prayViewModel.isPreparingAudio {
                 Text("Preparing audio…")
                     .font(.subheadline)
-                    .foregroundStyle(.secondary)
+                    .foregroundStyle(LiturgicalTheme.textSecondary)
             }
 
             HStack(spacing: 12) {
@@ -90,24 +94,27 @@ struct PrayView: View {
                         .frame(maxWidth: .infinity)
                         .frame(height: 72)
                 }
-                .buttonStyle(.borderedProminent)
+                .buttonStyle(LiturgicalPrimaryButtonStyle())
 
                 Button("Import", action: importViewModel.onTapImport)
                     .font(.headline)
                     .frame(height: 72)
                     .padding(.horizontal, 12)
-                    .buttonStyle(.bordered)
+                    .buttonStyle(LiturgicalSecondaryButtonStyle())
             }
             .padding(.horizontal)
 
             Toggle("Interactive", isOn: $prayViewModel.isInteractive)
                 .padding(.horizontal)
+                .foregroundStyle(LiturgicalTheme.textSecondary)
+                .tint(LiturgicalTheme.accent)
 
             VStack(spacing: 10) {
                 TextField("Person ID", text: $importViewModel.personID)
                     .textInputAutocapitalization(.never)
                     .autocorrectionDisabled()
-                    .textFieldStyle(.roundedBorder)
+                    .textFieldStyle(.plain)
+                    .liturgicalInput()
 
                 Picker("Slot", selection: $importViewModel.selectedSlot) {
                     ForEach(ImportSlot.allCases) { slot in
@@ -115,13 +122,25 @@ struct PrayView: View {
                     }
                 }
                 .pickerStyle(.menu)
+                .frame(maxWidth: .infinity, alignment: .leading)
+                .padding(.horizontal, 14)
+                .padding(.vertical, 12)
+                .background(
+                    RoundedRectangle(cornerRadius: 14, style: .continuous)
+                        .fill(LiturgicalTheme.backgroundElevated)
+                )
+                .overlay(
+                    RoundedRectangle(cornerRadius: 14, style: .continuous)
+                        .stroke(LiturgicalTheme.surfaceBorder, lineWidth: 1)
+                )
             }
             .padding(.horizontal)
+            .foregroundStyle(LiturgicalTheme.textPrimary)
 
             if let imported = importViewModel.lastImportedFilename, !imported.isEmpty {
                 Text("Imported: \(imported)")
                     .font(.footnote)
-                    .foregroundStyle(.secondary)
+                    .foregroundStyle(LiturgicalTheme.textSecondary)
                     .multilineTextAlignment(.center)
                     .padding(.horizontal)
             }
@@ -129,7 +148,7 @@ struct PrayView: View {
             if let errorMessage = prayViewModel.errorMessage, !errorMessage.isEmpty {
                 Text(errorMessage)
                     .font(.footnote)
-                    .foregroundStyle(.secondary)
+                    .foregroundStyle(LiturgicalTheme.error)
                     .multilineTextAlignment(.center)
                     .padding(.horizontal)
             }
@@ -137,7 +156,7 @@ struct PrayView: View {
             if let errorMessage = importViewModel.errorMessage, !errorMessage.isEmpty {
                 Text(errorMessage)
                     .font(.footnote)
-                    .foregroundStyle(.secondary)
+                    .foregroundStyle(LiturgicalTheme.error)
                     .multilineTextAlignment(.center)
                     .padding(.horizontal)
             }
@@ -146,7 +165,9 @@ struct PrayView: View {
         }
         .padding(.top, 40)
         .frame(maxWidth: .infinity, maxHeight: .infinity)
-        .background(Color.white)
+        .liturgicalScreen(showsCandlePlaceholder: true)
+        .animation(.easeInOut(duration: 0.4), value: prayViewModel.currentPrompt?.title ?? "")
+        .animation(.easeInOut(duration: 0.4), value: prayViewModel.isPraying)
         .sheet(isPresented: $importViewModel.isShowingPicker) {
             DocumentPicker(
                 onPick: importViewModel.onPickedFile(url:),

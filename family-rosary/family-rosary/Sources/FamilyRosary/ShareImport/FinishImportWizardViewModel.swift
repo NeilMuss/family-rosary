@@ -221,6 +221,11 @@ final class FinishImportWizardViewModel: ObservableObject {
         draft.newPartnerName = value
     }
 
+    func refreshPartners() {
+        finishImportViewModel.refreshPartners()
+        draft.selectedPartnerID = finishImportViewModel.selectedPartnerID
+    }
+
     func updateAgeInput(_ value: String) {
         let digitsOnly = value.filter(\.isNumber)
         ageInput = digitsOnly
@@ -258,6 +263,12 @@ final class FinishImportWizardViewModel: ObservableObject {
         finishImportViewModel.$partnerPickerRefreshID
             .sink { [weak self] refreshID in
                 self?.partnerChooserRefreshID = refreshID
+            }
+            .store(in: &cancellables)
+
+        finishImportViewModel.$selectedPartnerID
+            .sink { [weak self] partnerID in
+                self?.draft.selectedPartnerID = partnerID
             }
             .store(in: &cancellables)
     }

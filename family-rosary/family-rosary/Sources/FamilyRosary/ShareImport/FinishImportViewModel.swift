@@ -111,6 +111,29 @@ final class FinishImportViewModel: ObservableObject {
         newPartnerName = ""
     }
 
+    func refreshPartners() {
+        logger?.log(stage: "PARTNER_REFRESH_TAP", event: "INFO")
+        logger?.log(stage: "PARTNER_REFRESH_BEGIN", event: "INFO")
+
+        let previousSelection = selectedPartnerID
+        let reloadedPartners = reloadAvailablePartners()
+
+        logger?.log(stage: "PARTNER_REFRESH_SUCCESS", event: "INFO", detail: "count=\(reloadedPartners.count)")
+
+        guard let previousSelection else {
+            logger?.log(stage: "PARTNER_REFRESH_SELECTION_CLEARED", event: "INFO", detail: "partnerID=nil")
+            return
+        }
+
+        if reloadedPartners.contains(where: { $0.id == previousSelection }) {
+            selectedPartnerID = previousSelection
+            logger?.log(stage: "PARTNER_REFRESH_SELECTION_RETAINED", event: "INFO", detail: "partnerID=\(previousSelection)")
+        } else {
+            selectedPartnerID = nil
+            logger?.log(stage: "PARTNER_REFRESH_SELECTION_CLEARED", event: "INFO", detail: "partnerID=\(previousSelection)")
+        }
+    }
+
     func save() {
         save(trimStart: 0, trimEnd: pendingImport.durationSeconds)
     }
@@ -283,6 +306,7 @@ final class FinishImportViewModel: ObservableObject {
     private func reloadAvailablePartners() -> [PrayerPartner] {
         let partners = Self.sortedPartners(partnerListProvider())
         availablePartners = partners
+        partnerPickerRefreshID = UUID()
         return partners
     }
 

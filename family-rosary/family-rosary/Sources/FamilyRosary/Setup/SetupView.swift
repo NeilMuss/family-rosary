@@ -12,54 +12,34 @@ struct SetupView: View {
                 Text("Family Rosary")
                     .font(.system(size: 42, weight: .bold))
                     .multilineTextAlignment(.center)
+                    .foregroundStyle(LiturgicalTheme.textPrimary)
 
-                VStack(alignment: .leading, spacing: 12) {
-                    Text("Partner")
-                        .font(.system(size: 22, weight: .semibold))
-
+                pickerSection(title: "Partner") {
                     Picker("Partner", selection: $viewModel.selectedPartnerID) {
                         ForEach(viewModel.availablePartners) { partner in
                             Text(partner.displayName)
                                 .tag(partner.id)
                         }
                     }
-                    .pickerStyle(.menu)
-                    .font(.system(size: 24, weight: .medium))
                 }
-                .frame(maxWidth: .infinity, alignment: .leading)
-                .padding(.horizontal, 24)
 
-                VStack(alignment: .leading, spacing: 12) {
-                    Text("Style")
-                        .font(.system(size: 22, weight: .semibold))
-
+                pickerSection(title: "Style") {
                     Picker("Style", selection: $viewModel.selectedStyle) {
                         ForEach(PrayerStyle.allCases) { style in
                             Text(style.displayName)
                                 .tag(style)
                         }
                     }
-                    .pickerStyle(.menu)
-                    .font(.system(size: 24, weight: .medium))
                 }
-                .frame(maxWidth: .infinity, alignment: .leading)
-                .padding(.horizontal, 24)
 
-                VStack(alignment: .leading, spacing: 12) {
-                    Text("Mode")
-                        .font(.system(size: 22, weight: .semibold))
-
+                pickerSection(title: "Mode") {
                     Picker("Mode", selection: $viewModel.selectedMode) {
                         ForEach(PrayerMode.allCases) { mode in
                             Text(mode.displayName)
                                 .tag(mode)
                         }
                     }
-                    .pickerStyle(.menu)
-                    .font(.system(size: 24, weight: .medium))
                 }
-                .frame(maxWidth: .infinity, alignment: .leading)
-                .padding(.horizontal, 24)
 
                 Button(action: viewModel.onTapPray) {
                     Text("Pray")
@@ -67,7 +47,7 @@ struct SetupView: View {
                         .frame(maxWidth: .infinity)
                         .frame(height: 78)
                 }
-                .buttonStyle(.borderedProminent)
+                .buttonStyle(LiturgicalPrimaryButtonStyle())
                 .padding(.horizontal, 24)
 
                 #if DEBUG
@@ -85,6 +65,28 @@ struct SetupView: View {
             }
             .frame(maxWidth: .infinity)
         }
-        .background(Color.white)
+        .liturgicalScreen(showsCandlePlaceholder: true)
+        .animation(.easeInOut(duration: 0.36), value: viewModel.selectedPartnerID)
+        .animation(.easeInOut(duration: 0.36), value: viewModel.selectedStyle)
+        .animation(.easeInOut(duration: 0.36), value: viewModel.selectedMode)
+    }
+
+    private func pickerSection<Content: View>(
+        title: String,
+        @ViewBuilder content: () -> Content
+    ) -> some View {
+        VStack(alignment: .leading, spacing: 12) {
+            Text(title)
+                .font(.system(size: 22, weight: .semibold))
+                .foregroundStyle(LiturgicalTheme.textSecondary)
+
+            content()
+                .pickerStyle(.menu)
+                .tint(LiturgicalTheme.textPrimary)
+                .font(.system(size: 24, weight: .medium))
+        }
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .padding(.horizontal, 24)
+        .liturgicalSurface()
     }
 }

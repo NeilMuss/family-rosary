@@ -28,16 +28,17 @@ struct AppRootView: View {
                 if let microphoneCheckViewModel = viewModel.microphoneCheckViewModel {
                     MicrophoneCheckView(viewModel: microphoneCheckViewModel)
                 } else {
-                    Color.white
+                    LiturgicalBackdrop(showsCandlePlaceholder: true)
                 }
             case .praying:
                 if let prayerModeViewModel = viewModel.prayerModeViewModel {
                     PrayerModeView(viewModel: prayerModeViewModel)
                 } else {
-                    Color.white
+                    LiturgicalBackdrop(showsCandlePlaceholder: true)
                 }
             }
         }
+        .animation(.easeInOut(duration: 0.42), value: viewModel.screen)
         .task {
             sharedInboxScanCoordinator.runStartupSequenceIfNeeded()
             await pendingImportCoordinator.importPendingSharedItemsAndRefreshPresentation()

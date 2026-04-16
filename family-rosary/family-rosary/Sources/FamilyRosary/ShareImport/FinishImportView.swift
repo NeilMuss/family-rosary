@@ -18,27 +18,30 @@ struct FinishImportView: View {
                 VStack(alignment: .leading, spacing: 8) {
                     Text("Finish Import")
                         .font(.largeTitle.weight(.semibold))
+                        .foregroundStyle(LiturgicalTheme.textPrimary)
                     Text("Step \(wizardViewModel.stepNumber) of \(wizardViewModel.totalSteps)")
                         .font(.headline)
-                        .foregroundStyle(.secondary)
+                        .foregroundStyle(LiturgicalTheme.textSecondary)
                     if viewModel.totalPendingCount > 1 {
                         Text("Pending import \(viewModel.queuePosition) of \(viewModel.totalPendingCount)")
                             .font(.subheadline)
-                            .foregroundStyle(.secondary)
+                            .foregroundStyle(LiturgicalTheme.textSecondary)
                     }
                 }
+                .liturgicalSurface()
 
                 ScrollView {
                     VStack(alignment: .leading, spacing: 20) {
                         Text(wizardViewModel.currentStep.title)
                             .font(.title2.weight(.semibold))
+                            .foregroundStyle(LiturgicalTheme.textPrimary)
 
                         stepContent
 
                         if let message = wizardViewModel.currentValidationMessage {
                             Text(message)
                                 .font(.body)
-                                .foregroundStyle(.red)
+                                .foregroundStyle(LiturgicalTheme.error)
                         }
 
                         if wizardViewModel.currentStep == .confirm,
@@ -47,12 +50,13 @@ struct FinishImportView: View {
                             VStack(alignment: .leading, spacing: 8) {
                                 ForEach(viewModel.validationMessages, id: \.self) { message in
                                     Text(message)
-                                        .foregroundStyle(.red)
+                                        .foregroundStyle(LiturgicalTheme.error)
                                 }
                             }
                         }
                     }
                     .frame(maxWidth: .infinity, alignment: .leading)
+                    .liturgicalSurface()
                 }
 
                 HStack(spacing: 16) {
@@ -60,7 +64,7 @@ struct FinishImportView: View {
                         isAgeFieldFocused = false
                         wizardViewModel.goBack()
                     }
-                    .buttonStyle(.bordered)
+                    .buttonStyle(LiturgicalSecondaryButtonStyle())
                     .disabled(wizardViewModel.canGoBack == false)
 
                     Button(wizardViewModel.continueButtonTitle) {
@@ -70,7 +74,7 @@ struct FinishImportView: View {
                             trimEnd: audioPlayerViewModel.trimEnd
                         )
                     }
-                    .buttonStyle(.borderedProminent)
+                    .buttonStyle(LiturgicalPrimaryButtonStyle())
                     .disabled(wizardViewModel.canContinue == false)
                 }
             }
@@ -90,6 +94,8 @@ struct FinishImportView: View {
                 isAgeFieldFocused = false
             }
         }
+        .liturgicalScreen(showsCandlePlaceholder: true)
+        .animation(.easeInOut(duration: 0.36), value: wizardViewModel.currentStep)
     }
 
     @ViewBuilder
@@ -114,40 +120,41 @@ struct FinishImportView: View {
         VStack(alignment: .leading, spacing: 16) {
             Text(viewModel.pendingImport.originalFilename)
                 .font(.title3.weight(.medium))
+                .foregroundStyle(LiturgicalTheme.textPrimary)
             if audioPlayerViewModel.duration > 0 {
                 let trimmedDuration = max(0, audioPlayerViewModel.trimEnd - audioPlayerViewModel.trimStart)
                 Text("Duration: \(Self.tenthsFormatter(audioPlayerViewModel.duration))")
                     .font(.body)
-                    .foregroundStyle(.secondary)
+                    .foregroundStyle(LiturgicalTheme.textSecondary)
                 Text("Selected clip: \(Self.tenthsFormatter(audioPlayerViewModel.trimStart)) - \(Self.tenthsFormatter(audioPlayerViewModel.trimEnd)) (\(Self.tenthsFormatter(trimmedDuration)))")
                     .font(.body)
-                    .foregroundStyle(.secondary)
+                    .foregroundStyle(LiturgicalTheme.textSecondary)
             }
 
             if let errorMessage = audioPlayerViewModel.errorMessage {
                 Text(errorMessage)
-                    .foregroundStyle(.red)
+                    .foregroundStyle(LiturgicalTheme.error)
             } else {
                 HStack(spacing: 16) {
                     Button(audioPlayerViewModel.isPlaying ? "Pause" : "Play") {
                         audioPlayerViewModel.togglePlay()
                     }
-                    .buttonStyle(.borderedProminent)
+                    .buttonStyle(LiturgicalPrimaryButtonStyle())
 
                     Button("Restart") {
                         audioPlayerViewModel.restart()
                     }
-                    .buttonStyle(.bordered)
+                    .buttonStyle(LiturgicalSecondaryButtonStyle())
 
                     Text("\(Self.tenthsFormatter(audioPlayerViewModel.currentTime)) / \(Self.tenthsFormatter(audioPlayerViewModel.duration))")
                         .font(.title3.monospacedDigit())
-                        .foregroundStyle(.secondary)
+                        .foregroundStyle(LiturgicalTheme.textSecondary)
                 }
 
                 if audioPlayerViewModel.didReachTrimEnd {
                     Text("Preview reached trim end.")
                         .font(.body)
-                        .foregroundStyle(.secondary)
+                        .foregroundStyle(LiturgicalTheme.textSecondary)
                 }
             }
 
@@ -170,6 +177,11 @@ struct FinishImportView: View {
 
     private var personStep: some View {
         VStack(alignment: .leading, spacing: 14) {
+            Button("Refresh Partners") {
+                wizardViewModel.refreshPartners()
+            }
+            .buttonStyle(LiturgicalSecondaryButtonStyle())
+
             ForEach(wizardViewModel.availablePartners) { partner in
                 largeChoiceButton(
                     title: partner.displayName,
@@ -194,8 +206,9 @@ struct FinishImportView: View {
                         set: { wizardViewModel.updateNewPartnerName($0) }
                     )
                 )
-                .textFieldStyle(.roundedBorder)
+                .textFieldStyle(.plain)
                 .font(.title3)
+                .liturgicalInput()
             }
         }
         .id(wizardViewModel.partnerChooserRefreshID)
@@ -205,10 +218,11 @@ struct FinishImportView: View {
         VStack(alignment: .leading, spacing: 20) {
             Text("Age at recording")
                 .font(.headline)
+                .foregroundStyle(LiturgicalTheme.textPrimary)
 
             Text("How old were they when this was recorded?")
                 .font(.body)
-                .foregroundStyle(.secondary)
+                .foregroundStyle(LiturgicalTheme.textSecondary)
 
             TextField(
                 "e.g. 7",
@@ -218,9 +232,10 @@ struct FinishImportView: View {
                 ),
                 prompt: Text("e.g. 7")
             )
-            .textFieldStyle(.roundedBorder)
+            .textFieldStyle(.plain)
             .keyboardType(.numberPad)
             .focused($isAgeFieldFocused)
+            .liturgicalInput()
         }
     }
 
@@ -269,14 +284,16 @@ struct FinishImportView: View {
         HStack {
             Text(title)
                 .font(.title3)
+                .foregroundStyle(LiturgicalTheme.textPrimary)
             Spacer()
             Button("-") { onDecrement() }
-                .buttonStyle(.bordered)
+                .buttonStyle(LiturgicalSecondaryButtonStyle())
             Text(Self.tenthsFormatter(value))
                 .font(.title3.monospacedDigit())
                 .frame(minWidth: 70)
+                .foregroundStyle(LiturgicalTheme.textSecondary)
             Button("+") { onIncrement() }
-                .buttonStyle(.borderedProminent)
+                .buttonStyle(LiturgicalPrimaryButtonStyle())
         }
     }
 
@@ -286,19 +303,18 @@ struct FinishImportView: View {
                 .font(.title3.weight(.medium))
                 .frame(maxWidth: .infinity, alignment: .leading)
                 .padding()
-                .background(isSelected ? Color.accentColor.opacity(0.18) : Color(.secondarySystemBackground))
-                .cornerRadius(12)
         }
-        .buttonStyle(.plain)
+        .buttonStyle(LiturgicalChoiceButtonStyle(isSelected: isSelected))
     }
 
     private func summaryRow(label: String, value: String) -> some View {
         VStack(alignment: .leading, spacing: 4) {
             Text(label)
                 .font(.headline)
-                .foregroundStyle(.secondary)
+                .foregroundStyle(LiturgicalTheme.textSecondary)
             Text(value)
                 .font(.title3)
+                .foregroundStyle(LiturgicalTheme.textPrimary)
         }
     }
 

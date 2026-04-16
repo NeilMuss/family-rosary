@@ -72,6 +72,7 @@ private final class InMemoryRosaryPreferencesStore: RosaryPreferencesStore {
     var lastPartnerID: String?
     var lastPrayerStyle: PrayerStyle?
     var lastPrayerMode: PrayerMode?
+    var candleBackgroundEnabled = false
 
     func loadLastPartnerID() -> String? {
         lastPartnerID
@@ -95,5 +96,13 @@ private final class InMemoryRosaryPreferencesStore: RosaryPreferencesStore {
 
     func saveLastPrayerMode(_ mode: PrayerMode) {
         lastPrayerMode = mode
+    }
+
+    func loadCandleBackgroundEnabled() -> Bool {
+        candleBackgroundEnabled
+    }
+
+    func saveCandleBackgroundEnabled(_ enabled: Bool) {
+        candleBackgroundEnabled = enabled
     }
 }

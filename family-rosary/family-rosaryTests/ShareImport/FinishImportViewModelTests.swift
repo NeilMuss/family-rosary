@@ -106,6 +106,49 @@ final class FinishImportViewModelTests: XCTestCase {
         XCTAssertTrue(lines.contains("APP_IMPORT | PARTNER_AUTOSELECT_SUCCESS | INFO | partnerID=ausra"))
     }
 
+    func testRefreshPartnersRetainsExistingSelectionWhenPartnerStillExists() throws {
+        let fixture = try Fixture.make()
+        let reloader = CanonicalPartnerReloader(base: fixture.partnerStore)
+        let viewModel = fixture.makeViewModel(
+            pendingImport: fixture.makePendingImport(id: "pending-refresh-a", importID: "import-refresh-a"),
+            partnerListProvider: reloader.load
+        )
+
+        viewModel.selectedPartnerID = "dad"
+        let oldRefreshID = viewModel.partnerPickerRefreshID
+
+        viewModel.refreshPartners()
+
+        XCTAssertGreaterThanOrEqual(reloader.loadCount, 2)
+        XCTAssertEqual(viewModel.selectedPartnerID, "dad")
+        XCTAssertNotEqual(viewModel.partnerPickerRefreshID, oldRefreshID)
+
+        let lines = try fixture.logStore.loadEntries().map(\.formattedLine).joined(separator: "\n")
+        XCTAssertTrue(lines.contains("APP_IMPORT | PARTNER_REFRESH_TAP | INFO"))
+        XCTAssertTrue(lines.contains("APP_IMPORT | PARTNER_REFRESH_BEGIN | INFO"))
+        XCTAssertTrue(lines.contains("APP_IMPORT | PARTNER_REFRESH_SUCCESS | INFO"))
+        XCTAssertTrue(lines.contains("APP_IMPORT | PARTNER_REFRESH_SELECTION_RETAINED | INFO | partnerID=dad"))
+    }
+
+    func testRefreshPartnersClearsSelectionWhenPartnerNoLongerExists() throws {
+        let fixture = try Fixture.make()
+        let reloader = RemovingPartnerReloader(base: fixture.partnerStore, removedPartnerID: "dad")
+        let viewModel = fixture.makeViewModel(
+            pendingImport: fixture.makePendingImport(id: "pending-refresh-b", importID: "import-refresh-b"),
+            partnerListProvider: reloader.load
+        )
+
+        viewModel.selectedPartnerID = "dad"
+
+        viewModel.refreshPartners()
+
+        XCTAssertNil(viewModel.selectedPartnerID)
+        XCTAssertFalse(viewModel.availablePartners.contains(where: { $0.id == "dad" }))
+
+        let lines = try fixture.logStore.loadEntries().map(\.formattedLine).joined(separator: "\n")
+        XCTAssertTrue(lines.contains("APP_IMPORT | PARTNER_REFRESH_SELECTION_CLEARED | INFO | partnerID=dad"))
+    }
+
     func testSaveMovesPendingToFinalised() throws {
         let fixture = try Fixture.make()
         let pendingImport = fixture.makePendingImport(id: "pending-d", importID: "import-d")
@@ -299,5 +342,19 @@ private final class CanonicalPartnerReloader {
             partners.append(PrayerPartner(id: "zz-grandma-canonical", displayName: "Grandma (Canonical)"))
         }
         return partners
+    }
+}
+
+private final class RemovingPartnerReloader {
+    private let base: UserDefaultsPrayerPartnerStore
+    private let removedPartnerID: String
+
+    init(base: UserDefaultsPrayerPartnerStore, removedPartnerID: String) {
+        self.base = base
+        self.removedPartnerID = removedPartnerID
+    }
+
+    func load() -> [PrayerPartner] {
+        base.all().filter { $0.id != removedPartnerID }
     }
 }

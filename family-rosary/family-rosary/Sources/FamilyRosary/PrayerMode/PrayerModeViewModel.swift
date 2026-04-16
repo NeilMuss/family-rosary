@@ -11,8 +11,10 @@ final class PrayerModeViewModel: ObservableObject {
         isPaused: false
     )
     @Published var errorMessage: String?
+    @Published var isCandleBackgroundEnabled: Bool
 
     private let prayViewModel: PrayViewModel
+    private let preferencesStore: RosaryPreferencesStore
     private let prayerMode: PrayerMode
     private let prayerStyle: PrayerStyle
     private let onEndRosary: () -> Void
@@ -24,15 +26,22 @@ final class PrayerModeViewModel: ObservableObject {
 
     init(
         prayViewModel: PrayViewModel,
+        preferencesStore: RosaryPreferencesStore,
         prayerMode: PrayerMode,
         prayerStyle: PrayerStyle,
         onEndRosary: @escaping () -> Void
     ) {
         self.prayViewModel = prayViewModel
+        self.preferencesStore = preferencesStore
         self.prayerMode = prayerMode
         self.prayerStyle = prayerStyle
         self.onEndRosary = onEndRosary
+        self.isCandleBackgroundEnabled = preferencesStore.loadCandleBackgroundEnabled()
         bind()
+    }
+
+    var shouldShowCandleBackgroundAtFullEffect: Bool {
+        displayState.isPaused == false
     }
 
     func start() {
@@ -72,6 +81,12 @@ final class PrayerModeViewModel: ObservableObject {
     func onTapEndRosary() {
         prayViewModel.onTapStop()
         onEndRosary()
+    }
+
+    func setCandleBackgroundEnabled(_ enabled: Bool) {
+        guard isCandleBackgroundEnabled != enabled else { return }
+        isCandleBackgroundEnabled = enabled
+        preferencesStore.saveCandleBackgroundEnabled(enabled)
     }
 
     var pauseButtonTitle: String {
