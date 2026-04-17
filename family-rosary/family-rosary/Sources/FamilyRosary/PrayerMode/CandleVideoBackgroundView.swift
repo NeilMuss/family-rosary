@@ -69,6 +69,10 @@ private final class PlayerView: UIView {
 
 @MainActor
 final class CandleVideoBackgroundController: ObservableObject {
+    private static let bundledVideoName = "candle_background"
+    private static let bundledVideoExtension = "mp4"
+    private static let bundledVideoSubdirectory = "Sources/FamilyRosary/VIdeo"
+
     let player: AVQueuePlayer?
 
     private let looper: AVPlayerLooper?
@@ -128,10 +132,12 @@ final class CandleVideoBackgroundController: ObservableObject {
 
     private static func videoURL(in bundle: Bundle) -> URL? {
         let directMatches = [
-            bundle.url(forResource: "Candle", withExtension: "MOV", subdirectory: "Sources/FamilyRosary/VIdeo"),
-            bundle.url(forResource: "Candle", withExtension: "mov", subdirectory: "Sources/FamilyRosary/VIdeo"),
-            bundle.url(forResource: "Candle", withExtension: "MOV"),
-            bundle.url(forResource: "Candle", withExtension: "mov")
+            bundle.url(
+                forResource: bundledVideoName,
+                withExtension: bundledVideoExtension,
+                subdirectory: bundledVideoSubdirectory
+            ),
+            bundle.url(forResource: bundledVideoName, withExtension: bundledVideoExtension)
         ]
 
         if let directMatch = directMatches.compactMap({ $0 }).first {
@@ -142,7 +148,7 @@ final class CandleVideoBackgroundController: ObservableObject {
         let enumerator = FileManager.default.enumerator(at: resourceURL, includingPropertiesForKeys: nil)
 
         while let url = enumerator?.nextObject() as? URL {
-            if url.lastPathComponent.lowercased() == "candle.mov" {
+            if url.lastPathComponent.lowercased() == "\(bundledVideoName).\(bundledVideoExtension)" {
                 return url
             }
         }
