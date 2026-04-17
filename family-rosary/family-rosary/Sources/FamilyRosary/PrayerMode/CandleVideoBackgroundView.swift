@@ -12,34 +12,50 @@ struct CandleVideoBackgroundView: View {
     @Environment(\.scenePhase) private var scenePhase
 
     var body: some View {
-        CandlePlayerContainer(player: controller.player)
-            .blur(radius: isPassiveMode ? 16 : 20)
-            .opacity(isEnabled ? targetOpacity : 0)
-            .allowsHitTesting(false)
-            .accessibilityHidden(true)
-            .onAppear {
-                controller.setEnabled(isEnabled)
-                controller.setPassiveMode(isPassiveMode)
-                controller.setSceneActive(scenePhase == .active)
+        GeometryReader { geometry in
+            ZStack(alignment: .bottomTrailing) {
+                CandlePlayerContainer(player: controller.player)
+                    .frame(
+                        width: geometry.size.width * 0.44,
+                        height: geometry.size.height * 0.62
+                    )
+                    .scaleEffect(1.75, anchor: .bottomTrailing)
+                    .offset(
+                        x: geometry.size.width * 0.12,
+                        y: geometry.size.height * 0.08
+                    )
+                    .blur(radius: isPassiveMode ? 20 : 24)
+                    .opacity(isEnabled ? targetOpacity : 0)
+                    .allowsHitTesting(false)
+                    .accessibilityHidden(true)
+                    .clipped()
             }
-            .onDisappear {
-                controller.stop()
-            }
-            .onChange(of: isEnabled) { enabled in
-                controller.setEnabled(enabled)
-            }
-            .onChange(of: isPassiveMode) { passive in
-                controller.setPassiveMode(passive)
-            }
-            .onChange(of: scenePhase) { newPhase in
-                controller.setSceneActive(newPhase == .active)
-            }
-            .animation(.easeInOut(duration: 0.5), value: isEnabled)
-            .animation(.easeInOut(duration: 0.5), value: isPassiveMode)
+            .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .bottomTrailing)
+            .clipped()
+        }
+        .onAppear {
+            controller.setEnabled(isEnabled)
+            controller.setPassiveMode(isPassiveMode)
+            controller.setSceneActive(scenePhase == .active)
+        }
+        .onDisappear {
+            controller.stop()
+        }
+        .onChange(of: isEnabled) { enabled in
+            controller.setEnabled(enabled)
+        }
+        .onChange(of: isPassiveMode) { passive in
+            controller.setPassiveMode(passive)
+        }
+        .onChange(of: scenePhase) { newPhase in
+            controller.setSceneActive(newPhase == .active)
+        }
+        .animation(.easeInOut(duration: 0.5), value: isEnabled)
+        .animation(.easeInOut(duration: 0.5), value: isPassiveMode)
     }
 
     private var targetOpacity: Double {
-        isPassiveMode ? 0.09 : 0.05
+        isPassiveMode ? 0.06 : 0.025
     }
 }
 

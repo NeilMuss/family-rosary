@@ -41,6 +41,23 @@ struct SetupView: View {
                     }
                 }
 
+                VStack(alignment: .leading, spacing: 12) {
+                    Text("Atmosphere")
+                        .font(.system(size: 22, weight: .semibold))
+                        .foregroundStyle(LiturgicalTheme.textSecondary)
+
+                    Toggle("Candle Background", isOn: Binding(
+                        get: { viewModel.isCandleBackgroundEnabled },
+                        set: { viewModel.setCandleBackgroundEnabled($0) }
+                    ))
+                    .toggleStyle(.switch)
+                    .tint(LiturgicalTheme.accent)
+                    .foregroundStyle(LiturgicalTheme.textPrimary)
+                }
+                .frame(maxWidth: .infinity, alignment: .leading)
+                .padding(.horizontal, 24)
+                .liturgicalSurface()
+
                 Button(action: viewModel.onTapPray) {
                     Text("Pray")
                         .font(.system(size: 34, weight: .bold))
@@ -69,6 +86,7 @@ struct SetupView: View {
         .animation(.easeInOut(duration: 0.36), value: viewModel.selectedPartnerID)
         .animation(.easeInOut(duration: 0.36), value: viewModel.selectedStyle)
         .animation(.easeInOut(duration: 0.36), value: viewModel.selectedMode)
+        .animation(.easeInOut(duration: 0.36), value: viewModel.isCandleBackgroundEnabled)
     }
 
     private func pickerSection<Content: View>(

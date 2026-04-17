@@ -8,6 +8,7 @@ final class SetupViewModelTests: XCTestCase {
         store.lastPartnerID = "mom"
         store.lastPrayerStyle = .alwaysRespond
         store.lastPrayerMode = .automatic
+        store.candleBackgroundEnabled = true
 
         let viewModel = SetupViewModel(
             availablePartners: [
@@ -21,6 +22,7 @@ final class SetupViewModelTests: XCTestCase {
         XCTAssertEqual(viewModel.selectedPartnerID, "mom")
         XCTAssertEqual(viewModel.selectedStyle, .alwaysRespond)
         XCTAssertEqual(viewModel.selectedMode, .automatic)
+        XCTAssertTrue(viewModel.isCandleBackgroundEnabled)
     }
 
     func test_default_mode_is_interactive_when_no_saved_value() {
@@ -56,11 +58,13 @@ final class SetupViewModelTests: XCTestCase {
         viewModel.selectedPartnerID = "mom"
         viewModel.selectedStyle = .alwaysLead
         viewModel.selectedMode = .automatic
+        viewModel.setCandleBackgroundEnabled(true)
         viewModel.onTapPray()
 
         XCTAssertEqual(store.lastPartnerID, "mom")
         XCTAssertEqual(store.lastPrayerStyle, .alwaysLead)
         XCTAssertEqual(store.lastPrayerMode, .automatic)
+        XCTAssertTrue(store.candleBackgroundEnabled)
         XCTAssertEqual(
             receivedRequest,
             StartRosaryRequest(partnerID: "mom", prayerStyle: .alwaysLead, prayerMode: .automatic)

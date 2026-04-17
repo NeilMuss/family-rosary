@@ -14,6 +14,7 @@ final class SetupViewModel: ObservableObject {
     @Published var selectedPartnerID: String
     @Published var selectedStyle: PrayerStyle
     @Published var selectedMode: PrayerMode
+    @Published var isCandleBackgroundEnabled: Bool
 
     private let preferencesStore: RosaryPreferencesStore
     private var onStartPraying: (StartRosaryRequest) -> Void
@@ -37,6 +38,7 @@ final class SetupViewModel: ObservableObject {
 
         selectedStyle = preferencesStore.loadLastPrayerStyle() ?? .alternateIStart
         selectedMode = preferencesStore.loadLastPrayerMode() ?? .interactive
+        isCandleBackgroundEnabled = preferencesStore.loadCandleBackgroundEnabled()
     }
 
     func onTapPray() {
@@ -45,6 +47,7 @@ final class SetupViewModel: ObservableObject {
         preferencesStore.saveLastPartnerID(selectedPartnerID)
         preferencesStore.saveLastPrayerStyle(selectedStyle)
         preferencesStore.saveLastPrayerMode(selectedMode)
+        preferencesStore.saveCandleBackgroundEnabled(isCandleBackgroundEnabled)
 
         onStartPraying(
             StartRosaryRequest(
@@ -57,5 +60,11 @@ final class SetupViewModel: ObservableObject {
 
     func setOnStartPraying(_ onStartPraying: @escaping (StartRosaryRequest) -> Void) {
         self.onStartPraying = onStartPraying
+    }
+
+    func setCandleBackgroundEnabled(_ enabled: Bool) {
+        guard isCandleBackgroundEnabled != enabled else { return }
+        isCandleBackgroundEnabled = enabled
+        preferencesStore.saveCandleBackgroundEnabled(enabled)
     }
 }

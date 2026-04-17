@@ -12,15 +12,6 @@ struct PrayerModeView: View {
 
             VStack(spacing: 20) {
                 HStack(alignment: .center, spacing: 12) {
-                    Toggle("Candle Background", isOn: Binding(
-                        get: { viewModel.isCandleBackgroundEnabled },
-                        set: { viewModel.setCandleBackgroundEnabled($0) }
-                    ))
-                    .toggleStyle(.switch)
-                    .tint(LiturgicalTheme.accent)
-                    .font(.system(size: 15, weight: .medium))
-                    .foregroundStyle(LiturgicalTheme.textSecondary)
-
                     Spacer()
 
                     Button("End Rosary", action: viewModel.onTapEndRosary)
@@ -91,6 +82,5 @@ struct PrayerModeView: View {
         .animation(.easeInOut(duration: 0.42), value: viewModel.displayState.sectionTitle)
         .animation(.easeInOut(duration: 0.42), value: viewModel.displayState.prayerTitle)
         .animation(.easeInOut(duration: 0.42), value: viewModel.pauseButtonTitle)
-        .animation(.easeInOut(duration: 0.42), value: viewModel.isCandleBackgroundEnabled)
     }
 }
