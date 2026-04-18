@@ -101,7 +101,9 @@ final class CandleVideoBackgroundController: ObservableObject {
 
     init(bundle: Bundle = .main) {
         let mp4URLs = Self.allMP4URLs(in: bundle)
-        print("CANDLE_DEBUG | bundleMP4s | urls=\(mp4URLs.map(\\.absoluteString).joined(separator: ","))")
+        for url in mp4URLs {
+            print("CANDLE_DEBUG | bundleMP4:", url.absoluteString)
+        }
         let directURL = bundle.url(
             forResource: Self.bundledVideoName,
             withExtension: Self.bundledVideoExtension
