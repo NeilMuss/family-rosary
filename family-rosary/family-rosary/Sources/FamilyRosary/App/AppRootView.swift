@@ -19,6 +19,12 @@ struct AppRootView: View {
     var body: some View {
         Group {
             switch viewModel.screen {
+            case .onboarding:
+                OnboardingView {
+                    viewModel.completeOnboarding()
+                } onSkip: {
+                    viewModel.dismissOnboarding()
+                }
             case .setup:
                 SetupView(
                     viewModel: viewModel.setupViewModel,
@@ -46,6 +52,8 @@ struct AppRootView: View {
         }
         .onChange(of: viewModel.screen) { newValue in
             switch newValue {
+            case .onboarding:
+                break
             case .setup:
                 break
             case .microphoneCheck:

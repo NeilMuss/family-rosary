@@ -13,25 +13,23 @@ struct CandleVideoBackgroundView: View {
 
     var body: some View {
         GeometryReader { geometry in
-            ZStack(alignment: .bottomTrailing) {
+            ZStack {
                 CandlePlayerContainer(player: controller.player)
                     .frame(
-                        width: geometry.size.width * 0.44,
-                        height: geometry.size.height * 0.62
+                        width: geometry.size.width,
+                        height: geometry.size.height
                     )
-                    .scaleEffect(1.75, anchor: .bottomTrailing)
-                    .offset(
-                        x: geometry.size.width * 0.12,
-                        y: geometry.size.height * 0.08
-                    )
-                    .blur(radius: isPassiveMode ? 20 : 24)
+                    .blur(radius: 0)
                     .opacity(isEnabled ? targetOpacity : 0)
                     .allowsHitTesting(false)
                     .accessibilityHidden(true)
                     .clipped()
             }
-            .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .bottomTrailing)
+            .frame(maxWidth: .infinity, maxHeight: .infinity)
             .clipped()
+            .onAppear {
+                print("CANDLE_DEBUG | geometry | size=\(geometry.size.width)x\(geometry.size.height)")
+            }
         }
         .onAppear {
             controller.setEnabled(isEnabled)
@@ -55,7 +53,7 @@ struct CandleVideoBackgroundView: View {
     }
 
     private var targetOpacity: Double {
-        isPassiveMode ? 0.06 : 0.025
+        isPassiveMode ? 0.8 : 0.4
     }
 }
 
@@ -66,11 +64,15 @@ private struct CandlePlayerContainer: UIViewRepresentable {
         let view = PlayerView()
         view.playerLayer.videoGravity = .resizeAspectFill
         view.playerLayer.player = player
+        print("CANDLE_DEBUG | makeUIView | playerAssigned=\(player != nil)")
         return view
     }
 
     func updateUIView(_ uiView: PlayerView, context: Context) {
         uiView.playerLayer.player = player
+        print(
+            "CANDLE_DEBUG | updateUIView | bounds=\(uiView.bounds.width)x\(uiView.bounds.height) attached=\(uiView.window != nil) layerBounds=\(uiView.playerLayer.bounds.width)x\(uiView.playerLayer.bounds.height)"
+        )
     }
 }
 
@@ -98,12 +100,22 @@ final class CandleVideoBackgroundController: ObservableObject {
     private var isPassiveMode = true
 
     init(bundle: Bundle = .main) {
+        let mp4URLs = Self.allMP4URLs(in: bundle)
+        print("CANDLE_DEBUG | bundleMP4s | urls=\(mp4URLs.map(\\.absoluteString).joined(separator: ","))")
+        let directURL = bundle.url(
+            forResource: Self.bundledVideoName,
+            withExtension: Self.bundledVideoExtension
+        )
+        print("CANDLE_DEBUG | directLookup | url=\(directURL?.absoluteString ?? "nil")")
+
         guard let url = Self.videoURL(in: bundle) else {
+            print("CANDLE_DEBUG | resolvedURL | nil")
             player = nil
             looper = nil
             return
         }
 
+        print("CANDLE_DEBUG | resolvedURL | url=\(url.absoluteString)")
         let asset = AVAsset(url: url)
         let item = AVPlayerItem(asset: asset)
         let queuePlayer = AVQueuePlayer()
@@ -113,6 +125,8 @@ final class CandleVideoBackgroundController: ObservableObject {
         queuePlayer.automaticallyWaitsToMinimizeStalling = true
         player = queuePlayer
         looper = AVPlayerLooper(player: queuePlayer, templateItem: item)
+        print("CANDLE_DEBUG | playerCreated | success=\(player != nil)")
+        print("CANDLE_DEBUG | looperCreated | success=\(looper != nil)")
     }
 
     func setEnabled(_ enabled: Bool) {
@@ -141,10 +155,26 @@ final class CandleVideoBackgroundController: ObservableObject {
         if isEnabled && isSceneActive && isPassiveMode {
             if player.timeControlStatus != .playing {
                 player.play()
+                print("CANDLE_DEBUG | playCalled | rate=\(player.rate)")
             }
         } else {
             player.pause()
+            print("CANDLE_DEBUG | pauseCalled | enabled=\(isEnabled) scene=\(isSceneActive) passive=\(isPassiveMode)")
         }
+    }
+
+    private static func allMP4URLs(in bundle: Bundle) -> [URL] {
+        let resourceURL = bundle.resourceURL ?? bundle.bundleURL
+        let enumerator = FileManager.default.enumerator(at: resourceURL, includingPropertiesForKeys: nil)
+        var urls: [URL] = []
+
+        while let url = enumerator?.nextObject() as? URL {
+            if url.pathExtension.lowercased() == "mp4" {
+                urls.append(url)
+            }
+        }
+
+        return urls
     }
 
     private static func videoURL(in bundle: Bundle) -> URL? {

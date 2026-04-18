@@ -9,6 +9,8 @@ protocol RosaryPreferencesStore {
     func saveLastPrayerMode(_ mode: PrayerMode)
     func loadCandleBackgroundEnabled() -> Bool
     func saveCandleBackgroundEnabled(_ enabled: Bool)
+    func loadHasSeenOnboarding() -> Bool
+    func saveHasSeenOnboarding(_ hasSeen: Bool)
 }
 
 struct UserDefaultsRosaryPreferencesStore: RosaryPreferencesStore {
@@ -17,6 +19,7 @@ struct UserDefaultsRosaryPreferencesStore: RosaryPreferencesStore {
         static let lastPrayerStyle = "rosary.lastPrayerStyle"
         static let lastPrayerMode = "rosary.lastPrayerMode"
         static let candleBackgroundEnabled = "rosary.candleBackgroundEnabled"
+        static let hasSeenOnboarding = "rosary.hasSeenOnboarding"
     }
 
     private let userDefaults: UserDefaults
@@ -61,5 +64,13 @@ struct UserDefaultsRosaryPreferencesStore: RosaryPreferencesStore {
 
     func saveCandleBackgroundEnabled(_ enabled: Bool) {
         userDefaults.set(enabled, forKey: Keys.candleBackgroundEnabled)
+    }
+
+    func loadHasSeenOnboarding() -> Bool {
+        userDefaults.bool(forKey: Keys.hasSeenOnboarding)
+    }
+
+    func saveHasSeenOnboarding(_ hasSeen: Bool) {
+        userDefaults.set(hasSeen, forKey: Keys.hasSeenOnboarding)
     }
 }

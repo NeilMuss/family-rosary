@@ -4,9 +4,15 @@ import Combine
 @MainActor
 final class FamilyRosaryFlowViewModel: ObservableObject {
     enum Screen {
+        case onboarding
         case setup
         case microphoneCheck
         case praying
+    }
+
+    private enum OnboardingPresentation {
+        case automaticFirstLaunch
+        case manualRerun
     }
 
     @Published private(set) var screen: Screen = .setup
@@ -16,19 +22,32 @@ final class FamilyRosaryFlowViewModel: ObservableObject {
     let setupViewModel: SetupViewModel
 
     private let root: AppCompositionRoot
+    private let preferencesStore: RosaryPreferencesStore
     private var pendingStartRequest: StartRosaryRequest?
     private var pendingCalibration: InteractiveCalibration?
+    private var onboardingPresentation: OnboardingPresentation?
 
     init(root: AppCompositionRoot) {
         self.root = root
+        self.preferencesStore = root.makeRosaryPreferencesStore()
 
         self.setupViewModel = SetupViewModel(
             availablePartners: root.makeAvailablePrayerPartners(),
-            preferencesStore: root.makeRosaryPreferencesStore(),
+            preferencesStore: preferencesStore,
             onStartPraying: { _ in }
         )
         self.setupViewModel.setOnStartPraying { [weak self] request in
             self?.onStartRequested(request: request)
+        }
+        self.setupViewModel.setOnShowOnboarding { [weak self] in
+            self?.showOnboarding()
+        }
+
+        if preferencesStore.loadHasSeenOnboarding() {
+            screen = .setup
+        } else {
+            onboardingPresentation = .automaticFirstLaunch
+            screen = .onboarding
         }
     }
 
@@ -95,5 +114,24 @@ final class FamilyRosaryFlowViewModel: ObservableObject {
 
     private func endRosarySession() {
         backToSetup()
+    }
+
+    func completeOnboarding() {
+        preferencesStore.saveHasSeenOnboarding(true)
+        onboardingPresentation = nil
+        screen = .setup
+    }
+
+    func showOnboarding() {
+        onboardingPresentation = .manualRerun
+        screen = .onboarding
+    }
+
+    func dismissOnboarding() {
+        if onboardingPresentation == .automaticFirstLaunch {
+            preferencesStore.saveHasSeenOnboarding(true)
+        }
+        onboardingPresentation = nil
+        screen = .setup
     }
 }

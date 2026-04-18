@@ -18,15 +18,18 @@ final class SetupViewModel: ObservableObject {
 
     private let preferencesStore: RosaryPreferencesStore
     private var onStartPraying: (StartRosaryRequest) -> Void
+    private var onShowOnboarding: () -> Void
 
     init(
         availablePartners: [PrayerPartner],
         preferencesStore: RosaryPreferencesStore,
-        onStartPraying: @escaping (StartRosaryRequest) -> Void
+        onStartPraying: @escaping (StartRosaryRequest) -> Void,
+        onShowOnboarding: @escaping () -> Void = {}
     ) {
         self.availablePartners = availablePartners
         self.preferencesStore = preferencesStore
         self.onStartPraying = onStartPraying
+        self.onShowOnboarding = onShowOnboarding
 
         let fallbackPartnerID = availablePartners.first?.id ?? ""
         if let savedPartnerID = preferencesStore.loadLastPartnerID(),
@@ -60,6 +63,14 @@ final class SetupViewModel: ObservableObject {
 
     func setOnStartPraying(_ onStartPraying: @escaping (StartRosaryRequest) -> Void) {
         self.onStartPraying = onStartPraying
+    }
+
+    func setOnShowOnboarding(_ onShowOnboarding: @escaping () -> Void) {
+        self.onShowOnboarding = onShowOnboarding
+    }
+
+    func showOnboarding() {
+        onShowOnboarding()
     }
 
     func setCandleBackgroundEnabled(_ enabled: Bool) {

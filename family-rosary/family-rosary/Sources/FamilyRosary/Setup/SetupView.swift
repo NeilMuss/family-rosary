@@ -1,110 +1,205 @@
 import SwiftUI
 
 struct SetupView: View {
+    private enum ActiveSelector: String, Identifiable {
+        case partner
+        case style
+        case mode
+
+        var id: String { rawValue }
+    }
+
     @ObservedObject var viewModel: SetupViewModel
     @ObservedObject var sharedInboxScanCoordinator: SharedInboxScanCoordinator
+    @State private var activeSelector: ActiveSelector?
 
     var body: some View {
-        ScrollView {
-            VStack(spacing: 28) {
-                Spacer(minLength: 24)
+        VStack(spacing: 0) {
+            Spacer(minLength: 24)
 
-                Text("Family Rosary")
-                    .font(.system(size: 42, weight: .bold))
-                    .multilineTextAlignment(.center)
-                    .foregroundStyle(LiturgicalTheme.textPrimary)
+            Text("Family Rosary")
+                .font(.system(size: 42, weight: .bold))
+                .multilineTextAlignment(.center)
+                .foregroundStyle(LiturgicalTheme.textPrimary)
+                .padding(.horizontal, 24)
+            .padding(.bottom, 20)
 
-                pickerSection(title: "Partner") {
-                    Picker("Partner", selection: $viewModel.selectedPartnerID) {
-                        ForEach(viewModel.availablePartners) { partner in
-                            Text(partner.displayName)
-                                .tag(partner.id)
-                        }
-                    }
+            VStack(spacing: 0) {
+                selectionRow(title: "Partner", value: selectedPartnerName) {
+                    activeSelector = .partner
                 }
 
-                pickerSection(title: "Style") {
-                    Picker("Style", selection: $viewModel.selectedStyle) {
-                        ForEach(PrayerStyle.allCases) { style in
-                            Text(style.displayName)
-                                .tag(style)
-                        }
-                    }
+                rowDivider
+
+                selectionRow(title: "Style", value: viewModel.selectedStyle.displayName) {
+                    activeSelector = .style
                 }
 
-                pickerSection(title: "Mode") {
-                    Picker("Mode", selection: $viewModel.selectedMode) {
-                        ForEach(PrayerMode.allCases) { mode in
-                            Text(mode.displayName)
-                                .tag(mode)
-                        }
-                    }
+                rowDivider
+
+                selectionRow(title: "Mode", value: viewModel.selectedMode.displayName) {
+                    activeSelector = .mode
                 }
 
-                VStack(alignment: .leading, spacing: 12) {
-                    Text("Atmosphere")
-                        .font(.system(size: 22, weight: .semibold))
+                rowDivider
+
+                HStack(spacing: 16) {
+                    Text("Candle Background")
+                        .font(.system(size: 16, weight: .medium))
                         .foregroundStyle(LiturgicalTheme.textSecondary)
+
+                    Spacer()
 
                     Toggle("Candle Background", isOn: Binding(
                         get: { viewModel.isCandleBackgroundEnabled },
                         set: { viewModel.setCandleBackgroundEnabled($0) }
                     ))
+                    .labelsHidden()
                     .toggleStyle(.switch)
                     .tint(LiturgicalTheme.accent)
-                    .foregroundStyle(LiturgicalTheme.textPrimary)
                 }
-                .frame(maxWidth: .infinity, alignment: .leading)
-                .padding(.horizontal, 24)
-                .liturgicalSurface()
-
-                Button(action: viewModel.onTapPray) {
-                    Text("Pray")
-                        .font(.system(size: 34, weight: .bold))
-                        .frame(maxWidth: .infinity)
-                        .frame(height: 78)
-                }
-                .buttonStyle(LiturgicalPrimaryButtonStyle())
+                .frame(height: 52)
                 .padding(.horizontal, 24)
 
-                #if DEBUG
-                VStack(alignment: .leading, spacing: 12) {
-                    DisclosureGroup("Shared Inbox Diagnostics") {
-                        SharedInboxDiagnosticsView(viewModel: sharedInboxScanCoordinator)
-                    }
-                    .font(.system(size: 18, weight: .semibold))
-                }
-                .frame(maxWidth: .infinity, alignment: .leading)
-                .padding(.horizontal, 24)
-                #endif
+                rowDivider
 
-                Spacer(minLength: 24)
+                Button("Show Share Guide") {
+                    viewModel.showOnboarding()
+                }
+                .font(.system(size: 16, weight: .medium))
+                .buttonStyle(.plain)
+                .foregroundStyle(LiturgicalTheme.textPrimary)
+                .frame(maxWidth: .infinity, minHeight: 52, alignment: .leading)
+                .padding(.horizontal, 24)
             }
-            .frame(maxWidth: .infinity)
+            .background(LiturgicalTheme.backgroundElevated.opacity(0.55))
+            .clipShape(RoundedRectangle(cornerRadius: 18, style: .continuous))
+            .overlay(
+                RoundedRectangle(cornerRadius: 18, style: .continuous)
+                    .stroke(LiturgicalTheme.surfaceBorder, lineWidth: 1)
+            )
+            .padding(.horizontal, 24)
+
+            Spacer(minLength: 20)
+
+            Button(action: viewModel.onTapPray) {
+                Text("Pray")
+                    .font(.system(size: 34, weight: .bold))
+                    .frame(maxWidth: .infinity)
+                    .frame(height: 78)
+            }
+            .buttonStyle(LiturgicalPrimaryButtonStyle())
+            .padding(.horizontal, 24)
+            .padding(.bottom, 24)
+
+            #if DEBUG
+            DisclosureGroup("Shared Inbox Diagnostics") {
+                SharedInboxDiagnosticsView(viewModel: sharedInboxScanCoordinator)
+            }
+            .font(.system(size: 18, weight: .semibold))
+            .foregroundStyle(LiturgicalTheme.textSecondary)
+            .padding(.horizontal, 24)
+            .padding(.bottom, 16)
+            #endif
         }
+        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
         .liturgicalScreen(showsCandlePlaceholder: true)
         .animation(.easeInOut(duration: 0.36), value: viewModel.selectedPartnerID)
         .animation(.easeInOut(duration: 0.36), value: viewModel.selectedStyle)
         .animation(.easeInOut(duration: 0.36), value: viewModel.selectedMode)
         .animation(.easeInOut(duration: 0.36), value: viewModel.isCandleBackgroundEnabled)
+        .confirmationDialog(
+            dialogTitle,
+            isPresented: Binding(
+                get: { activeSelector != nil },
+                set: { if $0 == false { activeSelector = nil } }
+            ),
+            titleVisibility: .visible
+        ) {
+            switch activeSelector {
+            case .partner:
+                ForEach(viewModel.availablePartners) { partner in
+                    Button(partner.displayName) {
+                        viewModel.selectedPartnerID = partner.id
+                        activeSelector = nil
+                    }
+                }
+            case .style:
+                ForEach(PrayerStyle.allCases) { style in
+                    Button(style.displayName) {
+                        viewModel.selectedStyle = style
+                        activeSelector = nil
+                    }
+                }
+            case .mode:
+                ForEach(PrayerMode.allCases) { mode in
+                    Button(mode.displayName) {
+                        viewModel.selectedMode = mode
+                        activeSelector = nil
+                    }
+                }
+            case .none:
+                EmptyView()
+            }
+            Button("Cancel", role: .cancel) {}
+        }
     }
 
-    private func pickerSection<Content: View>(
-        title: String,
-        @ViewBuilder content: () -> Content
-    ) -> some View {
-        VStack(alignment: .leading, spacing: 12) {
-            Text(title)
-                .font(.system(size: 22, weight: .semibold))
-                .foregroundStyle(LiturgicalTheme.textSecondary)
+    private var selectedPartnerName: String {
+        viewModel.availablePartners.first(where: { $0.id == viewModel.selectedPartnerID })?.displayName ?? "Choose"
+    }
 
-            content()
-                .pickerStyle(.menu)
-                .tint(LiturgicalTheme.textPrimary)
-                .font(.system(size: 24, weight: .medium))
+    private var rowDivider: some View {
+        Rectangle()
+            .fill(LiturgicalTheme.surfaceBorder)
+            .frame(height: 1)
+            .padding(.leading, 24)
+    }
+
+    private var dialogTitle: String {
+        switch activeSelector {
+        case .partner:
+            return "Choose Partner"
+        case .style:
+            return "Choose Style"
+        case .mode:
+            return "Choose Mode"
+        case .none:
+            return ""
         }
-        .frame(maxWidth: .infinity, alignment: .leading)
-        .padding(.horizontal, 24)
-        .liturgicalSurface()
+    }
+
+    private func selectionRow(
+        title: String,
+        value: String,
+        action: @escaping () -> Void
+    ) -> some View {
+        Button(action: action) {
+            HStack(spacing: 16) {
+                Text(title)
+                    .font(.system(size: 16, weight: .medium))
+                    .foregroundStyle(LiturgicalTheme.textSecondary)
+
+                Spacer(minLength: 12)
+
+                HStack(spacing: 6) {
+                    Spacer(minLength: 0)
+                    
+                    Text(value)
+                        .font(.system(size: 17, weight: .medium))
+                        .foregroundStyle(LiturgicalTheme.textPrimary)
+                        .lineLimit(1)
+                        .truncationMode(.tail)
+                        .multilineTextAlignment(.trailing)
+                    Image(systemName: "chevron.right")
+                        .font(.system(size: 12, weight: .semibold))
+                        .foregroundStyle(LiturgicalTheme.textSecondary)
+                }
+                .frame(maxWidth: .infinity, alignment: .trailing)
+            }
+            .frame(height: 52)
+            .padding(.horizontal, 24)
+        }
+        .buttonStyle(.plain)
     }
 }

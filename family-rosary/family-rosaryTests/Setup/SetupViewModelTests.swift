@@ -70,6 +70,26 @@ final class SetupViewModelTests: XCTestCase {
             StartRosaryRequest(partnerID: "mom", prayerStyle: .alwaysLead, prayerMode: .automatic)
         )
     }
+
+    func testShowOnboardingUsesConfiguredCallback() {
+        let store = InMemoryRosaryPreferencesStore()
+        var didShow = false
+
+        let viewModel = SetupViewModel(
+            availablePartners: [
+                PrayerPartner(id: "dad", displayName: "Dad")
+            ],
+            preferencesStore: store,
+            onStartPraying: { _ in },
+            onShowOnboarding: {
+                didShow = true
+            }
+        )
+
+        viewModel.showOnboarding()
+
+        XCTAssertTrue(didShow)
+    }
 }
 
 private final class InMemoryRosaryPreferencesStore: RosaryPreferencesStore {
@@ -77,6 +97,7 @@ private final class InMemoryRosaryPreferencesStore: RosaryPreferencesStore {
     var lastPrayerStyle: PrayerStyle?
     var lastPrayerMode: PrayerMode?
     var candleBackgroundEnabled = false
+    var hasSeenOnboarding = false
 
     func loadLastPartnerID() -> String? {
         lastPartnerID
@@ -108,5 +129,13 @@ private final class InMemoryRosaryPreferencesStore: RosaryPreferencesStore {
 
     func saveCandleBackgroundEnabled(_ enabled: Bool) {
         candleBackgroundEnabled = enabled
+    }
+
+    func loadHasSeenOnboarding() -> Bool {
+        hasSeenOnboarding
+    }
+
+    func saveHasSeenOnboarding(_ hasSeen: Bool) {
+        hasSeenOnboarding = hasSeen
     }
 }
