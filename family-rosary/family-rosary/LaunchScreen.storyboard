@@ -16,18 +16,39 @@
                         <rect key="frame" x="0.0" y="0.0" width="393" height="852"/>
                         <autoresizingMask key="autoresizingMask" widthSizable="YES" heightSizable="YES"/>
                         <subviews>
+                            <view alpha="0.080000000000000002" contentMode="scaleToFill" translatesAutoresizingMaskIntoConstraints="NO" id="1gL-lN-jjq">
+                                <rect key="frame" x="111" y="169" width="171" height="171"/>
+                                <color key="backgroundColor" red="0.83137254900000005" green="0.68627450980000003" blue="0.21568627450000001" alpha="1" colorSpace="custom" customColorSpace="sRGB"/>
+                                <constraints>
+                                    <constraint firstAttribute="width" constant="171" id="ehj-6d-96U"/>
+                                    <constraint firstAttribute="height" constant="171" id="nMa-3Y-7aI"/>
+                                </constraints>
+                            </view>
+                            <view alpha="0.14999999999999999" contentMode="scaleToFill" translatesAutoresizingMaskIntoConstraints="NO" id="hU9-2V-ei7">
+                                <rect key="frame" x="176" y="247" width="42" height="42"/>
+                                <color key="backgroundColor" red="0.83137254900000005" green="0.68627450980000003" blue="0.21568627450000001" alpha="1" colorSpace="custom" customColorSpace="sRGB"/>
+                                <constraints>
+                                    <constraint firstAttribute="width" constant="42" id="0vb-pI-Y4o"/>
+                                    <constraint firstAttribute="height" constant="42" id="OMI-XN-1y0"/>
+                                </constraints>
+                            </view>
                             <label opaque="NO" userInteractionEnabled="NO" contentMode="left" horizontalHuggingPriority="251" verticalHuggingPriority="251" text="Family Rosary" textAlignment="center" lineBreakMode="tailTruncation" baselineAdjustment="alignBaselines" adjustsFontSizeToFit="NO" translatesAutoresizingMaskIntoConstraints="NO" id="3Rc-zV-yFQ">
-                                <rect key="frame" x="111.66666666666667" y="406" width="170" height="40"/>
-                                <fontDescription key="fontDescription" type="boldSystem" pointSize="28"/>
-                                <color key="textColor" red="0.13333333333333333" green="0.17647058823529413" blue="0.25098039215686274" alpha="1" colorSpace="custom" customColorSpace="sRGB"/>
+                                <rect key="frame" x="96.666666666666671" y="394.66666666666669" width="200" height="42"/>
+                                <fontDescription key="fontDescription" type="boldSystem" pointSize="30"/>
+                                <color key="textColor" red="0.94901960780000004" green="0.94901960780000004" blue="0.94901960780000004" alpha="1" colorSpace="custom" customColorSpace="sRGB"/>
                                 <nil key="highlightedColor"/>
                             </label>
                         </subviews>
                         <viewLayoutGuide key="safeArea" id="Bcu-3y-fUS"/>
-                        <color key="backgroundColor" red="0.96078431372549022" green="0.95686274509803926" blue="0.93725490196078431" alpha="1" colorSpace="custom" customColorSpace="sRGB"/>
+                        <color key="backgroundColor" red="0.043137254899999997" green="0.043137254899999997" blue="0.047058823530000001" alpha="1" colorSpace="custom" customColorSpace="sRGB"/>
                         <constraints>
+                            <constraint firstItem="hU9-2V-ei7" firstAttribute="centerX" secondItem="Ze5-6b-2t3" secondAttribute="centerX" id="1vH-bD-eC3"/>
+                            <constraint firstItem="hU9-2V-ei7" firstAttribute="centerY" secondItem="1gL-lN-jjq" secondAttribute="centerY" constant="13.5" id="2i7-gb-kM8"/>
                             <constraint firstItem="3Rc-zV-yFQ" firstAttribute="centerY" secondItem="Ze5-6b-2t3" secondAttribute="centerY" id="F8N-jj-Cyx"/>
+                            <constraint firstItem="1gL-lN-jjq" firstAttribute="centerX" secondItem="Ze5-6b-2t3" secondAttribute="centerX" id="Ng9-b8-efh"/>
+                            <constraint firstItem="3Rc-zV-yFQ" firstAttribute="top" secondItem="1gL-lN-jjq" secondAttribute="bottom" constant="54.666666666666629" id="QB6-xY-ij1"/>
                             <constraint firstItem="3Rc-zV-yFQ" firstAttribute="centerX" secondItem="Ze5-6b-2t3" secondAttribute="centerX" id="aCU-aK-V8m"/>
+                            <constraint firstItem="1gL-lN-jjq" firstAttribute="centerY" secondItem="Ze5-6b-2t3" secondAttribute="centerY" constant="-171.5" id="b7P-6S-SG5"/>
                         </constraints>
                     </view>
                 </viewController>
