@@ -17,7 +17,7 @@ struct MicrophoneCheckView: View {
             Spacer()
 
             Text(viewModel.titleText)
-                .font(.system(size: 40, weight: .bold))
+                .liturgicalHeadline(size: 40, weight: .bold)
                 .multilineTextAlignment(.center)
                 .foregroundStyle(LiturgicalTheme.textPrimary)
 

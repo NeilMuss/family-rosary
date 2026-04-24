@@ -152,6 +152,18 @@ private struct LiturgicalInputModifier: ViewModifier {
     }
 }
 
+private struct LiturgicalHeadlineModifier: ViewModifier {
+    let size: CGFloat
+    let weight: Font.Weight
+
+    func body(content: Content) -> some View {
+        content
+            // Major prayer/app headlines use a serif face to create a calmer,
+            // more reverent reading tone; controls remain sans-serif for clarity.
+            .font(.system(size: size, weight: weight, design: .serif))
+    }
+}
+
 extension View {
     func liturgicalScreen(showsCandlePlaceholder: Bool = false) -> some View {
         modifier(LiturgicalScreenModifier(showsCandlePlaceholder: showsCandlePlaceholder))
@@ -163,6 +175,10 @@ extension View {
 
     func liturgicalInput() -> some View {
         modifier(LiturgicalInputModifier())
+    }
+
+    func liturgicalHeadline(size: CGFloat, weight: Font.Weight = .regular) -> some View {
+        modifier(LiturgicalHeadlineModifier(size: size, weight: weight))
     }
 }
 

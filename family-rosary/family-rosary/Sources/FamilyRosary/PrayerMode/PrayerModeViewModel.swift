@@ -19,10 +19,12 @@ final class PrayerModeViewModel: ObservableObject {
     private let prayerStyle: PrayerStyle
     private let onEndRosary: () -> Void
     private let displayMapper = PrayerSessionDisplayMapper()
+    private let rosarySequence = RosarySequenceBuilder.makeStandardRosary()
 
     private var cancellables: Set<AnyCancellable> = []
     private var currentRosaryStepIndex = 1
     private var hasSeenPrimaryPrompt = false
+    private var pendingStartStepIndex = 1
 
     init(
         prayViewModel: PrayViewModel,
@@ -45,21 +47,40 @@ final class PrayerModeViewModel: ObservableObject {
     }
 
     func start() {
+        startPrayer(atRosaryStepIndex: 1)
+    }
+
+    // Testing affordance: advances by restarting the existing playback path from the
+    // next prayer segment instead of introducing a parallel sequence controller.
+    func onTapNextPrayerSegment() {
+        let nextStepIndex = currentRosaryStepIndex + 1
+        guard nextStepIndex <= rosarySequence.count else {
+            onTapEndRosary()
+            return
+        }
+
+        prayViewModel.onTapStop()
+        startPrayer(atRosaryStepIndex: nextStepIndex)
+    }
+
+    private func startPrayer(atRosaryStepIndex stepIndex: Int) {
         prayViewModel.isInteractive = (prayerMode == .interactive)
+        let boundedStepIndex = min(max(1, stepIndex), rosarySequence.count)
         displayState = displayMapper.map(
-            rosaryStepIndex: 1,
-            prayerType: .apostlesCreed,
+            rosaryStepIndex: boundedStepIndex,
+            prayerType: sessionPrayerType(for: rosarySequence[boundedStepIndex - 1]),
             mode: prayerMode,
             style: prayerStyle,
             promptTitle: nil
         )
-        currentRosaryStepIndex = 1
+        currentRosaryStepIndex = boundedStepIndex
+        pendingStartStepIndex = boundedStepIndex
         hasSeenPrimaryPrompt = false
         prayViewModel.interactiveStyle = prayerStyle
         #if DEBUG
         DebugLog.shared.log("PRAYER \(displayState.prayerTitle)")
         #endif
-        prayViewModel.onTapPray()
+        prayViewModel.onTapPray(startingAtPrayerIndex: boundedStepIndex - 1)
     }
 
     func onTapPauseResume() {
@@ -113,7 +134,7 @@ final class PrayerModeViewModel: ObservableObject {
         if prompt.title != "Continuing for you" {
             if !hasSeenPrimaryPrompt {
                 hasSeenPrimaryPrompt = true
-                currentRosaryStepIndex = 1
+                currentRosaryStepIndex = pendingStartStepIndex
             } else {
                 currentRosaryStepIndex += 1
             }
@@ -142,5 +163,22 @@ final class PrayerModeViewModel: ObservableObject {
             }
         }
         #endif
+    }
+
+    private func sessionPrayerType(for prayerType: PrayerType) -> SessionPrayerType {
+        switch prayerType {
+        case .apostlesCreedLead, .apostlesCreedResponse:
+            return .apostlesCreed
+        case .ourFatherLead, .ourFatherResponse:
+            return .ourFather
+        case .hailMaryLead, .hailMaryResponse:
+            return .hailMary
+        case .gloryBeLead, .gloryBeResponse:
+            return .gloryBe
+        case .fatima:
+            return .fatima
+        case .hailHolyQueenOpeningLead, .hailHolyQueenResponse, .hailHolyQueenClosingLead:
+            return .hailHolyQueen
+        }
     }
 }

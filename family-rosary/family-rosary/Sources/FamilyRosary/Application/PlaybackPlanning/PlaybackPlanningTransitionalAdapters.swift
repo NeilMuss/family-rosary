@@ -23,10 +23,12 @@ extension PrayerType {
             return PrayerLineKey(prayer: .gloryBe, role: .respond)
         case .fatima:
             return PrayerLineKey(prayer: .fatimaPrayer, role: .full)
-        case .hailHolyQueenLead:
-            return PrayerLineKey(prayer: .hailHolyQueen, role: .lead)
+        case .hailHolyQueenOpeningLead:
+            return PrayerLineKey(prayer: .hailHolyQueenOpening, role: .lead)
         case .hailHolyQueenResponse:
-            return PrayerLineKey(prayer: .hailHolyQueen, role: .respond)
+            return PrayerLineKey(prayer: .hailHolyQueenResponse, role: .respond)
+        case .hailHolyQueenClosingLead:
+            return PrayerLineKey(prayer: .hailHolyQueenClosing, role: .lead)
         }
     }
 }
@@ -55,6 +57,8 @@ private extension PrayerKey {
             return .gloryBe
         case .fatimaPrayer:
             return .fatima
+        case .hailHolyQueenOpening, .hailHolyQueenResponse, .hailHolyQueenClosing:
+            return .hailHolyQueen
         case .hailHolyQueen:
             return .hailHolyQueen
         }

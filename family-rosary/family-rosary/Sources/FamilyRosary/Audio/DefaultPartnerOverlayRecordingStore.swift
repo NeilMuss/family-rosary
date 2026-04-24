@@ -114,6 +114,8 @@ private extension FinalisedImportedRecording {
             return key.part == .lead
         case .hailHolyQueenResponse:
             return key.part == .response
+        case .hailHolyQueenClosing:
+            return key.part == .closingLead
         }
     }
 }

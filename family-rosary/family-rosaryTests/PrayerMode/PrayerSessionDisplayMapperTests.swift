@@ -52,4 +52,25 @@ final class PrayerSessionDisplayMapperTests: XCTestCase {
 
         XCTAssertNil(display.countText)
     }
+
+    func test_decadeLabel_advances_across_decade_boundaries() {
+        XCTAssertEqual(mapper.decadeLabel(for: 13), "1st Decade")
+        XCTAssertEqual(mapper.decadeLabel(for: 37), "1st Decade")
+        XCTAssertEqual(mapper.decadeLabel(for: 38), "2nd Decade")
+        XCTAssertEqual(mapper.decadeLabel(for: 63), "3rd Decade")
+        XCTAssertEqual(mapper.decadeLabel(for: 88), "4th Decade")
+        XCTAssertEqual(mapper.decadeLabel(for: 113), "5th Decade")
+    }
+
+    func test_map_uses_active_step_index_for_decade_section_title() {
+        let display = mapper.map(
+            rosaryStepIndex: 38,
+            prayerType: .ourFather,
+            mode: .automatic,
+            style: .alternateIStart,
+            promptTitle: nil
+        )
+
+        XCTAssertEqual(display.sectionTitle, "2nd Decade")
+    }
 }

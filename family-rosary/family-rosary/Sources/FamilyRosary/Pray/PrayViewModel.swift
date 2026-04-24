@@ -42,6 +42,10 @@ final class PrayViewModel: ObservableObject {
     }
 
     func onTapPray() {
+        onTapPray(startingAtPrayerIndex: 0)
+    }
+
+    func onTapPray(startingAtPrayerIndex: Int) {
         guard !isPraying, !isStartingPrayer else { return }
         errorMessage = nil
         currentPrompt = nil
@@ -53,7 +57,7 @@ final class PrayViewModel: ObservableObject {
         showMicrophoneDeniedAlert = false
 
         if !isInteractive {
-            startPrayerPlayback()
+            startPrayerPlayback(startingAtPrayerIndex: startingAtPrayerIndex)
             return
         }
 
@@ -76,7 +80,7 @@ final class PrayViewModel: ObservableObject {
                 return
             }
 
-            self.startPrayerPlayback()
+            self.startPrayerPlayback(startingAtPrayerIndex: startingAtPrayerIndex)
         }
     }
 
@@ -100,8 +104,8 @@ final class PrayViewModel: ObservableObject {
     }
     #endif
 
-    private func startPrayerPlayback() {
-        guard let steps = buildPrayerSteps() else { return }
+    private func startPrayerPlayback(startingAtPrayerIndex: Int) {
+        guard let steps = buildPrayerSteps(startingAtPrayerIndex: startingAtPrayerIndex) else { return }
 
         playTask?.cancel()
         playTask = Task { [weak self] in
@@ -156,10 +160,12 @@ final class PrayViewModel: ObservableObject {
         }
     }
 
-    private func buildPrayerSteps() -> [PrayerSequenceStep]? {
+    private func buildPrayerSteps(startingAtPrayerIndex: Int) -> [PrayerSequenceStep]? {
         let sequence = RosarySequenceBuilder.makeStandardRosary()
+        let startIndex = min(max(0, startingAtPrayerIndex), sequence.count)
+        let prayerSequence = Array(sequence.dropFirst(startIndex))
         var steps: [PrayerSequenceStep] = []
-        steps.reserveCapacity(sequence.count * 2)
+        steps.reserveCapacity(prayerSequence.count * 2)
 
         let turnPolicy = PrayerTurnPolicy(style: interactiveStyle)
         let waitConfig = InteractiveCalibrationHeuristics.utteranceConfig(
@@ -178,7 +184,7 @@ final class PrayViewModel: ObservableObject {
         )
         #endif
 
-        for prayerType in sequence {
+        for prayerType in prayerSequence {
             let segment = prayerType.segmentDefinition
 
             guard let url = resolver.resolve(personID: personID, token: segment.token) else {
@@ -197,7 +203,11 @@ final class PrayViewModel: ObservableObject {
             case .partner:
                 steps.append(.play(asset: asset, prompt: segment.listenPrompt))
                 steps.append(.pause(ms: segment.pauseAfterMs, prompt: nil))
-            case .user, .prayTogether:
+            case .prayTogether:
+                // Fatima Prayer is spoken in unison but still uses audio playback for consistency.
+                steps.append(.play(asset: asset, prompt: segment.togetherPrompt))
+                steps.append(.pause(ms: segment.pauseAfterMs, prompt: nil))
+            case .user:
                 let activePrompt = segment.role == .unison ? segment.togetherPrompt : segment.yourTurnPrompt
                 let fallbackPrompt = PrayerPrompt(title: "Continuing for you", text: segment.promptText)
                 if interactivePolicy.fallbackToSeedEnabled {

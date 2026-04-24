@@ -39,7 +39,8 @@ final class SetupViewModel: ObservableObject {
             selectedPartnerID = fallbackPartnerID
         }
 
-        selectedStyle = preferencesStore.loadLastPrayerStyle() ?? .alternateIStart
+        // Default mode set to 'user responds' to reduce ambiguity for first-time users.
+        selectedStyle = preferencesStore.loadLastPrayerStyle() ?? .alwaysRespond
         selectedMode = preferencesStore.loadLastPrayerMode() ?? .interactive
         isCandleBackgroundEnabled = preferencesStore.loadCandleBackgroundEnabled()
     }

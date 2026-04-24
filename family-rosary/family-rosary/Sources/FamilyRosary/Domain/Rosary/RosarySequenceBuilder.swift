@@ -10,8 +10,9 @@ enum PrayerType: Equatable {
     case gloryBeLead
     case gloryBeResponse
     case fatima
-    case hailHolyQueenLead
+    case hailHolyQueenOpeningLead
     case hailHolyQueenResponse
+    case hailHolyQueenClosingLead
 }
 
 struct RosarySequenceBuilder {
@@ -50,8 +51,9 @@ struct RosarySequenceBuilder {
         }
 
         // Closing
-        sequence.append(.hailHolyQueenLead)
+        sequence.append(.hailHolyQueenOpeningLead)
         sequence.append(.hailHolyQueenResponse)
+        sequence.append(.hailHolyQueenClosingLead)
 
         return sequence
     }

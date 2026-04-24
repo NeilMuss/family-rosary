@@ -48,9 +48,11 @@ extension AudioRecordingPart {
         case .fatima:
             return PrayerLineKey(prayer: .fatimaPrayer, role: .full)
         case .hailHolyQueenLead:
-            return PrayerLineKey(prayer: .hailHolyQueen, role: .lead)
+            return PrayerLineKey(prayer: .hailHolyQueenOpening, role: .lead)
         case .hailHolyQueenResponse:
-            return PrayerLineKey(prayer: .hailHolyQueen, role: .respond)
+            return PrayerLineKey(prayer: .hailHolyQueenResponse, role: .respond)
+        case .hailHolyQueenClosing:
+            return PrayerLineKey(prayer: .hailHolyQueenClosing, role: .lead)
         }
     }
 }
@@ -71,6 +73,8 @@ extension PrayerPart {
     var domainPrayerRole: PrayerRole {
         switch self {
         case .lead:
+            return .lead
+        case .closingLead:
             return .lead
         case .response:
             return .respond

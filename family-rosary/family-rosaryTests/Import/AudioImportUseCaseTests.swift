@@ -23,7 +23,8 @@ final class AudioImportUseCaseTests: XCTestCase {
             (.gloryBeResponse, "glory_be_response"),
             (.fatima, "fatima"),
             (.hailHolyQueenLead, "hail_holy_queen_lead"),
-            (.hailHolyQueenResponse, "hail_holy_queen_response")
+            (.hailHolyQueenResponse, "hail_holy_queen_response"),
+            (.hailHolyQueenClosing, "hail_holy_queen_closing")
         ]
 
         for (slot, token) in slotToToken {
@@ -46,7 +47,8 @@ final class AudioImportUseCaseTests: XCTestCase {
                 "dad_glory_be_response.m4a",
                 "dad_fatima.m4a",
                 "dad_hail_holy_queen_lead.m4a",
-                "dad_hail_holy_queen_response.m4a"
+                "dad_hail_holy_queen_response.m4a",
+                "dad_hail_holy_queen_closing.m4a"
             ]
         )
     }

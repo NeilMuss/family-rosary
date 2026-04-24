@@ -11,6 +11,7 @@ enum ImportSlot: CaseIterable, Identifiable, Hashable {
     case fatima
     case hailHolyQueenLead
     case hailHolyQueenResponse
+    case hailHolyQueenClosing
 
     nonisolated var id: String {
         audioPart.filenameToken
@@ -38,6 +39,8 @@ enum ImportSlot: CaseIterable, Identifiable, Hashable {
             return "Hail Holy Queen (Lead)"
         case .hailHolyQueenResponse:
             return "Hail Holy Queen (Response)"
+        case .hailHolyQueenClosing:
+            return "Hail Holy Queen (Closing Lead)"
         }
     }
 
@@ -63,6 +66,8 @@ enum ImportSlot: CaseIterable, Identifiable, Hashable {
             return .hailHolyQueenLead
         case .hailHolyQueenResponse:
             return .hailHolyQueenResponse
+        case .hailHolyQueenClosing:
+            return .hailHolyQueenClosing
         }
     }
 
@@ -78,7 +83,7 @@ enum ImportSlot: CaseIterable, Identifiable, Hashable {
             return .gloryBe
         case .fatima:
             return .fatima
-        case .hailHolyQueenLead, .hailHolyQueenResponse:
+        case .hailHolyQueenLead, .hailHolyQueenResponse, .hailHolyQueenClosing:
             return .hailHolyQueen
         }
     }

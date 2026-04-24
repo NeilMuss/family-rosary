@@ -118,6 +118,34 @@ final class BuildPlaybackPlanUseCaseTests: XCTestCase {
         XCTAssertEqual(plan.segments.map(\.recordingAssetID.rawValue), ["alice-lead", "dad-respond", "alice-glory"])
     }
 
+    func test_modelsHailHolyQueenAsThreeStructuredSegments() throws {
+        let opening = PrayerType.hailHolyQueenOpeningLead.domainPrayerLineKey
+        let response = PrayerType.hailHolyQueenResponse.domainPrayerLineKey
+        let closing = PrayerType.hailHolyQueenClosingLead.domainPrayerLineKey
+        let useCase = BuildPlaybackPlanUseCase(
+            lookup: InMemoryRecordingAssetLookup(assets: [
+                makeAsset(id: "alice-opening", owner: "alice", key: opening, source: .importedFile),
+                makeAsset(id: "dad-response", owner: "dad", key: response, source: .bundled),
+                makeAsset(id: "alice-closing", owner: "alice", key: closing, source: .importedShare)
+            ])
+        )
+
+        let plan = try useCase.execute(
+            prayerSequence: [opening, response, closing],
+            preferredProfileID: VoiceProfileID(rawValue: "alice"),
+            fallbackProfileID: VoiceProfileID(rawValue: "dad")
+        )
+
+        XCTAssertEqual(
+            plan.segments.map(\.prayerLineKey),
+            [opening, response, closing]
+        )
+        XCTAssertEqual(
+            plan.segments.map(\.recordingAssetID.rawValue),
+            ["alice-opening", "dad-response", "alice-closing"]
+        )
+    }
+
     func test_plannerMatchesExistingResolverFallbackRuleForRepresentativeSequence() throws {
         let sequence = [
             PrayerType.hailMaryLead.domainPrayerLineKey,

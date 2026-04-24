@@ -51,21 +51,34 @@ struct PrayerSessionDisplayMapper {
         if promptText.hasPrefix("O my Jesus") {
             return .fatima
         }
-        if promptText.hasPrefix("Hail, holy Queen") {
+        if promptText.hasPrefix("Hail, holy Queen")
+            || promptText.hasPrefix("Pray for us")
+            || promptText.hasPrefix("That we may be made worthy") {
             return .hailHolyQueen
         }
 
         return .unknown
     }
 
+    func decadeLabel(for index: Int) -> String {
+        guard let decadeNumber = decadeNumberByStep[index] else {
+            return "Opening Prayers"
+        }
+
+        return "\(ordinalLabel(for: decadeNumber)) Decade"
+    }
+
     private func sectionTitle(forStepIndex stepIndex: Int) -> String {
         if stepIndex <= 12 {
             return "Opening Prayers"
         }
+        if decadeNumberByStep[stepIndex] != nil {
+            return decadeLabel(for: stepIndex)
+        }
         if stepIndex >= 138 {
             return "Closing Prayers"
         }
-        return "1st Decade"
+        return "Prayer"
     }
 
     private func prayerTitle(for prayerType: SessionPrayerType) -> String {
@@ -151,6 +164,23 @@ struct PrayerSessionDisplayMapper {
     }
 }
 
+private func ordinalLabel(for number: Int) -> String {
+    switch number {
+    case 1:
+        return "1st"
+    case 2:
+        return "2nd"
+    case 3:
+        return "3rd"
+    case 4:
+        return "4th"
+    case 5:
+        return "5th"
+    default:
+        return "\(number)th"
+    }
+}
+
 private struct SequenceStep {
     let segmentRole: PrayerSegmentRole
 }
@@ -180,10 +210,12 @@ private let sequenceStepByIndex: [Int: SequenceStep] = {
             result[stepIndex] = SequenceStep(segmentRole: .response)
         case .fatima:
             result[stepIndex] = SequenceStep(segmentRole: .unison)
-        case .hailHolyQueenLead:
+        case .hailHolyQueenOpeningLead:
             result[stepIndex] = SequenceStep(segmentRole: .lead)
         case .hailHolyQueenResponse:
             result[stepIndex] = SequenceStep(segmentRole: .response)
+        case .hailHolyQueenClosingLead:
+            result[stepIndex] = SequenceStep(segmentRole: .lead)
         }
     }
 
@@ -200,6 +232,38 @@ private let hailMaryOrdinalByStep: [Int: Int] = {
             result[zeroBasedIndex + 1] = currentHail
         } else if step == .hailMaryResponse {
             result[zeroBasedIndex + 1] = currentHail
+        }
+    }
+
+    return result
+}()
+
+private let decadeNumberByStep: [Int: Int] = {
+    var result: [Int: Int] = [:]
+    var currentDecadeNumber = 0
+
+    for (zeroBasedIndex, step) in RosarySequenceBuilder.makeStandardRosary().enumerated() {
+        let stepIndex = zeroBasedIndex + 1
+
+        if step == .ourFatherLead && stepIndex > 12 && currentDecadeNumber < 5 {
+            currentDecadeNumber += 1
+        }
+
+        guard (1...5).contains(currentDecadeNumber) else {
+            continue
+        }
+
+        switch step {
+        case .ourFatherLead,
+             .ourFatherResponse,
+             .hailMaryLead,
+             .hailMaryResponse,
+             .gloryBeLead,
+             .gloryBeResponse,
+             .fatima:
+            result[stepIndex] = currentDecadeNumber
+        default:
+            break
         }
     }
 

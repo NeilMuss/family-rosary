@@ -2,6 +2,7 @@ import Foundation
 
 enum PrayerPart: String, Hashable, Codable {
     case lead
+    case closingLead
     case response
     case full
 }
@@ -39,6 +40,8 @@ struct RecordingKey: Hashable {
             self.init(prayer: .hailHolyQueen, part: .lead)
         case "hail_holy_queen_response":
             self.init(prayer: .hailHolyQueen, part: .response)
+        case "hail_holy_queen_closing":
+            self.init(prayer: .hailHolyQueen, part: .closingLead)
         default:
             return nil
         }
@@ -72,6 +75,8 @@ struct RecordingKey: Hashable {
             return ["fatima"]
         case (.hailHolyQueen, .lead):
             return ["hail_holy_queen_lead"]
+        case (.hailHolyQueen, .closingLead):
+            return ["hail_holy_queen_closing", "hail_holy_queen_lead"]
         case (.hailHolyQueen, .response):
             return ["hail_holy_queen_response"]
         default:

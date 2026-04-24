@@ -40,6 +40,21 @@ final class SetupViewModelTests: XCTestCase {
         XCTAssertEqual(viewModel.selectedMode, .interactive)
     }
 
+    func test_default_style_is_always_respond_when_no_saved_value() {
+        let store = InMemoryRosaryPreferencesStore()
+
+        let viewModel = SetupViewModel(
+            availablePartners: [
+                PrayerPartner(id: "dad", displayName: "Dad"),
+                PrayerPartner(id: "mom", displayName: "Mom")
+            ],
+            preferencesStore: store,
+            onStartPraying: { _ in }
+        )
+
+        XCTAssertEqual(viewModel.selectedStyle, .alwaysRespond)
+    }
+
     func testOnTapPraySavesPreferencesAndEmitsRequest() {
         let store = InMemoryRosaryPreferencesStore()
         var receivedRequest: StartRosaryRequest?

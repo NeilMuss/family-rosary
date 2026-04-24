@@ -25,26 +25,33 @@ struct AppRootView: View {
                 } onSkip: {
                     viewModel.dismissOnboarding()
                 }
+                .transition(.opacity)
             case .setup:
                 SetupView(
                     viewModel: viewModel.setupViewModel,
                     sharedInboxScanCoordinator: sharedInboxScanCoordinator
                 )
+                .transition(.opacity)
             case .microphoneCheck:
                 if let microphoneCheckViewModel = viewModel.microphoneCheckViewModel {
                     MicrophoneCheckView(viewModel: microphoneCheckViewModel)
+                        .transition(.opacity)
                 } else {
                     LiturgicalBackdrop(showsCandlePlaceholder: true)
+                        .transition(.opacity)
                 }
             case .praying:
                 if let prayerModeViewModel = viewModel.prayerModeViewModel {
                     PrayerModeView(viewModel: prayerModeViewModel)
+                        .transition(.opacity)
                 } else {
                     LiturgicalBackdrop(showsCandlePlaceholder: true)
+                        .transition(.opacity)
                 }
             }
         }
-        .animation(.easeInOut(duration: 0.42), value: viewModel.screen)
+        // Transition kept intentionally minimal to preserve calm tone.
+        .animation(.easeInOut(duration: 0.26), value: viewModel.screen)
         .task {
             sharedInboxScanCoordinator.runStartupSequenceIfNeeded()
             await pendingImportCoordinator.importPendingSharedItemsAndRefreshPresentation()

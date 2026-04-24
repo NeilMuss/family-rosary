@@ -6,7 +6,16 @@ enum PrayerKey: String, CaseIterable, Hashable, Codable, Sendable {
     case hailMary
     case gloryBe
     case fatimaPrayer
+    case hailHolyQueenOpening
+    case hailHolyQueenResponse
+    case hailHolyQueenClosing
     case hailHolyQueen
+}
+
+extension PrayerKey {
+    static func == (lhs: PrayerKey, rhs: PrayerKey) -> Bool {
+        lhs.rawValue == rhs.rawValue
+    }
 }
 
 enum PrayerRole: String, Hashable, Codable, Sendable {
@@ -15,12 +24,23 @@ enum PrayerRole: String, Hashable, Codable, Sendable {
     case full
 }
 
+extension PrayerRole {
+    static func == (lhs: PrayerRole, rhs: PrayerRole) -> Bool {
+        lhs.rawValue == rhs.rawValue
+    }
+}
+
 /// Domain identifier for a specific prayer line (prayer + role).
-/// This type is intentionally nonisolated and Sendable so it can be used
-/// across threads and in pure domain/application logic.
+/// Intentionally nonisolated and Sendable for pure domain/application logic.
 struct PrayerLineKey: Hashable, Codable, Sendable {
     let prayer: PrayerKey
     let role: PrayerRole
+}
+
+extension PrayerLineKey {
+    static func == (lhs: PrayerLineKey, rhs: PrayerLineKey) -> Bool {
+        lhs.prayer == rhs.prayer && lhs.role == rhs.role
+    }
 }
 
 struct VoiceProfileID: Hashable, Codable, RawRepresentable {

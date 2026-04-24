@@ -17,7 +17,10 @@ final class PrayerNameTests: XCTestCase {
         XCTAssertEqual(PrayerName.hailMary.availableParts, [.hailMaryLead, .hailMaryResponse])
         XCTAssertEqual(PrayerName.gloryBe.availableParts, [.gloryBeLead, .gloryBeResponse])
         XCTAssertEqual(PrayerName.fatima.availableParts, [.fatima])
-        XCTAssertEqual(PrayerName.hailHolyQueen.availableParts, [.hailHolyQueenLead, .hailHolyQueenResponse])
+        XCTAssertEqual(
+            PrayerName.hailHolyQueen.availableParts,
+            [.hailHolyQueenLead, .hailHolyQueenResponse, .hailHolyQueenClosing]
+        )
     }
 
     func testSupportedImportPrayersIncludeCoreSupportedPrayers() {

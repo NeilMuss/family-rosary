@@ -69,7 +69,8 @@ extension PrayerType {
                 promptText: "O my Jesus, forgive us our sins...",
                 role: .unison
             )
-        case .hailHolyQueenLead:
+        // Hail Holy Queen is modeled as multiple segments to support proper call/response structure.
+        case .hailHolyQueenOpeningLead:
             return PrayerSegmentDefinition(
                 token: "hail_holy_queen_lead",
                 pauseAfterMs: 400,
@@ -79,9 +80,16 @@ extension PrayerType {
         case .hailHolyQueenResponse:
             return PrayerSegmentDefinition(
                 token: "hail_holy_queen_response",
-                pauseAfterMs: 0,
-                promptText: "Hail, holy Queen, Mother of mercy...",
+                pauseAfterMs: 250,
+                promptText: "Pray for us, most holy Mother of God.",
                 role: .response
+            )
+        case .hailHolyQueenClosingLead:
+            return PrayerSegmentDefinition(
+                token: "hail_holy_queen_closing",
+                pauseAfterMs: 0,
+                promptText: "That we may be made worthy of the promises of Christ.",
+                role: .lead
             )
         }
     }

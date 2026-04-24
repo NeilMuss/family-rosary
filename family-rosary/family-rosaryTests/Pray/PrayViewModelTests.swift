@@ -20,7 +20,7 @@ final class PrayViewModelTests: XCTestCase {
         await Task.yield()
 
         XCTAssertTrue(fakeSequencePlayer.playCalled)
-        XCTAssertEqual(fakeSequencePlayer.receivedSteps.count, 278)
+        XCTAssertEqual(fakeSequencePlayer.receivedSteps.count, 280)
         XCTAssertEqual(
             fakeSequencePlayer.receivedSteps[0],
             .play(
@@ -158,6 +158,53 @@ final class PrayViewModelTests: XCTestCase {
         await Task.yield()
     }
 
+    func testInteractiveModeBuildsFatimaAsAudioPlaybackStep() async {
+        let fakeSequencePlayer = FakePrayerSequencePlayer(blockUntilReleased: true)
+        let resolver = FakeAudioFileResolver()
+        seedResolver(resolver)
+
+        let viewModel = PrayViewModel(
+            personID: "dad",
+            sequencePlayer: fakeSequencePlayer,
+            resolver: resolver,
+            microphonePermissionClient: AlwaysGrantedMicrophonePermissionClient()
+        )
+        viewModel.isInteractive = true
+        viewModel.interactiveStyle = .alternateIStart
+
+        viewModel.onTapPray()
+        await Task.yield()
+        await Task.yield()
+
+        let fatimaIndex = fakeSequencePlayer.receivedSteps.firstIndex { step in
+            switch step {
+            case .play(let asset, let prompt):
+                return asset.id == "dad:fatima" && prompt?.title == "Pray together"
+            default:
+                return false
+            }
+        }
+
+        XCTAssertNotNil(fatimaIndex)
+
+        if let fatimaIndex {
+            guard fakeSequencePlayer.receivedSteps.indices.contains(fatimaIndex + 1) else {
+                XCTFail("Expected a pause after the Fatima playback step")
+                fakeSequencePlayer.releasePlay()
+                await Task.yield()
+                return
+            }
+
+            XCTAssertEqual(
+                fakeSequencePlayer.receivedSteps[fatimaIndex + 1],
+                .pause(ms: 300, prompt: nil)
+            )
+        }
+
+        fakeSequencePlayer.releasePlay()
+        await Task.yield()
+    }
+
     func testOnTapPrayDisablesIdleTimerAndRestoresWhenPlaybackCompletes() async {
         let fakeSequencePlayer = FakePrayerSequencePlayer(blockUntilReleased: true)
         let resolver = FakeAudioFileResolver()
@@ -219,6 +266,7 @@ final class PrayViewModelTests: XCTestCase {
         resolver.stub(personID: "dad", token: "fatima", path: "/tmp/dad_fatima.m4a")
         resolver.stub(personID: "dad", token: "hail_holy_queen_lead", path: "/tmp/dad_hail_holy_queen_lead.m4a")
         resolver.stub(personID: "dad", token: "hail_holy_queen_response", path: "/tmp/dad_hail_holy_queen_response.m4a")
+        resolver.stub(personID: "dad", token: "hail_holy_queen_closing", path: "/tmp/dad_hail_holy_queen_closing.m4a")
     }
 }
 

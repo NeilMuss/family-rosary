@@ -125,7 +125,7 @@ final class PrayerAudioDomainMappingsTests: XCTestCase {
     func testPlaybackSegmentCanBeDerivedFromRecordingAsset() {
         let asset = RecordingAsset(
             id: RecordingAssetID(rawValue: "asset-1"),
-            prayerLineKey: PrayerLineKey(prayer: .hailHolyQueen, role: .lead),
+            prayerLineKey: PrayerLineKey(prayer: .hailHolyQueenOpening, role: .lead),
             ownerProfileID: VoiceProfileID(rawValue: "mom"),
             source: .bundled,
             trim: TrimDefinition(
@@ -144,5 +144,12 @@ final class PrayerAudioDomainMappingsTests: XCTestCase {
         XCTAssertEqual(segment.startTime, 0.5, accuracy: 0.0001)
         XCTAssertEqual(segment.endTime, 13.9, accuracy: 0.0001)
         XCTAssertEqual(segment.storageKey, "mom_hail_holy_queen_lead.m4a")
+    }
+
+    func testClosingHailHolyQueenImportSlotMapsToDistinctPrayerLineKey() {
+        XCTAssertEqual(
+            ImportSlot.hailHolyQueenClosing.domainPrayerLineKey,
+            PrayerLineKey(prayer: .hailHolyQueenClosing, role: .lead)
+        )
     }
 }

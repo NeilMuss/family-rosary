@@ -18,11 +18,18 @@ struct SetupView: View {
             Spacer(minLength: 24)
 
             Text("Family Rosary")
-                .font(.system(size: 42, weight: .bold))
+                .liturgicalHeadline(size: 42, weight: .bold)
                 .multilineTextAlignment(.center)
                 .foregroundStyle(LiturgicalTheme.textPrimary)
                 .padding(.horizontal, 24)
-            .padding(.bottom, 20)
+            .padding(.bottom, 6)
+
+            Text("Pray together, even when apart")
+                .font(.system(size: 16, weight: .medium))
+                .multilineTextAlignment(.center)
+                .foregroundStyle(LiturgicalTheme.textSecondary.opacity(0.6))
+                .padding(.horizontal, 24)
+                .padding(.bottom, 18)
 
             VStack(spacing: 0) {
                 selectionRow(title: "Partner", value: selectedPartnerName) {
@@ -72,7 +79,7 @@ struct SetupView: View {
                 .frame(maxWidth: .infinity, minHeight: 52, alignment: .leading)
                 .padding(.horizontal, 24)
             }
-            .background(LiturgicalTheme.backgroundElevated.opacity(0.55))
+            .background(LiturgicalTheme.backgroundElevated.opacity(0.46))
             .clipShape(RoundedRectangle(cornerRadius: 18, style: .continuous))
             .overlay(
                 RoundedRectangle(cornerRadius: 18, style: .continuous)
@@ -80,17 +87,17 @@ struct SetupView: View {
             )
             .padding(.horizontal, 24)
 
-            Spacer(minLength: 20)
+            Spacer(minLength: 34)
 
             Button(action: viewModel.onTapPray) {
                 Text("Pray")
-                    .font(.system(size: 34, weight: .bold))
+                    .font(.system(size: 38, weight: .bold))
                     .frame(maxWidth: .infinity)
-                    .frame(height: 78)
+                    .frame(height: 84)
             }
             .buttonStyle(LiturgicalPrimaryButtonStyle())
             .padding(.horizontal, 24)
-            .padding(.bottom, 24)
+            .padding(.bottom, 30)
 
             #if DEBUG
             DisclosureGroup("Shared Inbox Diagnostics") {
