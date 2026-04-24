@@ -55,6 +55,46 @@ final class SetupViewModelTests: XCTestCase {
         XCTAssertEqual(viewModel.selectedStyle, .alwaysRespond)
     }
 
+    func test_sharedVoicesSummary_isEmptyStateWhenOnlyBuiltInsExist() {
+        let store = InMemoryRosaryPreferencesStore()
+
+        let viewModel = SetupViewModel(
+            availablePartners: [
+                PrayerPartner(id: "dad", displayName: "Dad"),
+                PrayerPartner(id: "mom", displayName: "Mom")
+            ],
+            preferencesStore: store,
+            onStartPraying: { _ in }
+        )
+
+        XCTAssertEqual(viewModel.sharedVoices, [])
+        XCTAssertEqual(viewModel.sharedVoicesSummary, "No voices yet")
+    }
+
+    func test_sharedVoicesSummary_listsOnlyUserAddedVoices() {
+        let store = InMemoryRosaryPreferencesStore()
+
+        let viewModel = SetupViewModel(
+            availablePartners: [
+                PrayerPartner(id: "dad", displayName: "Dad"),
+                PrayerPartner(id: "mom", displayName: "Mom"),
+                PrayerPartner(id: "grandma", displayName: "Grandma"),
+                PrayerPartner(id: "grandpa", displayName: "Grandpa")
+            ],
+            preferencesStore: store,
+            onStartPraying: { _ in }
+        )
+
+        XCTAssertEqual(
+            viewModel.sharedVoices,
+            [
+                PrayerPartner(id: "grandma", displayName: "Grandma"),
+                PrayerPartner(id: "grandpa", displayName: "Grandpa")
+            ]
+        )
+        XCTAssertEqual(viewModel.sharedVoicesSummary, "Grandma, Grandpa")
+    }
+
     func testOnTapPraySavesPreferencesAndEmitsRequest() {
         let store = InMemoryRosaryPreferencesStore()
         var receivedRequest: StartRosaryRequest?

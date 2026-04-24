@@ -2,7 +2,7 @@ import SwiftUI
 
 struct SetupView: View {
     private enum ActiveSelector: String, Identifiable {
-        case partner
+        case defaultVoice
         case style
         case mode
 
@@ -32,8 +32,14 @@ struct SetupView: View {
                 .padding(.bottom, 18)
 
             VStack(spacing: 0) {
-                selectionRow(title: "Partner", value: selectedPartnerName) {
-                    activeSelector = .partner
+                selectionRow(title: "Default Voice", value: "Default") {
+                    activeSelector = .defaultVoice
+                }
+
+                rowDivider
+
+                selectionRow(title: "Shared Voices", value: viewModel.sharedVoicesSummary) {
+                    viewModel.showOnboarding()
                 }
 
                 rowDivider
@@ -69,15 +75,6 @@ struct SetupView: View {
                 .padding(.horizontal, 24)
 
                 rowDivider
-
-                Button("Show Share Guide") {
-                    viewModel.showOnboarding()
-                }
-                .font(.system(size: 16, weight: .medium))
-                .buttonStyle(.plain)
-                .foregroundStyle(LiturgicalTheme.textPrimary)
-                .frame(maxWidth: .infinity, minHeight: 52, alignment: .leading)
-                .padding(.horizontal, 24)
             }
             .background(LiturgicalTheme.backgroundElevated.opacity(0.46))
             .clipShape(RoundedRectangle(cornerRadius: 18, style: .continuous))
@@ -111,7 +108,6 @@ struct SetupView: View {
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
         .liturgicalScreen(showsCandlePlaceholder: true)
-        .animation(.easeInOut(duration: 0.36), value: viewModel.selectedPartnerID)
         .animation(.easeInOut(duration: 0.36), value: viewModel.selectedStyle)
         .animation(.easeInOut(duration: 0.36), value: viewModel.selectedMode)
         .animation(.easeInOut(duration: 0.36), value: viewModel.isCandleBackgroundEnabled)
@@ -124,12 +120,9 @@ struct SetupView: View {
             titleVisibility: .visible
         ) {
             switch activeSelector {
-            case .partner:
-                ForEach(viewModel.availablePartners) { partner in
-                    Button(partner.displayName) {
-                        viewModel.selectedPartnerID = partner.id
-                        activeSelector = nil
-                    }
+            case .defaultVoice:
+                Button("Default") {
+                    activeSelector = nil
                 }
             case .style:
                 ForEach(PrayerStyle.allCases) { style in
@@ -152,10 +145,6 @@ struct SetupView: View {
         }
     }
 
-    private var selectedPartnerName: String {
-        viewModel.availablePartners.first(where: { $0.id == viewModel.selectedPartnerID })?.displayName ?? "Choose"
-    }
-
     private var rowDivider: some View {
         Rectangle()
             .fill(LiturgicalTheme.surfaceBorder)
@@ -165,8 +154,8 @@ struct SetupView: View {
 
     private var dialogTitle: String {
         switch activeSelector {
-        case .partner:
-            return "Choose Partner"
+        case .defaultVoice:
+            return "Default Voice"
         case .style:
             return "Choose Style"
         case .mode:

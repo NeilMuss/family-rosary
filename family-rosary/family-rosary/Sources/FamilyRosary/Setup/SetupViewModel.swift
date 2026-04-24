@@ -9,6 +9,8 @@ struct StartRosaryRequest: Equatable {
 
 @MainActor
 final class SetupViewModel: ObservableObject {
+    private static let builtInVoiceIDs: Set<String> = ["dad", "mom"]
+
     let availablePartners: [PrayerPartner]
 
     @Published var selectedPartnerID: String
@@ -19,6 +21,16 @@ final class SetupViewModel: ObservableObject {
     private let preferencesStore: RosaryPreferencesStore
     private var onStartPraying: (StartRosaryRequest) -> Void
     private var onShowOnboarding: () -> Void
+
+    // Default Voice is always available; Shared Voices are optional user-added recordings.
+    var sharedVoices: [PrayerPartner] {
+        availablePartners.filter { Self.builtInVoiceIDs.contains($0.id) == false }
+    }
+
+    var sharedVoicesSummary: String {
+        let names = sharedVoices.map(\.displayName)
+        return names.isEmpty ? "No voices yet" : names.joined(separator: ", ")
+    }
 
     init(
         availablePartners: [PrayerPartner],
