@@ -25,6 +25,38 @@ final class FinalisedImportedRecordingStoreTests: XCTestCase {
         XCTAssertEqual(try store.all(), [replacement])
     }
 
+    func testSaveSamePrayerLineReplacesExistingRecordingAndRemovesOldFile() throws {
+        let fixture = Fixture()
+        let store = fixture.makeStore()
+        let first = fixture.makeRecording(id: "first", importID: "import-first")
+        let replacement = fixture.makeRecording(id: "replacement", importID: "import-replacement")
+        try fixture.writeAudioFile(for: first)
+        try fixture.writeAudioFile(for: replacement)
+
+        try store.save(first)
+        try store.save(replacement)
+
+        XCTAssertEqual(try store.all(), [replacement])
+        XCTAssertFalse(FileManager.default.fileExists(atPath: first.libraryFileURL.path))
+        XCTAssertTrue(FileManager.default.fileExists(atPath: replacement.libraryFileURL.path))
+    }
+
+    func testDeleteRemovesMatchingPrayerLineAndFile() throws {
+        let fixture = Fixture()
+        let store = fixture.makeStore()
+        let recording = fixture.makeRecording(id: "delete-me", importID: "import-delete")
+        try fixture.writeAudioFile(for: recording)
+        try store.save(recording)
+
+        try store.delete(
+            partnerID: recording.partnerID,
+            prayerLineKey: recording.prayerPart.domainPrayerLineKey
+        )
+
+        XCTAssertEqual(try store.all(), [])
+        XCTAssertFalse(FileManager.default.fileExists(atPath: recording.libraryFileURL.path))
+    }
+
     func testRoundTripPersistenceWorks() throws {
         let fixture = Fixture()
         let recording = fixture.makeRecording(id: "persist", importID: "import-persist")
@@ -59,6 +91,11 @@ final class FinalisedImportedRecordingStoreTests: XCTestCase {
                 importedAtISO8601: "2026-04-12T12:00:00.000Z",
                 finalisedAtISO8601: "2026-04-12T12:10:00.000Z"
             )
+        }
+
+        func writeAudioFile(for recording: FinalisedImportedRecording) throws {
+            try FileManager.default.createDirectory(at: recording.libraryFileURL.deletingLastPathComponent(), withIntermediateDirectories: true)
+            try Data([0, 1, 2, 3]).write(to: recording.libraryFileURL)
         }
     }
 }

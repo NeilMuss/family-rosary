@@ -11,7 +11,11 @@ struct SetupView: View {
 
     @ObservedObject var viewModel: SetupViewModel
     @ObservedObject var sharedInboxScanCoordinator: SharedInboxScanCoordinator
+    @StateObject private var recordingPlayer = AudioPlayerViewModel()
     @State private var activeSelector: ActiveSelector?
+    @State private var showsSharedVoices = false
+    @State private var selectedRecording: FinalisedImportedRecording?
+    @State private var recordingPendingDeletion: FinalisedImportedRecording?
 
     var body: some View {
         VStack(spacing: 0) {
@@ -39,7 +43,8 @@ struct SetupView: View {
                 rowDivider
 
                 selectionRow(title: "Shared Voices", value: viewModel.sharedVoicesSummary) {
-                    viewModel.showOnboarding()
+                    viewModel.reloadSharedVoiceRecordings()
+                    showsSharedVoices = true
                 }
 
                 rowDivider
@@ -111,6 +116,12 @@ struct SetupView: View {
         .animation(.easeInOut(duration: 0.36), value: viewModel.selectedStyle)
         .animation(.easeInOut(duration: 0.36), value: viewModel.selectedMode)
         .animation(.easeInOut(duration: 0.36), value: viewModel.isCandleBackgroundEnabled)
+        .onAppear {
+            viewModel.reloadSharedVoiceRecordings()
+        }
+        .sheet(isPresented: $showsSharedVoices) {
+            sharedVoicesSheet
+        }
         .confirmationDialog(
             dialogTitle,
             isPresented: Binding(
@@ -163,6 +174,122 @@ struct SetupView: View {
         case .none:
             return ""
         }
+    }
+
+    private var sharedVoicesSheet: some View {
+        NavigationView {
+            VStack(spacing: 0) {
+                if viewModel.sharedVoiceRecordings.isEmpty {
+                    VStack(spacing: 18) {
+                        Text("No shared recordings yet.")
+                            .font(.system(size: 18, weight: .semibold))
+                            .foregroundStyle(LiturgicalTheme.textPrimary)
+
+                        Button("Add Shared Voice") {
+                            showsSharedVoices = false
+                            viewModel.showOnboarding()
+                        }
+                        .buttonStyle(LiturgicalSecondaryButtonStyle())
+                    }
+                    .frame(maxWidth: .infinity, maxHeight: .infinity)
+                } else {
+                    ScrollView {
+                        VStack(spacing: 0) {
+                            ForEach(viewModel.sharedVoiceRecordings) { recording in
+                                Button {
+                                    selectedRecording = recording
+                                } label: {
+                                    HStack(spacing: 14) {
+                                        VStack(alignment: .leading, spacing: 4) {
+                                            Text(recording.prayerPart.displayTitle)
+                                                .font(.system(size: 17, weight: .semibold))
+                                                .foregroundStyle(LiturgicalTheme.textPrimary)
+
+                                            Text(recording.partnerDisplayName ?? recording.partnerID)
+                                                .font(.system(size: 14, weight: .medium))
+                                                .foregroundStyle(LiturgicalTheme.textSecondary)
+                                        }
+
+                                        Spacer()
+
+                                        Image(systemName: "ellipsis.circle")
+                                            .font(.system(size: 20, weight: .medium))
+                                            .foregroundStyle(LiturgicalTheme.textSecondary)
+                                    }
+                                    .padding(.horizontal, 20)
+                                    .frame(minHeight: 62)
+                                }
+                                .buttonStyle(.plain)
+
+                                rowDivider
+                            }
+                        }
+                    }
+
+                    Button("Add Shared Voice") {
+                        showsSharedVoices = false
+                        viewModel.showOnboarding()
+                    }
+                    .buttonStyle(LiturgicalSecondaryButtonStyle())
+                    .padding(20)
+                }
+            }
+            .background(LiturgicalTheme.backgroundPrimary)
+            .navigationTitle("Shared Voices")
+            .toolbar {
+                ToolbarItem(placement: .cancellationAction) {
+                    Button("Done") {
+                        recordingPlayer.stopPlayback()
+                        showsSharedVoices = false
+                    }
+                }
+            }
+        }
+        .confirmationDialog(
+            selectedRecording?.prayerPart.displayTitle ?? "Recording",
+            isPresented: Binding(
+                get: { selectedRecording != nil },
+                set: { if $0 == false { selectedRecording = nil } }
+            ),
+            titleVisibility: .visible
+        ) {
+            if let recording = selectedRecording {
+                Button("Play Recording") {
+                    recordingPlayer.load(url: recording.libraryFileURL)
+                    recordingPlayer.play()
+                    selectedRecording = nil
+                }
+                Button("Replace Recording") {
+                    selectedRecording = nil
+                    showsSharedVoices = false
+                    viewModel.showOnboarding()
+                }
+                Button("Delete Recording", role: .destructive) {
+                    recordingPendingDeletion = recording
+                    selectedRecording = nil
+                }
+            }
+            Button("Cancel", role: .cancel) {}
+        }
+        .alert(
+            "Delete this recording?",
+            isPresented: Binding(
+                get: { recordingPendingDeletion != nil },
+                set: { if $0 == false { recordingPendingDeletion = nil } }
+            ),
+            presenting: recordingPendingDeletion
+        ) { recording in
+            Button("Delete Recording", role: .destructive) {
+                recordingPlayer.stopPlayback()
+                viewModel.deleteRecording(recording)
+                recordingPendingDeletion = nil
+            }
+            Button("Cancel", role: .cancel) {}
+        } message: { recording in
+            Text("This will remove your voice for '\(recording.prayerPart.displayTitle)'. The default voice will be used instead.")
+        }
+        // Users can delete or replace individual prayer recordings; fallback to default voice is automatic.
+        .preferredColorScheme(.dark)
     }
 
     private func selectionRow(

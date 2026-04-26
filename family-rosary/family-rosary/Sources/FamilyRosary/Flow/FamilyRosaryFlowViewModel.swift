@@ -34,6 +34,7 @@ final class FamilyRosaryFlowViewModel: ObservableObject {
         self.setupViewModel = SetupViewModel(
             availablePartners: root.makeAvailablePrayerPartners(),
             preferencesStore: preferencesStore,
+            finalisedRecordingStore: root.makeFinalisedImportedRecordingStore(),
             onStartPraying: { _ in }
         )
         self.setupViewModel.setOnStartPraying { [weak self] request in

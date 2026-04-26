@@ -17,8 +17,10 @@ final class SetupViewModel: ObservableObject {
     @Published var selectedStyle: PrayerStyle
     @Published var selectedMode: PrayerMode
     @Published var isCandleBackgroundEnabled: Bool
+    @Published private(set) var sharedVoiceRecordings: [FinalisedImportedRecording] = []
 
     private let preferencesStore: RosaryPreferencesStore
+    private let finalisedRecordingStore: FinalisedImportedRecordingStoring
     private var onStartPraying: (StartRosaryRequest) -> Void
     private var onShowOnboarding: () -> Void
 
@@ -29,17 +31,22 @@ final class SetupViewModel: ObservableObject {
 
     var sharedVoicesSummary: String {
         let names = sharedVoices.map(\.displayName)
-        return names.isEmpty ? "No voices yet" : names.joined(separator: ", ")
+        if names.isEmpty == false {
+            return names.joined(separator: ", ")
+        }
+        return sharedVoiceRecordings.isEmpty ? "No voices yet" : "\(sharedVoiceRecordings.count) recordings"
     }
 
     init(
         availablePartners: [PrayerPartner],
         preferencesStore: RosaryPreferencesStore,
+        finalisedRecordingStore: FinalisedImportedRecordingStoring? = nil,
         onStartPraying: @escaping (StartRosaryRequest) -> Void,
         onShowOnboarding: @escaping () -> Void = {}
     ) {
         self.availablePartners = availablePartners
         self.preferencesStore = preferencesStore
+        self.finalisedRecordingStore = finalisedRecordingStore ?? EmptyFinalisedImportedRecordingStore()
         self.onStartPraying = onStartPraying
         self.onShowOnboarding = onShowOnboarding
 
@@ -55,6 +62,7 @@ final class SetupViewModel: ObservableObject {
         selectedStyle = preferencesStore.loadLastPrayerStyle() ?? .alwaysRespond
         selectedMode = preferencesStore.loadLastPrayerMode() ?? .interactive
         isCandleBackgroundEnabled = preferencesStore.loadCandleBackgroundEnabled()
+        reloadSharedVoiceRecordings()
     }
 
     func onTapPray() {
@@ -84,6 +92,24 @@ final class SetupViewModel: ObservableObject {
 
     func showOnboarding() {
         onShowOnboarding()
+    }
+
+    func reloadSharedVoiceRecordings() {
+        sharedVoiceRecordings = ((try? finalisedRecordingStore.all()) ?? [])
+            .sorted { lhs, rhs in
+                if lhs.partnerDisplayName != rhs.partnerDisplayName {
+                    return (lhs.partnerDisplayName ?? lhs.partnerID) < (rhs.partnerDisplayName ?? rhs.partnerID)
+                }
+                return lhs.prayerPart.displayTitle < rhs.prayerPart.displayTitle
+            }
+    }
+
+    func deleteRecording(_ recording: FinalisedImportedRecording) {
+        try? finalisedRecordingStore.delete(
+            partnerID: recording.partnerID,
+            prayerLineKey: recording.prayerPart.domainPrayerLineKey
+        )
+        reloadSharedVoiceRecordings()
     }
 
     func setCandleBackgroundEnabled(_ enabled: Bool) {

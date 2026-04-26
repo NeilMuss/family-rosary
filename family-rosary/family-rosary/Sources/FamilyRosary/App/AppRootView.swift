@@ -76,6 +76,7 @@ struct AppRootView: View {
         .onReceive(NotificationCenter.default.publisher(for: .sharedPendingImportsDidChange)) { _ in
             pendingImportCoordinator.refreshPendingQueue()
             sharedInboxScanCoordinator.refresh()
+            viewModel.setupViewModel.reloadSharedVoiceRecordings()
         }
         #if canImport(UIKit)
         .onReceive(NotificationCenter.default.publisher(for: UIApplication.willEnterForegroundNotification)) { _ in
